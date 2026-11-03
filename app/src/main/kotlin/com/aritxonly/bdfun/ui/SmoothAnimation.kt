@@ -1,0 +1,123 @@
+package com.aritxonly.bdfun.ui
+
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.aritxonly.teak.common.chrome.TeakMotion
+import kotlinx.coroutines.delay
+
+/**
+ * 通用的「数值补间」：target 变了就从**当前值**重新起跑。
+ *
+ * 这一点很关键：输入框上弹时如果中途点空白（要缩回），或者中途又换了目标，
+ * 动画不会跳回起点再重来，而是接着当前位置滑向新目标，也就是"打断动画"。
+ */
+@Composable
+fun rememberSmoothFloat(
+    target: Float,
+    durationMs: Float = 240f,
+    easing: Easing = EaseOutQuint,
+): Float {
+    var value by remember { mutableFloatStateOf(target) }
+    LaunchedEffect(target, durationMs) {
+        val from = value
+        if (from == target) return@LaunchedEffect
+        if (!TeakMotion.enabled) {
+            value = target
+            return@LaunchedEffect
+        }
+        if (durationMs <= 0f) {
+            value = target
+            return@LaunchedEffect
+        }
+        val startNanos = System.nanoTime()
+        while (true) {
+            val p = ((System.nanoTime() - startNanos) / 1_000_000f / durationMs).coerceIn(0f, 1f)
+            value = from + (target - from) * easing.transform(p)
+            if (p >= 1f) break
+            delay(8)
+        }
+        value = target
+    }
+    return value
+}
+
+/** 回弹/果冻感：先冲过 1 再落回来（用于弹窗弹出）。 */
+@Composable
+fun rememberJellyProgress(
+    target: Float,
+    durationMs: Float = 320f,
+): Float = rememberSmoothFloat(target, durationMs, JellyEasing)
+
+/**
+ * 真弹簧：用简单的阻尼谐振子逐帧积分，有真实的过冲与回弹。
+ * target 变化时从当前值和当前速度继续，所以中途打断也连贯。
+ */
+@Composable
+fun rememberSpringFloat(
+    target: Float,
+    stiffness: Float = 320f,
+    damping: Float = 22f,
+    mass: Float = 1f,
+): Float {
+    var value by remember { mutableFloatStateOf(target) }
+    var velocity by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(target) {
+        if (!TeakMotion.enabled) {
+            value = target
+            velocity = 0f
+            return@LaunchedEffect
+        }
+        var last = System.nanoTime()
+        while (true) {
+            val now = System.nanoTime()
+            val dt = ((now - last) / 1_000_000_000f).coerceIn(0.001f, 0.05f)
+            last = now
+            val accel = (-stiffness * (value - target) - damping * velocity) / mass
+            velocity += accel * dt
+            value += velocity * dt
+            if (kotlin.math.abs(value - target) < 0.0006f &&
+                kotlin.math.abs(velocity) < 0.006f
+            ) {
+                value = target
+                velocity = 0f
+                break
+            }
+            delay(8)
+        }
+    }
+    return value
+}
+
+/** 标准减速（ease-out-quint），无回弹，适合位移。 */
+val EaseOutQuint: Easing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+
+/** 果冻：终点冲过头约 12%，再回收。 */
+val JellyEasing: Easing = CubicBezierEasing(0.34f, 1.56f, 0.64f, 1f)
+
+/** 轻度回弹（用于菜单、弹窗淡入）。 */
+val SoftBackEasing: Easing = CubicBezierEasing(0.2f, 1.2f, 0.35f, 1f)
+
+val StandardEasing: Easing = FastOutSlowInEasing
+
+fun Context.showToast(message: String) {
+    Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+}
+
+fun Context.copyToClipboard(label: String, text: String) {
+    val manager = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
+    manager.setPrimaryClip(ClipData.newPlainText(label, text))
+}
+
+/** 解析评论/弹幕文本里的 B 站表情占位符（`[doge]`）——目前只用于插入，渲染保留原文本。 */
+fun String.appendEmote(emoteText: String): String = this + "[$emoteText]"

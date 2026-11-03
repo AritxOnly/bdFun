@@ -1,0 +1,38 @@
+# Build outputs
+build/
+app/build/
+TeakUI/build/
+.gradle/
+.kotlin/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# Local SDK path / IDE
+local.properties
+.idea/
+*.iml
+.DS_Store
+
+# Logs / captures
+*.log
+*.hprof
+captures/
+_shots/
+_backups/
+_snapshots/
+_icons_src/
+_shadow_frames/
+_batch_stash/
+
+# Signing material (never commit)
+*.jks
+*.keystore
+*.p12
+keystore.properties
+signing.properties
+
+# Generated configs
+.gradle-cache/
