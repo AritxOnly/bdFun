@@ -104,8 +104,8 @@ object CdnAutoSelector {
                 }
                 "${service.label} · $speed"
             }
-            lastFailure != null -> "自动测速失败，暂用基础 URL"
-            else -> "自动测速尚未完成，暂用基础 URL"
+            lastFailure != null -> "自动测速失败，暂用备用地址"
+            else -> "自动测速尚未完成，暂用备用地址"
         }
     }
 
@@ -139,6 +139,10 @@ object CdnAutoSelector {
                 bestId = best.service.id
                 bestSpeed = best.slowestMbps
                 measuredAt = System.currentTimeMillis()
+                LogCollector.record(
+                    "CDN",
+                    "auto best=${best.service.id} speed=${best.slowestMbps}",
+                )
                 lastFailure = null
                 prefs?.edit()
                     ?.putString(KEY_BEST_ID, best.service.id)
@@ -154,7 +158,7 @@ object CdnAutoSelector {
     }
 
     private fun isAutoCandidate(service: CdnService): Boolean =
-        !service.useBackup && service.id !in setOf("tf_tx", "tf_hw")
+        !service.useBackup && !service.auto && !service.host.isNullOrBlank()
 
     private fun encodeSpeeds(values: Map<String, Double>): String =
         values.entries.joinToString(",") { "${it.key}:${it.value}" }

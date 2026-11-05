@@ -52,7 +52,7 @@ internal fun ScrollingTitle(
         val style = TextStyle(
             color = Color.White,
             fontSize = 16.sp,
-            fontWeight = FontWeight.Medium,
+            fontWeight = FontWeight.Normal,
         )
         val widthPx = constraints.maxWidth
         val measured = remember(displayTitle, widthPx, density.density, density.fontScale) {

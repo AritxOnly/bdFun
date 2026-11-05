@@ -277,7 +277,27 @@ fun UpBadge() {
             color = BrandPink,
             fontSize = 9.sp,
             lineHeight = 10.sp,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+        )
+    }
+}
+
+/** 首页推荐里已关注 UP 的橙色小胶囊，尺寸和 UP 标签完全一致。 */
+@Composable
+fun FollowedBadge() {
+    val orange = Color(0xFFFF8A00)
+    Box(
+        modifier = Modifier
+            .clip(Capsule())
+            .background(orange.copy(alpha = 0.14f))
+            .padding(horizontal = 4.dp, vertical = 1.dp),
+    ) {
+        Text(
+            text = "已关注",
+            color = orange,
+            fontSize = 9.sp,
+            lineHeight = 10.sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
         )
     }
 }

@@ -53,7 +53,7 @@ fun UnfinishedNotice(onDismiss: () -> Unit) {
                 text = "该页面尚未完成",
                 color = colors.onBackground,
                 fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Medium,
             )
             Text(
                 text = "当前页面仍在制作中，后续版本会继续完善。",
@@ -76,7 +76,7 @@ fun UnfinishedNotice(onDismiss: () -> Unit) {
                     text = "我知道了",
                     color = androidx.compose.ui.graphics.Color.White,
                     fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Normal,
                 )
             }
         }

@@ -6,7 +6,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import com.aritxonly.bdfun.data.BiliApi
+import com.aritxonly.bdfun.ui.LibraryBatchOverlay
 import com.aritxonly.bdfun.ui.LibraryScreen
+import com.aritxonly.bdfun.ui.LibraryTopActions
 import com.aritxonly.bdfun.ui.TeakActivityScaffold
 
 class WatchLaterActivity : ComponentActivity() {
@@ -17,7 +19,13 @@ class WatchLaterActivity : ComponentActivity() {
         val api = AppGraph.api
         val settings = AppGraph.settings
         setContent {
-            TeakActivityScaffold(settings = settings, onBack = { finish() }, title = "稍后再看") {
+            TeakActivityScaffold(
+                settings = settings,
+                onBack = { finish() },
+                title = "稍后再看",
+                topBarActions = { LibraryTopActions() },
+                overlay = { LibraryBatchOverlay() },
+            ) {
                 WatchLaterActivityRoute(api, this)
             }
         }

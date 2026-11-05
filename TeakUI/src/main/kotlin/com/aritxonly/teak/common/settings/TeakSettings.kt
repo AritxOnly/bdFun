@@ -97,8 +97,16 @@ fun TeakSettingsPage(
     pageState: TeakPageScrollState = TeakPageChrome.state,
     subtitle: String? = null,
     contentPadding: PaddingValues = PaddingValues(
-        start = TeakChromeDefaults.ContentHorizontalPadding,
-        end = TeakChromeDefaults.ContentHorizontalPadding,
+        start = if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) {
+            0.dp
+        } else {
+            TeakChromeDefaults.ContentHorizontalPadding
+        },
+        end = if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) {
+            0.dp
+        } else {
+            TeakChromeDefaults.ContentHorizontalPadding
+        },
         top = TeakChromeDefaults.ContentTopPadding,
         bottom = TeakChromeDefaults.ContentBottomPadding,
     ),
@@ -134,11 +142,16 @@ fun TeakSettingsCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
-    Column(modifier = modifier.padding(top = 12.dp)) {
+    val classic = com.aritxonly.teak.common.theme.TeakUiStyle.isClassic
+    Column(modifier = modifier.padding(top = if (classic) 0.dp else 12.dp)) {
         if (!title.isNullOrBlank()) {
             Text(
                 text = title,
-                modifier = Modifier.padding(start = 14.dp, bottom = 5.dp),
+                modifier = Modifier.padding(
+                    start = if (classic) 12.dp else 14.dp,
+                    top = if (classic) 12.dp else 0.dp,
+                    bottom = 5.dp,
+                ),
                 color = colors.onBackgroundVariant,
                 fontSize = 11.5.sp,
             )
@@ -146,8 +159,23 @@ fun TeakSettingsCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(CardShape)
-                .background(colors.surface),
+                .then(
+                    if (classic) {
+                        Modifier
+                            .background(colors.surface)
+                            .drawBehind {
+                                val y = size.height - 1.dp.toPx() / 2f
+                                drawLine(
+                                    color = colors.onBackground.copy(alpha = 0.12f),
+                                    start = Offset(0f, y),
+                                    end = Offset(size.width, y),
+                                    strokeWidth = 1.dp.toPx(),
+                                )
+                            }
+                    } else {
+                        Modifier.clip(CardShape).background(colors.surface)
+                    },
+                ),
             content = content,
         )
     }
@@ -242,13 +270,15 @@ fun TeakSettingsDropdownRow(
     modifier: Modifier = Modifier,
     accentColor: Color? = null,
     panelWidth: androidx.compose.ui.unit.Dp = 196.dp,
+    /** 关闭时右侧显示的文字；为空时用当前选项。用于 CDN 这种“收起不显示测速”的场景。 */
+    closedValue: String? = null,
 ) {
     if (options.isEmpty()) return
     val colors = MiuixTheme.colorScheme
     val accent = accentColor ?: MaterialTheme.colorScheme.primary
     // 选项行和高度测量共用同一套 style；字重比外层行略细一点，但比默认粗
     val optionTextStyle = remember {
-        TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium)
+        TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Normal)
     }
     var open by remember { mutableStateOf(false) }
     var rowSize by remember { mutableStateOf(IntSize.Zero) }
@@ -341,7 +371,7 @@ fun TeakSettingsDropdownRow(
             }
             Spacer(Modifier.width(12.dp))
             Text(
-                text = options.getOrElse(selected) { options.first() },
+                text = closedValue ?: options.getOrElse(selected) { options.first() },
                 color = colors.onBackgroundVariant,
                 fontSize = 14.sp,
             )
@@ -495,7 +525,7 @@ fun TeakSettingsDropdownRow(
                                         Text(
                                             text = "✓",
                                             style = optionTextStyle.copy(
-                                                fontWeight = FontWeight.Bold,
+                                                fontWeight = FontWeight.SemiBold,
                                             ),
                                             color = accent,
                                         )

@@ -6,7 +6,10 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import com.aritxonly.teak.common.material.LocalTeakMaterialSpec
@@ -16,6 +19,22 @@ import top.yukonga.miuix.kmp.theme.Colors
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.ThemeController
+
+/**
+ * 全局界面风格。
+ *
+ * - [Official]（默认）：现在的悬浮圆角 / 玻璃风格，完全保持原样。
+ * - [Classic]：去掉悬浮感，栏目贴着屏幕边缘，用分割线区分；评论区也不再用白色圆角卡片。
+ *
+ * 用对象而不是 CompositionLocal，这样设置页改完后所有已组合的组件都会立即重新读取；
+ * 只有显式判断 [isClassic] 的地方才会改变，没判断的地方仍然保持官方样式。
+ */
+object TeakUiStyle {
+    var style by mutableStateOf(0)
+
+    /** 0 = 官方，1 = 经典。 */
+    val isClassic: Boolean get() = style == 1
+}
 
 /**
  * TeakUI 的主题适配层。
@@ -61,7 +80,7 @@ fun TeakTheme(
             ),
         )
     }
-
+    // 文字字重完全交给系统默认：不写死 350 / Light，用户系统里调粗调细会跟着变。
     CompositionLocalProvider(LocalDensity provides scaledDensity) {
         MiuixTheme(controller = controller) {
             MaterialTheme(colorScheme = materialColors) {

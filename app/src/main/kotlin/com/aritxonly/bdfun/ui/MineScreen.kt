@@ -124,7 +124,7 @@ fun MineScreen(
                         text = "尚未登录",
                         color = colors.onBackground,
                         fontSize = 17.sp,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = FontWeight.Normal,
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
@@ -144,7 +144,7 @@ fun MineScreen(
                             text = "扫码登录",
                             color = Color.White,
                             fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.Normal,
                         )
                     }
                 }
@@ -194,7 +194,7 @@ fun MineScreen(
                                 color = colors.onBackground,
                                 fontSize = 17.sp,
                                 lineHeight = 20.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = FontWeight.Medium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f, fill = false),
@@ -228,7 +228,7 @@ fun MineScreen(
                                     color = Color.White,
                                     fontSize = 8.5.sp,
                                     lineHeight = 11.sp,
-                                    fontWeight = FontWeight.Medium,
+                                    fontWeight = FontWeight.Normal,
                                     maxLines = 1,
                                 )
                             }
@@ -348,7 +348,7 @@ fun MineScreen(
                                     text = if (isDanmaku) "弹幕" else "评论",
                                     color = if (isDanmaku) MineBlue else colors.primary,
                                     fontSize = 9.5.sp,
-                                    fontWeight = FontWeight.Medium,
+                                    fontWeight = FontWeight.Normal,
                                 )
                             }
                             Spacer(Modifier.width(8.dp))
@@ -389,7 +389,7 @@ private fun StatCell(label: String, value: Long, modifier: Modifier = Modifier) 
             text = formatCount(value),
             color = colors.onBackground,
             fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Medium,
         )
         Text(text = label, color = colors.onBackgroundVariant, fontSize = 11.sp)
     }

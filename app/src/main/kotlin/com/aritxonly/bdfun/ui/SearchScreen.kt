@@ -152,7 +152,7 @@ fun SearchScreen(
                 text = "搜索",
                 color = colors.primary,
                 fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Normal,
                 modifier = Modifier.clickable { submit(query) },
             )
         }
@@ -253,7 +253,7 @@ private fun HotSearchRow(rank: Int, word: String, onClick: () -> Unit) {
             text = rank.toString(),
             color = if (rank <= 3) colors.primary else colors.onBackgroundVariant,
             fontSize = 13.sp,
-            fontWeight = if (rank <= 3) FontWeight.Bold else FontWeight.Normal,
+            fontWeight = if (rank <= 3) FontWeight.SemiBold else FontWeight.Normal,
             modifier = Modifier.width(22.dp),
         )
         Text(
@@ -279,7 +279,7 @@ private fun SectionHeader(title: String, action: String? = null, onAction: (() -
             text = title,
             color = colors.onBackground,
             fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Medium,
         )
         Spacer(Modifier.weight(1f))
         if (action != null && onAction != null) {

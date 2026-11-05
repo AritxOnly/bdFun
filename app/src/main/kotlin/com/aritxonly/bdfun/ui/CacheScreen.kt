@@ -39,30 +39,32 @@ import com.aritxonly.bdfun.TeakNavigator
 import com.aritxonly.bdfun.data.CacheStatus
 import com.aritxonly.bdfun.data.CachedVideo
 import com.aritxonly.bdfun.data.VideoCacheManager
-import com.aritxonly.teak.common.chrome.TrackTeakPageScroll
+import com.aritxonly.teak.common.settings.TeakSettingsCard
+import com.aritxonly.teak.common.settings.TeakSettingsPage
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun CacheScreen() {
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
-    val listState = rememberLazyListState()
     val entries = VideoCacheManager.items
-    TrackTeakPageScroll(listState)
 
     if (entries.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding(),
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // 标题照常渲染，但空提示覆盖整屏居中，不受大标题占位影响。
+            TeakSettingsPage(title = "离线缓存", subtitle = null) {}
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 32.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 Text(
                     text = "还没有缓存的视频",
                     color = colors.onBackground,
                     fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Normal,
                 )
                 Text(
                     text = "在播放器「更多」中选择「缓存」即可下载",
@@ -75,33 +77,23 @@ fun CacheScreen() {
         return
     }
 
-    LazyColumn(
-        state = listState,
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding(),
-        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 40.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+    TeakSettingsPage(
+        title = "离线缓存",
+        subtitle = "共 ${entries.size} 个 · ${formatCacheSize(entries.sumOf { it.totalBytes })}",
     ) {
-        item(key = "summary") {
-            Text(
-                text = "共 ${entries.size} 个 · ${formatCacheSize(entries.sumOf { it.totalBytes })}",
-                modifier = Modifier.padding(start = 8.dp, top = 2.dp, bottom = 4.dp),
-                color = colors.onBackgroundVariant,
-                fontSize = 11.5.sp,
-            )
-        }
         items(entries, key = { it.id }) { entry ->
-            CacheRow(
-                entry = entry,
-                onOpen = {
-                    TeakNavigator.openVideo(context, entry.toVideoItem())
-                },
-                onDelete = {
-                    VideoCacheManager.delete(entry.id)
-                    context.showToast("已删除缓存")
-                },
-            )
+            TeakSettingsCard(modifier = Modifier.padding(bottom = 10.dp)) {
+                CacheRow(
+                    entry = entry,
+                    onOpen = {
+                        TeakNavigator.openVideo(context, entry.toVideoItem())
+                    },
+                    onDelete = {
+                        VideoCacheManager.delete(entry.id)
+                        context.showToast("已删除缓存")
+                    },
+                )
+            }
         }
     }
 }
@@ -113,12 +105,9 @@ private fun CacheRow(
     onDelete: () -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
-    val shape = RoundedCornerShape(16.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(colors.surface)
             .clickable(
                 interactionSource = null,
                 indication = null,
@@ -148,7 +137,7 @@ private fun CacheRow(
                 text = entry.title,
                 color = colors.onBackground,
                 fontSize = 13.5.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Normal,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -198,7 +187,7 @@ private fun CacheRow(
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     color = BrandPink,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Normal,
                 )
             }
             Text(

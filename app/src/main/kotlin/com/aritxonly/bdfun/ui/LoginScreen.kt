@@ -194,7 +194,7 @@ fun LoginScreen(
             text = "扫码登录",
             color = colors.onBackground,
             fontSize = 24.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Medium,
         )
         Spacer(Modifier.height(8.dp))
         Text(
@@ -254,7 +254,7 @@ fun LoginScreen(
                 text = "保存二维码",
                 color = Color.White,
                 fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Normal,
             )
         }
 

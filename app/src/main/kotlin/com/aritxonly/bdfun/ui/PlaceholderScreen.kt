@@ -27,7 +27,7 @@ fun PlaceholderScreen(title: String, subtitle: String) {
             text = title,
             color = colors.onBackground,
             fontSize = 22.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Medium,
         )
         Text(
             text = subtitle,

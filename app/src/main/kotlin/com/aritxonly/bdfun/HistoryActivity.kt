@@ -6,7 +6,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import com.aritxonly.bdfun.data.BiliApi
+import com.aritxonly.bdfun.ui.LibraryBatchOverlay
 import com.aritxonly.bdfun.ui.LibraryScreen
+import com.aritxonly.bdfun.ui.LibraryTopActions
 import com.aritxonly.bdfun.ui.TeakActivityScaffold
 
 class HistoryActivity : ComponentActivity() {
@@ -17,7 +19,13 @@ class HistoryActivity : ComponentActivity() {
         val api = AppGraph.api
         val settings = AppGraph.settings
         setContent {
-            TeakActivityScaffold(settings = settings, onBack = { finish() }, title = "历史") {
+            TeakActivityScaffold(
+                settings = settings,
+                onBack = { finish() },
+                title = "历史",
+                topBarActions = { LibraryTopActions() },
+                overlay = { LibraryBatchOverlay() },
+            ) {
                 HistoryActivityRoute(api, this)
             }
         }

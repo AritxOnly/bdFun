@@ -37,6 +37,7 @@ import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -94,15 +95,37 @@ fun EmoteText(
     modifier: Modifier = Modifier,
     prefix: String? = null,
     prefixColor: Color = color,
-    prefixWeight: FontWeight = FontWeight.Medium,
+    prefixWeight: FontWeight = FontWeight.Normal,
     maxLines: Int = Int.MAX_VALUE,
     extraEmotes: Map<String, String> = emptyMap(),
     /** 追加在最后一个字后面的行内内容（比如折叠评论的点赞）。 */
     trailingContent: (@Composable () -> Unit)? = null,
     trailingWidth: TextUnit = 40.sp,
+    fontWeight: FontWeight = FontWeight.Normal,
 ) {
     val map = remember(EmoteCache.byText, extraEmotes) {
         if (extraEmotes.isEmpty()) EmoteCache.byText else EmoteCache.byText + extraEmotes
+    }
+    // 没有表情时走普通 Text：和首页视频标题完全同一条渲染路径。
+    // 之前所有评论都走 AnnotatedString + inlineContent，即使用不到表情，
+    // 渲染路径也和普通 Text 不同，字重观感会对不上。
+    val hasEmote = remember(text, map) {
+        map.isNotEmpty() && EmoteToken.containsMatchIn(text)
+    }
+    if (!hasEmote && trailingContent == null) {
+        Text(
+            text = text,
+            color = color,
+            style = TextStyle(
+                fontSize = fontSize,
+                lineHeight = lineHeight,
+                fontWeight = fontWeight,
+            ),
+            maxLines = maxLines,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = modifier,
+        )
+        return
     }
     val inline = remember(map, text, fontSize) { mutableMapOf<String, InlineTextContent>() }
     val annotated: AnnotatedString = remember(
@@ -171,8 +194,11 @@ fun EmoteText(
         text = annotated,
         inlineContent = inline,
         color = color,
-        fontSize = fontSize,
-        lineHeight = lineHeight,
+        style = TextStyle(
+            fontSize = fontSize,
+            lineHeight = lineHeight,
+            fontWeight = fontWeight,
+        ),
         maxLines = maxLines,
         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
         modifier = modifier,

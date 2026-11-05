@@ -601,8 +601,14 @@ fun VideoScreen(
         // 离线缓存优先：直接从本地视频轨 + 音轨起播，不再请求播放地址。
         val offline = VideoCacheManager.findPlayable(video.bvid, video.cid)
         if (offline != null) {
+            val offlinePlay = offline.toPlayInfo()
+            com.aritxonly.bdfun.data.LogCollector.record(
+                "VIDEO",
+                "source=offline bvid=${video.bvid} qualities=${offlinePlay.qualities.size} " +
+                    "audio=${offlinePlay.audioUrl != null}",
+            )
             detail = offline.toDetail()
-            playInfo = offline.toPlayInfo()
+            playInfo = offlinePlay
             currentCid = offline.cid
             danmaku = emptyList()
             related = emptyList()
@@ -616,6 +622,12 @@ fun VideoScreen(
         // 从相关推荐点进去再返回：直接用缓存，不再重新请求
         val cached = VideoCache.get(video.bvid)
         if (cached != null) {
+            com.aritxonly.bdfun.data.LogCollector.record(
+                "VIDEO",
+                "source=memory-cache bvid=${video.bvid} " +
+                    "qualities=${cached.playInfo?.qualities?.size} " +
+                    "audio=${cached.playInfo?.audioUrl != null}",
+            )
             detail = cached.detail
             playInfo = cached.playInfo
             danmaku = cached.danmaku
@@ -644,6 +656,7 @@ fun VideoScreen(
             currentCid = loaded.cid
             // playurl / 弹幕 / 相关推荐互不依赖，并行发起：
             // 播放地址先回来就先起播，不再等弹幕和相关推荐串行跑完。
+            var playError: Throwable? = null
             val playDeferred = async {
                 runCatching {
                     api.playInfo(
@@ -652,7 +665,7 @@ fun VideoScreen(
                         codecPreference = AppGraph.settings.codecPreference,
                         cdnService = AppGraph.settings.cdnService,
                     )
-                }.getOrNull()
+                }.onFailure { playError = it }.getOrNull()
             }
             val danmakuDeferred = async {
                 runCatching { api.danmaku(loaded.cid) }.getOrDefault(emptyList())
@@ -676,6 +689,12 @@ fun VideoScreen(
                 resumePositionMs = cloudResume
             }
             playInfo = play
+            com.aritxonly.bdfun.data.LogCollector.record(
+                "VIDEO",
+                "source=network bvid=${video.bvid} hasInfo=${play != null} " +
+                    "qualities=${play?.qualities?.size} audio=${play?.audioUrl != null} " +
+                    "err=${playError?.javaClass?.simpleName}:${playError?.message?.take(160)}",
+            )
             // 播放地址就绪即可撤掉全屏 loading，弹幕和相关推荐在后台继续补。
             loading = false
             danmaku = danmakuDeferred.await()
@@ -905,7 +924,7 @@ fun VideoScreen(
                                     text = detail?.ownerName ?: video.ownerName,
                                     color = colors.onBackground,
                                     fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium,
+                                    fontWeight = FontWeight.Normal,
                                 )
                             }
                             Text(
@@ -938,7 +957,7 @@ fun VideoScreen(
                                 text = if (followed) "已关注" else "+ 关注",
                                 color = Color.White,
                                 fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
+                                fontWeight = FontWeight.Normal,
                             )
                         }
                     }
@@ -951,7 +970,7 @@ fun VideoScreen(
                             color = colors.onBackground,
                             fontSize = 17.sp,
                             lineHeight = 24.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Medium,
                         )
                     }
                     Spacer(Modifier.height(4.dp))

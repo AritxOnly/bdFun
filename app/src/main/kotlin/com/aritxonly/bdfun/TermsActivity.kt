@@ -13,6 +13,7 @@ import com.aritxonly.bdfun.ui.TeakActivityScaffold
 class TermsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.aritxonly.bdfun.data.LogCollector.init(applicationContext)
         val settings = SettingsStore(applicationContext)
         // 同一版本只提示一次；升级到新版本后再提示一次，而不是每次冷启动都弹。
         if (settings.termsAckedVersion == BuildConfig.VERSION_NAME) {

@@ -23,6 +23,12 @@ object PlayerUiState {
     var danmakuInteract by mutableIntStateOf(0)
 }
 
+/** 视频页全屏锁：锁定期间忽略系统方向变化。 */
+object VideoOrientationLock {
+    @Volatile
+    var locked: Boolean = false
+}
+
 /** 回复目标：点某条评论的「回复」后写进来，底部回复栏读它显示占位符并决定 root/parent。 */
 object ReplyTarget {
     var name by mutableStateOf<String?>(null)

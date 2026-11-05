@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
@@ -101,12 +102,39 @@ fun HomeTopBar(
     ) {
         // 背景单独一层：它自己会按矩形裁剪，不能把外面的东西一起裁掉。
         // 搜索展开时顶栏背景渐隐，让白纸接管，整屏变成同一个颜色。
+        val classic = com.aritxonly.teak.common.theme.TeakUiStyle.isClassic
+        val classicSurface = MiuixTheme.colorScheme.surface
+        val classicLine = MiuixTheme.colorScheme.onBackground.copy(alpha = 0.12f)
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .graphicsLayer { alpha = (1f - searchReveal).coerceIn(0f, 1f) }
-                .teakProgressiveBarBlur(),
+                .then(
+                    if (classic) {
+                        Modifier
+                            .background(classicSurface)
+                            .drawBehind {
+                                drawLine(
+                                    color = classicLine,
+                                    start = Offset(0f, size.height),
+                                    end = Offset(size.width, size.height),
+                                    strokeWidth = 1.dp.toPx(),
+                                )
+                            }
+                    } else {
+                        Modifier.teakProgressiveBarBlur()
+                    },
+                ),
         )
+
+        // 搜索态顶栏是一层“压在内容上的浮层”：空白处的点击不能再穿透到
+        // 后面的搜索结果/视频卡片，否则键盘弹起时点搜索框周围会误触。
+        if (searchActive) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .blockTouches(true),
+            )
+        }
 
         Row(
             modifier = Modifier
@@ -139,6 +167,16 @@ fun HomeTopBar(
                     .weight(1f)
                     .height(40.dp)
                     .then(
+                        if (classic) {
+                            Modifier.background(
+                                MiuixTheme.colorScheme.surfaceContainerHigh,
+                                Capsule(),
+                            )
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .then(
                         if (searchActive) {
                             Modifier
                         } else {
@@ -151,7 +189,7 @@ fun HomeTopBar(
                     ),
                 shape = Capsule(),
                 recipe = recipe,
-                backdrop = backdrop,
+                backdrop = if (classic) null else backdrop,
                 contentAlignment = Alignment.CenterStart,
             ) {
                 Row(
@@ -316,7 +354,7 @@ fun HomePullIndicator(
     val alpha = reveal.coerceIn(0f, 1f)
     if (alpha <= 0.005f) return
 
-    TeakLoading(
+    TeakTvLoading(
         size = 48.dp,
         animated = animated,
         modifier = modifier.graphicsLayer {

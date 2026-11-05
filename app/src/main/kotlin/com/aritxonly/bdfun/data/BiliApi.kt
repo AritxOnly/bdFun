@@ -158,7 +158,14 @@ class BiliApi(context: Context) {
             primaryError = e
             emptyList()
         }
-        if (primary.isNotEmpty()) return@withContext primary
+        if (primary.isNotEmpty()) {
+            LogCollector.record(
+                "FEED",
+                "source=${if (web) "web" else "app"} count=${primary.size} " +
+                    "first=${primary.firstOrNull()?.bvid}",
+            )
+            return@withContext primary
+        }
 
         // 纯网络错误说明整个网络都不通，立刻报错，避免再用另一个接口白等一轮。
         val netError = primaryError
@@ -172,7 +179,14 @@ class BiliApi(context: Context) {
         } catch (e: Exception) {
             emptyList()
         }
-        if (fallback.isNotEmpty()) return@withContext fallback
+        if (fallback.isNotEmpty()) {
+            LogCollector.record(
+                "FEED",
+                "source=${if (web) "web->app-fallback" else "app->web-fallback"} " +
+                    "count=${fallback.size} first=${fallback.firstOrNull()?.bvid}",
+            )
+            return@withContext fallback
+        }
         if (primaryError != null) throw primaryError
         emptyList()
     }
@@ -198,6 +212,7 @@ class BiliApi(context: Context) {
     }
 
     private suspend fun appRecommend(freshIndex: Int): List<VideoItem> {
+        // App 推荐域名是 app.bilibili.com；用 api.bilibili.com 会 404，随后悄悄退回 Web 推荐。
         val data = dataRequest(
             "/x/v2/feed/index",
             mapOf(
@@ -210,28 +225,54 @@ class BiliApi(context: Context) {
                 "style" to "2",
                 "ps" to "12",
             ),
+            base = APP,
         )
-        return data.optJSONArray("items").objects().mapNotNull { raw ->
+        val out = data.optJSONArray("items").objects().mapNotNull { raw ->
             val args = raw.optJSONObject("args")
                 ?: runCatching { JSONObject(raw.optString("args")) }.getOrNull()
-                ?: return@mapNotNull null
-            val bvid = args.s("bvid")
+                ?: JSONObject()
+            val player = raw.optJSONObject("player_args")
+            val cardGoto = raw.s("card_goto")
+            val goto = raw.s("goto")
+            // App 推荐里混着直播、广告、横幅、游戏卡和竖屏短视频；
+            // 竖屏卡片的 aid 是 12 位以上，标准播放接口打不开，这里只要普通稿件。
+            val isVideoCard = cardGoto == "av" || goto == "av" ||
+                (cardGoto.isEmpty() && goto.isEmpty() &&
+                    raw.s("card_type").startsWith("small_cover"))
+            if (!isVideoCard) return@mapNotNull null
+            val aid = args.l("aid")
+                .takeIf { it > 0L }
+                ?: player?.l("aid")?.takeIf { it > 0L }
+                ?: raw.s("param").toLongOrNull()
+                ?: 0L
+            // av↔bv 公式只支持 32 位 aid；超出的都是竖屏/广告卡片。
+            if (aid !in 1L..2_147_483_647L) return@mapNotNull null
+            val directBvid = raw.s("bvid").ifBlank { args.s("bvid") }
+                .ifBlank { player?.s("bvid").orEmpty() }
+            val bvid = directBvid.ifBlank { aidToBvid(aid) }
             if (bvid.isBlank()) return@mapNotNull null
             VideoItem(
                 bvid = bvid,
-                aid = args.l("aid"),
-                title = cleanHtml(args.s("title")),
-                cover = image(args.s("cover"), 480),
+                aid = aid,
+                title = cleanHtml(raw.s("title")),
+                cover = image(raw.s("cover"), 480),
                 ownerName = args.s("up_name").ifBlank { args.s("name") },
                 ownerFace = avatar(args.s("up_face").ifBlank { args.s("face") }, 96),
                 ownerMid = args.l("up_id").takeIf { it > 0 } ?: args.l("mid"),
-                play = args.l("play"),
-                danmaku = args.l("danmaku"),
-                duration = args.optInt("duration", 0),
-                pubdate = args.l("ctime"),
-                cid = args.l("cid"),
+                play = parseCountText(raw.s("cover_left_text_1")),
+                danmaku = parseCountText(raw.s("cover_left_text_2")),
+                duration = player?.optInt("duration", 0)
+                    ?.takeIf { it > 0 }
+                    ?: parseDurationText(raw.s("cover_right_text")),
+                pubdate = 0,
+                cid = player?.l("cid")?.takeIf { it > 0 } ?: 0,
+                isFollowed = args.optBoolean("is_followed", false) ||
+                    raw.optBoolean("is_followed", false),
             )
         }
+        val rawCount = data.optJSONArray("items")?.length() ?: 0
+        LogCollector.record("FEED", "app-raw=$rawCount kept=${out.size}")
+        return out
     }
 
     suspend fun popular(page: Int = 1): List<VideoItem> = withContext(Dispatchers.IO) {
@@ -276,12 +317,29 @@ class BiliApi(context: Context) {
         // 高清（1080P+/4K/HDR/杜比）现在需要 WBI 签名；先走签名接口，
         // 失败再退回普通接口。反过来的话，普通接口有时只回 480P 但不报错，
         // 4K 就会被悄悄吞掉。
-        var data = runCatching {
-            dataRequest("/x/player/wbi/playurl", params, signed = true)
-        }.getOrNull()
-        if (data == null) {
-            data = dataRequest("/x/player/playurl", params)
+        var signedError: Throwable? = null
+        var root = runCatching {
+            rawRequest("/x/player/wbi/playurl", params, signed = true)
+        }.onFailure { signedError = it }.getOrNull()
+        val usedSigned = root != null
+        if (root == null) {
+            root = rawRequest("/x/player/playurl", params)
         }
+        val code = root.optInt("code", 0)
+        val dataValue = root.opt("data")
+        val data = root.optJSONObject("data") ?: JSONObject()
+        LogCollector.record(
+            "API",
+            "playurl signed=$usedSigned code=$code message=${root.optString("message")} " +
+                "dataType=${dataValue?.javaClass?.simpleName ?: "null"} " +
+                "loggedIn=$isLoggedIn mid=$mid sessLen=${cookieJar.value("SESSDATA").length} " +
+                "buvidLen=${cookieJar.value("buvid3").length} wbi=${wbiKeys != null} " +
+                "device=${android.os.Build.MANUFACTURER}/${android.os.Build.MODEL} " +
+                "sdk=${android.os.Build.VERSION.SDK_INT} ${netInfo()} " +
+                "err=${signedError?.javaClass?.simpleName}:${signedError?.message?.take(120)} " +
+                describePlayData(data),
+        )
+        if (code != 0) throw BiliException(code, apiMessage(code, root.optString("message")))
         val parsed = parsePlayInfo(
             data,
             preferredQuality,
@@ -289,6 +347,12 @@ class BiliApi(context: Context) {
             durationSec,
             codecPreference,
             cdnService,
+        )
+        LogCollector.record(
+            "API",
+            "playurl parsed qualities=${parsed.qualities.size} " +
+                "audio=${parsed.audioUrl != null} fallback=${parsed.fallbackUrl != null} " +
+                "accept=${parsed.acceptQuality}",
         )
         if (parsed.fallbackUrl == null && parsed.qualities.isNotEmpty()) {
             // DASH 解码失败时的兜底：优先 1080P，再 720P，最后才 480P。
@@ -342,6 +406,48 @@ class BiliApi(context: Context) {
         }
         val xml = decodeDanmakuBytes(bytes)
         parseDanmakuXml(xml)
+    }
+
+    /**
+     * 空降助手：从 BilibiliSponsorBlock 公共 API 拉取当前视频的片段。
+     * 只在视频页进入时请求一次，结果缓存在内存里，不参与每帧逻辑。
+     */
+    suspend fun sponsorSegments(bvid: String): List<SponsorSegment> = withContext(Dispatchers.IO) {
+        if (bvid.isBlank()) return@withContext emptyList()
+        SponsorSegmentCache.get(bvid)?.let { return@withContext it }
+        val result = runCatching {
+            val request = Request.Builder()
+                .url("https://www.bsbsb.top/api/skipSegments?videoID=$bvid")
+                .header("User-Agent", UA)
+                .get()
+                .build()
+            val text = client.newCall(request).awaitResponse().use { response ->
+                if (!response.isSuccessful) return@runCatching emptyList()
+                response.body?.string().orEmpty()
+            }
+            val array = JSONArray(text)
+            buildList {
+                for (i in 0 until array.length()) {
+                    val obj = array.optJSONObject(i) ?: continue
+                    val segment = obj.optJSONArray("segment") ?: continue
+                    if (segment.length() < 2) continue
+                    val start = (segment.optDouble(0, 0.0) * 1000.0).toLong()
+                    val end = (segment.optDouble(1, 0.0) * 1000.0).toLong()
+                    if (end <= start) continue
+                    add(
+                        SponsorSegment(
+                            startMs = start,
+                            endMs = end,
+                            category = obj.optString("category"),
+                            actionType = obj.optString("actionType", "skip"),
+                            uuid = obj.optString("UUID"),
+                        ),
+                    )
+                }
+            }
+        }.getOrDefault(emptyList())
+        SponsorSegmentCache.put(bvid, result)
+        result
     }
 
     suspend fun comments(
@@ -739,6 +845,27 @@ class BiliApi(context: Context) {
         }.isSuccess
     }
 
+    /** 删除单条历史记录：kid 的官方格式是 archive_{aid}，不是 bvid。 */
+    suspend fun deleteHistory(aid: Long): Boolean = withContext(Dispatchers.IO) {
+        if (aid <= 0) return@withContext false
+        runCatching {
+            postRequest(
+                "/x/v2/history/delete",
+                mapOf("kid" to "archive_$aid", "csrf" to csrf),
+            )
+        }.isSuccess
+    }
+
+    /** 从稍后再看移除：接口要 aid。 */
+    suspend fun deleteWatchLater(aid: Long): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            postRequest(
+                "/x/v2/history/toview/del",
+                mapOf("aid" to aid.toString(), "csrf" to csrf),
+            )
+        }.isSuccess
+    }
+
     suspend fun favoriteVideo(aid: Long, folderIds: String): Boolean = withContext(Dispatchers.IO) {
         postRequest(
             "/x/v3/fav/resource/deal",
@@ -801,6 +928,7 @@ class BiliApi(context: Context) {
                 duration = item.optInt("duration", 0),
                 play = stat?.optInt("view", 0) ?: 0,
                 danmaku = stat?.optInt("danmaku", 0) ?: 0,
+                aid = history.l("oid"),
             )
         }
     }
@@ -918,6 +1046,7 @@ class BiliApi(context: Context) {
                 duration = item.optInt("duration", 0),
                 play = stat?.optInt("view", 0) ?: 0,
                 danmaku = stat?.optInt("danmaku", 0) ?: 0,
+                aid = item.l("aid"),
             )
         }
     }
@@ -1160,8 +1289,8 @@ class BiliApi(context: Context) {
                 ownerName = author.s("name"),
                 ownerFace = avatar(author.s("face"), 120),
                 ownerMid = author.l("mid"),
-                play = it.optJSONObject("stat")?.optString("play")?.toLongOrNull() ?: 0L,
-                danmaku = it.optJSONObject("stat")?.optString("danmaku")?.toLongOrNull() ?: 0L,
+                play = parseCountText(it.optJSONObject("stat")?.optString("play").orEmpty()),
+                danmaku = parseCountText(it.optJSONObject("stat")?.optString("danmaku").orEmpty()),
                 duration = parseDurationText(it.s("duration_text")),
                 pubdate = 0,
                 cid = 0,
@@ -1175,8 +1304,8 @@ class BiliApi(context: Context) {
                 ownerName = author.s("name"),
                 ownerFace = avatar(author.s("face"), 120),
                 ownerMid = author.l("mid"),
-                play = it.optJSONObject("stat")?.optString("play")?.toLongOrNull() ?: 0L,
-                danmaku = it.optJSONObject("stat")?.optString("danmaku")?.toLongOrNull() ?: 0L,
+                play = parseCountText(it.optJSONObject("stat")?.optString("play").orEmpty()),
+                danmaku = parseCountText(it.optJSONObject("stat")?.optString("danmaku").orEmpty()),
                 duration = parseDurationText(it.s("duration_text")),
                 pubdate = 0,
                 cid = 0,
@@ -1491,15 +1620,29 @@ class BiliApi(context: Context) {
         }.getOrDefault(emptyList())
     }
 
-    suspend fun search(keyword: String, page: Int = 1): List<VideoItem> = withContext(Dispatchers.IO) {
+    suspend fun search(
+        keyword: String,
+        page: Int = 1,
+        /** totalrank 默认 / click 播放多 / pubdate 新发布 / dm 弹幕多 */
+        order: String = "totalrank",
+        /** 0 不限 / 1 0-10 分钟 / 2 10-30 / 3 30-60 / 4 60 以上 */
+        duration: Int = 0,
+        pubtimeBegin: Long? = null,
+        pubtimeEnd: Long? = null,
+    ): List<VideoItem> = withContext(Dispatchers.IO) {
+        val params = LinkedHashMap<String, String>().apply {
+            put("search_type", "video")
+            put("keyword", keyword)
+            put("page", page.toString())
+            put("page_size", "20")
+            put("order", order)
+            if (duration in 1..4) put("duration", duration.toString())
+            pubtimeBegin?.let { put("pubtime_begin_s", it.toString()) }
+            pubtimeEnd?.let { put("pubtime_end_s", it.toString()) }
+        }
         val data = dataRequest(
             "/x/web-interface/wbi/search/type",
-            mapOf(
-                "search_type" to "video",
-                "keyword" to keyword,
-                "page" to page.toString(),
-                "page_size" to "20",
-            ),
+            params,
             signed = true,
         )
         data.optJSONArray("result").objects().mapNotNull { item ->
@@ -1521,6 +1664,34 @@ class BiliApi(context: Context) {
         }
     }
 
+    /** 搜索用户（综合页 / 用户 Tab）。 */
+    suspend fun searchUsers(keyword: String, page: Int = 1): List<SearchUser> =
+        withContext(Dispatchers.IO) {
+            val data = dataRequest(
+                "/x/web-interface/wbi/search/type",
+                mapOf(
+                    "search_type" to "bili_user",
+                    "keyword" to keyword,
+                    "page" to page.toString(),
+                    "page_size" to "20",
+                ),
+                signed = true,
+            )
+            data.optJSONArray("result").objects().mapNotNull { item ->
+                val mid = item.l("mid")
+                if (mid <= 0L) return@mapNotNull null
+                SearchUser(
+                    mid = mid,
+                    name = cleanHtml(item.s("uname")),
+                    face = image(item.s("upic"), 160),
+                    sign = cleanHtml(item.s("usign")),
+                    fans = item.s("fans").toLongOrNull() ?: 0,
+                    videos = item.s("videos").toLongOrNull() ?: 0,
+                    level = item.optInt("level", 0),
+                )
+            }
+        }
+
     suspend fun hotSearch(): List<String> = withContext(Dispatchers.IO) {
         val data = runCatching {
             dataRequest("/x/web-interface/search/square", mapOf("limit" to "10"))
@@ -1537,8 +1708,29 @@ class BiliApi(context: Context) {
             2 -> "/x/msgfeed/like"
             else -> "/x/msgfeed/system"
         }
-        val data = dataRequest(path, mapOf("pn" to page.toString(), "ps" to "20"))
-        data.optJSONArray("items").objects().mapNotNull { item ->
+        val data = dataRequest(
+            path,
+            mapOf(
+                "pn" to page.toString(),
+                "ps" to "20",
+                "platform" to "web",
+                "mobi_app" to "web",
+                "build" to "0",
+                "web_location" to "333.40164",
+                "csrf" to csrf,
+            ),
+        )
+        // 收到的赞返回的是 { latest: { items }, total: { items } } 两个分桶，
+        // 不是顶层的 items；原来只读顶层，所以这个页面一直是空的。
+        val rawItems = if (type == 2) {
+            val merged = ArrayList<JSONObject>()
+            data.optJSONObject("latest")?.optJSONArray("items").objects().let(merged::addAll)
+            data.optJSONObject("total")?.optJSONArray("items").objects().let(merged::addAll)
+            merged.distinctBy { it.s("id") }
+        } else {
+            data.optJSONArray("items").objects()
+        }
+        val parsed = rawItems.mapNotNull { item ->
             val detail = item.optJSONObject("item")
             // 收到的赞把用户放在 users 数组里，其余类型是单个 user 对象
             val users = item.optJSONArray("users").objects()
@@ -1559,9 +1751,13 @@ class BiliApi(context: Context) {
             val source = detail?.s("source_content").orEmpty()
                 .ifBlank { detail?.s("root_reply_content").orEmpty() }
                 .ifBlank { detail?.s("target_reply_content").orEmpty() }
+                .ifBlank { detail?.s("desc").orEmpty() }
                 .ifBlank { item.s("title") }
             val title = detail?.s("title").orEmpty().ifBlank { item.s("title") }
-            if (title.isBlank() && content.isBlank() && source.isBlank()) return@mapNotNull null
+            // 点赞通知的文字字段经常是空的，只要有用户就保留，否则整页会「没有内容」。
+            if (type != 2 && title.isBlank() && content.isBlank() && source.isBlank()) {
+                return@mapNotNull null
+            }
             MessageItem(
                 id = item.s("id").ifBlank { "${type}_${item.l("id")}" },
                 title = title,
@@ -1570,6 +1766,7 @@ class BiliApi(context: Context) {
                     .takeIf { it > 0 }
                     ?: item.l("ctime").takeIf { it > 0 }
                     ?: item.l("timestamp").takeIf { it > 0 }
+                    ?: item.l("like_time").takeIf { it > 0 }
                     ?: (item.s("pub_time").toLongOrNull() ?: 0L),
                 name = user?.s("nickname").orEmpty().ifBlank { user?.s("uname").orEmpty() },
                 avatar = avatar(user?.s("avatar").orEmpty(), 96),
@@ -1577,7 +1774,7 @@ class BiliApi(context: Context) {
                 action = action,
                 source = source,
                 userMid = user?.l("mid") ?: 0L,
-                followed = user?.optBoolean("follow", false) ?: false,
+                followed = isFollowedUser(user, item),
                 likeNames = names,
                 likeCount = maxOf(
                     item.optInt("counts", 0),
@@ -1586,17 +1783,40 @@ class BiliApi(context: Context) {
                 ),
             )
         }
+        LogCollector.record(
+            "MSG",
+            "type=$type items=${rawItems.size} parsed=${parsed.size}",
+        )
+        parsed
+    }
+
+    /**
+     * 关注关系在不同接口里字段名不一样：`follow` / `is_follow` / `follow_status` / `attribute`。
+     * 少读一个就会出现「我关注的人」永远为空。
+     */
+    private fun isFollowedUser(user: JSONObject?, item: JSONObject): Boolean {
+        fun followed(obj: JSONObject?): Boolean {
+            if (obj == null) return false
+            if (obj.optBoolean("follow", false)) return true
+            if (obj.optBoolean("is_follow", false)) return true
+            if (obj.optInt("is_follow", 0) > 0) return true
+            if (obj.optInt("follow_status", 0) > 0) return true
+            val attribute = obj.optInt("attribute", 0)
+            // 1=悄悄关注 / 2=已关注 / 6=互关，其余（拉黑等）不算。
+            return attribute == 1 || attribute == 2 || attribute == 6
+        }
+        return followed(user) || followed(item)
     }
 
     /** 消息中心会话列表（系统通知 + 私信会话）。 */
     suspend fun messageSessions(followingOnly: Boolean): List<MessageSession> =
         withContext(Dispatchers.IO) {
             val request = mapOf(
-                "session_type" to if (followingOnly) "9" else "4",
+                "session_type" to "4",
                 "group_fold" to "0",
                 "unfollow_fold" to "0",
                 "sort_rule" to "2",
-                "size" to "20",
+                "size" to "50",
                 "mobi_app" to "web",
             )
             val root = rawRequest(
@@ -1605,27 +1825,32 @@ class BiliApi(context: Context) {
                 base = VC,
             )
             if (root.optInt("code", 0) != 0) return@withContext emptyList()
-            val firstPage = root.optJSONObject("data")
+            val allSessions = root.optJSONObject("data")
                 ?.optJSONArray("session_list")
                 ?.objects()
                 .orEmpty()
-            val raw = if (firstPage.isEmpty() && followingOnly) {
-                // session_type=9 在某些账号上会返回空，用全部会话按关注关系过滤兜底
-                val fallback = rawRequest(
-                    "/session_svr/v1/session_svr/get_sessions",
-                    request + ("session_type" to "4"),
-                    base = VC,
-                )
-                fallback.optJSONObject("data")
-                    ?.optJSONArray("session_list")
-                    ?.objects()
-                    .orEmpty()
-                    .filter {
-                        it.optInt("is_follow", 0) == 1 &&
-                            it.optInt("system_msg_type", 0) == 0
-                    }
+            // 「我关注的人」不再只依赖 session_type=9（部分账号会直接返回空），
+            // 先按 is_follow 过滤全部会话；仍然是空的话再请求一次 9 兜底。
+            val raw = if (followingOnly) {
+                val followed = allSessions.filter {
+                    it.optInt("is_follow", 0) == 1 &&
+                        it.optInt("system_msg_type", 0) == 0
+                }
+                if (followed.isNotEmpty()) {
+                    followed
+                } else {
+                    rawRequest(
+                        "/session_svr/v1/session_svr/get_sessions",
+                        request + ("session_type" to "9"),
+                        base = VC,
+                    ).optJSONObject("data")
+                        ?.optJSONArray("session_list")
+                        ?.objects()
+                        .orEmpty()
+                        .filter { it.optInt("system_msg_type", 0) == 0 }
+                }
             } else {
-                firstPage
+                allSessions
             }
             val system = raw.map { it.toMessageSession() }
             // 私信会话只给 talker_id，名字/头像要单独补；最多补 12 个，避免一次打太多接口。
@@ -1647,6 +1872,115 @@ class BiliApi(context: Context) {
             }.associateBy { it.id }
             system.map { resolved[it.id] ?: it }
         }
+
+    /** 拉取一个私信会话的消息。 */
+    suspend fun privateMessages(
+        talkerId: Long,
+        sessionType: Int = 1,
+        size: Int = 30,
+    ): List<ChatMessage> = withContext(Dispatchers.IO) {
+        val data = dataRequest(
+            "/svr_sync/v1/svr_sync/fetch_session_msgs",
+            mapOf(
+                "talker_id" to talkerId.toString(),
+                "session_type" to sessionType.toString(),
+                "size" to size.toString(),
+                "sender_device_id" to "1",
+                "build" to "0",
+                "mobi_app" to "web",
+                "web_location" to "333.1296",
+            ),
+            signed = true,
+            base = VC,
+        )
+        val own = mid
+        data.optJSONArray("messages").objects().mapNotNull { message ->
+            val type = message.optInt("msg_type", 1)
+            val raw = message.s("content")
+            val content = runCatching { JSONObject(raw) }.getOrNull()
+            val text = when (type) {
+                1 -> content?.s("content").orEmpty()
+                2 -> ""
+                6, 7 -> content?.s("title").orEmpty()
+                else -> content?.s("content").orEmpty().ifBlank { raw }
+            }
+            val image = if (type == 2) content?.s("url").orEmpty() else ""
+            if (text.isBlank() && image.isBlank() && type != 1) return@mapNotNull null
+            ChatMessage(
+                id = message.l("msg_key").takeIf { it != 0L }
+                    ?: message.l("msg_seqno"),
+                senderId = message.l("sender_uid"),
+                timestamp = message.l("timestamp").takeIf { it > 0L }
+                    ?: message.l("msg_time"),
+                text = text,
+                imageUrl = image,
+                isMine = message.l("sender_uid") == own,
+            )
+        }.sortedBy { it.timestamp }
+    }
+
+    /** 发送一条纯文本私信。 */
+    suspend fun sendPrivateMessage(talkerId: Long, text: String): Boolean =
+        withContext(Dispatchers.IO) {
+            if (text.isBlank() || csrf.isBlank()) return@withContext false
+            val now = System.currentTimeMillis() / 1000L
+            val content = JSONObject().put("content", text).toString()
+            val params = mapOf(
+                "msg[sender_uid]" to mid.toString(),
+                "msg[receiver_id]" to talkerId.toString(),
+                "msg[receiver_type]" to "1",
+                "msg[msg_type]" to "1",
+                "msg[msg_status]" to "0",
+                "msg[dev_id]" to java.util.UUID.randomUUID().toString(),
+                "msg[timestamp]" to now.toString(),
+                "msg[new_face_version]" to "1",
+                "msg[content]" to content,
+                "from_firework" to "0",
+                "build" to "0",
+                "mobi_app" to "web",
+                "csrf" to csrf,
+                "csrf_token" to csrf,
+            )
+            val root = runCatching {
+                rawRequest(
+                    "/web_im/v1/web_im/send_msg",
+                    params,
+                    base = VC,
+                    method = "POST",
+                    tolerateEmptyBody = true,
+                )
+            }.getOrNull() ?: return@withContext false
+            root.optInt("code", 0) == 0
+        }
+
+    /** 官方「新增粉丝」：/x/relation/fans。 */
+    suspend fun newFollowers(page: Int = 1): List<MessageItem> = withContext(Dispatchers.IO) {
+        val data = dataRequest(
+            "/x/relation/fans",
+            mapOf(
+                "vmid" to mid.toString(),
+                "pn" to page.toString(),
+                "ps" to "20",
+                "order" to "desc",
+                "order_type" to "attention",
+            ),
+        )
+        data.optJSONArray("list").objects().mapNotNull { fan ->
+            val fanMid = fan.l("mid")
+            if (fanMid <= 0L) return@mapNotNull null
+            MessageItem(
+                id = "fans_$fanMid",
+                title = "",
+                content = fan.s("sign"),
+                time = fan.l("mtime").takeIf { it > 0L } ?: fan.l("ctime"),
+                name = fan.s("uname"),
+                avatar = avatar(fan.s("face"), 120),
+                action = "关注了我",
+                source = fan.s("sign"),
+                userMid = fanMid,
+            )
+        }
+    }
 
     /** 仅取用户昵称和头像，供私信会话补全。 */
     suspend fun userBrief(mid: Long): Pair<String, String>? = withContext(Dispatchers.IO) {
@@ -1871,6 +2205,43 @@ class BiliApi(context: Context) {
         )
     }
 
+    /** 网络类型、VPN、系统代理：用来判断是不是代理/VPN 把 playurl 换成了空内容。 */
+    private fun netInfo(): String {
+        val cm = appContext.getSystemService(android.content.Context.CONNECTIVITY_SERVICE)
+            as? android.net.ConnectivityManager
+        val caps = cm?.activeNetwork?.let { cm.getNetworkCapabilities(it) }
+        val transports = buildList {
+            if (caps?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) == true) add("wifi")
+            if (caps?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) == true) add("cell")
+            if (caps?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) == true) add("ethernet")
+            if (caps?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) == true) add("vpn")
+        }.joinToString("+").ifBlank { "none" }
+        val proxy = runCatching {
+            java.net.ProxySelector.getDefault()
+                ?.select(java.net.URI("https://api.bilibili.com"))
+                ?.firstOrNull()
+                ?.toString()
+        }.getOrNull()
+        return "net=$transports vpn=${caps?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)} " +
+            "proxy=$proxy"
+    }
+
+    /** 播放地址接口返回内容的形状，写进应用日志，方便定位“有 data 但没有地址”。 */
+    private fun describePlayData(data: JSONObject): String {
+        val dash = data.optJSONObject("dash")
+        val video = dash?.optJSONArray("video")
+        val audio = dash?.optJSONArray("audio")
+        val durl = data.optJSONArray("durl")
+        val firstRep = video?.optJSONObject(0)
+        val firstRaw = firstRep?.let { it.s("baseUrl").ifBlank { it.s("base_url") } }.orEmpty()
+        val first = firstRaw.substringBefore('?')
+        val repKeys = firstRep?.keys()?.asSequence()?.take(12)?.joinToString(",").orEmpty()
+        val dataKeys = data.keys().asSequence().take(16).joinToString(",")
+        return "dataKeys=$dataKeys dash=${dash != null} video=${video?.length() ?: 0} " +
+            "audio=${audio?.length() ?: 0} durl=${durl?.length() ?: 0} " +
+            "firstBaseLen=${firstRaw.length} repKeys=$repKeys first=${first.take(80)}"
+    }
+
     private fun parsePlayInfo(
         data: JSONObject,
         preferred: Int,
@@ -1991,12 +2362,19 @@ class BiliApi(context: Context) {
                 ),
             )
         }.getOrNull() ?: return@withContext null
-        data.optJSONObject("dash")
+        val rep = data.optJSONObject("dash")
             ?.optJSONArray("video")
             ?.objects()
             ?.firstOrNull()
-            ?.let { it.s("baseUrl").ifBlank { it.s("base_url") } }
-            ?.takeIf { it.isNotBlank() }
+            ?: return@withContext null
+        val urls = buildList {
+            add(rep.s("baseUrl").ifBlank { rep.s("base_url") })
+            addAll(jsonStrings(rep.optJSONArray("backupUrl") ?: rep.optJSONArray("backup_url")))
+        }.filter { it.isNotBlank() }
+        // 优先用 /upgcxcode/ 形态的地址：mcdn 的 /vN/resource 地址换 host 会 403，不能用来测速。
+        urls.firstOrNull { it.contains("/upgcxcode/") && !isMcdnResource(it) }
+            ?: urls.firstOrNull { it.contains("/upgcxcode/") }
+            ?: urls.firstOrNull()
     }
 
     private fun decodeDanmakuBytes(bytes: ByteArray): String {
@@ -2239,6 +2617,23 @@ class BiliApi(context: Context) {
             throw BiliException(response.code, "网络错误 HTTP ${response.code}")
         }
         val body = response.body?.string().orEmpty()
+        if (request.url.encodedPath.contains("playurl")) {
+            val safeBody = body
+                .replace(Regex("https?://[^\"\\s]+"), "[url]")
+                .replace(
+                    Regex("\"(e|upsig|sign|deadline|trid|w_rid|uipk|qn_dyeid)\":\"[^\"]*\""),
+                    "\"\$1\":\"[redacted]\"",
+                )
+                .take(1600)
+            LogCollector.record(
+                "API",
+                "http playurl code=${response.code} type=${response.header("Content-Type")} " +
+                    "len=${response.header("Content-Length")} bodyLen=${body.length} " +
+                    "encoding=${response.header("Content-Encoding")} " +
+                    "server=${response.header("Server")} via=${response.header("Via")} " +
+                    "body=$safeBody",
+            )
+        }
         if (body.isBlank()) {
             // 点赞/投币/收藏等动作接口成功时偶尔返回 2xx 空 body，不能当成“解析失败”
             if (tolerateEmptyBody && response.code in 200..299) return@use JSONObject()
@@ -2325,6 +2720,11 @@ class BiliApi(context: Context) {
             if (attempt < attempts - 1) delay(retryDelayMs(attempt))
         }
         val error = lastError ?: BiliException(-1, "网络连接失败，请检查网络后重试")
+        LogCollector.record(
+            "API",
+            "fail path=${request.url.encodedPath} status=${(error as? BiliException)?.code} " +
+                "message=${error.message}",
+        )
         if (BuildConfig.DEBUG) android.util.Log.w("BiliApi", "network error ${request.url}", error)
         throw error
     }
@@ -2347,6 +2747,7 @@ class BiliApi(context: Context) {
 
     companion object {
         const val API = "https://api.bilibili.com"
+        const val APP = "https://app.bilibili.com"
         const val PASSPORT = "https://passport.bilibili.com"
         const val VC = "https://api.vc.bilibili.com"
         const val UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
@@ -2399,6 +2800,34 @@ class BiliApi(context: Context) {
             return runCatching {
                 Html.fromHtml(text, Html.FROM_HTML_MODE_LEGACY).toString()
             }.getOrDefault(text.replace(Regex("<[^>]+>"), ""))
+        }
+
+        /** App 推荐接口只给 aid，不给 bvid；用 AV/BV 官方换算规则在本地转。 */
+        fun aidToBvid(aid: Long): String {
+            if (aid <= 0L) return ""
+            val table = "fZodR9XQDSUm21yCkr6zBqiveYah8bt4xsWpHnJE7jL5VG3guMTKNPAwcF"
+            val positions = intArrayOf(11, 10, 3, 8, 4, 6)
+            val result = charArrayOf('B', 'V', '1', ' ', ' ', '4', ' ', '1', ' ', '7', ' ', ' ')
+            val x = (aid xor 177451812L) + 8728348608L
+            var power = 1L
+            for (i in 0..5) {
+                result[positions[i]] = table[((x / power) % 58L).toInt()]
+                power *= 58L
+            }
+            return String(result)
+        }
+
+        /** 动态接口的播放量/弹幕数有时是「14.6万」「1.2亿」这种文字，不能直接 toLong。 */
+        fun parseCountText(text: String): Long {
+            val raw = text.trim()
+            if (raw.isBlank() || raw == "-" || raw == "--") return 0L
+            val multiplier = when {
+                raw.endsWith("亿") -> 100_000_000.0
+                raw.endsWith("万") -> 10_000.0
+                else -> 1.0
+            }
+            val number = raw.removeSuffix("亿").removeSuffix("万").toDoubleOrNull() ?: return 0L
+            return (number * multiplier).toLong()
         }
 
         fun parseDurationText(text: String): Int {
@@ -2482,3 +2911,15 @@ internal fun String.toViewCount(): String = toReadableCount()
 internal fun String.toDurationSeconds(): Int = BiliApi.parseDurationText(this)
 
 internal fun Double.toCoinText(): String = if (this == this.toLong().toDouble()) this.toLong().toString() else "%.1f".format(this)
+
+private object SponsorSegmentCache {
+    private val values = HashMap<String, List<SponsorSegment>>()
+
+    @Synchronized
+    fun get(bvid: String): List<SponsorSegment>? = values[bvid]
+
+    @Synchronized
+    fun put(bvid: String, list: List<SponsorSegment>) {
+        values[bvid] = list
+    }
+}

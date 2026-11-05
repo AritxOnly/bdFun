@@ -6,7 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.aritxonly.bdfun.ui.MessageTopActions
 import com.aritxonly.bdfun.ui.TeakActivityScaffold
-import com.aritxonly.bdfun.ui.UnfinishedNoticeOnce
 
 class MessageActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,7 +25,6 @@ class MessageActivity : ComponentActivity() {
             ) {
                 MessageScreenRoute(api, this)
             }
-            UnfinishedNoticeOnce()
         }
     }
 }

@@ -232,7 +232,7 @@ private fun SpaceScreen(
                     text = profile?.name.orEmpty().ifBlank { "个人主页" },
                     color = colors.onBackground,
                     fontSize = 30.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Normal,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(start = 10.dp),
@@ -339,7 +339,7 @@ private fun SpaceScreen(
                                     text = "大",
                                     color = Color.White,
                                     fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.SemiBold,
                                 )
                             }
                         }
@@ -410,7 +410,7 @@ private fun SpaceScreen(
                     text = profile?.name.orEmpty(),
                     color = colors.primary,
                     fontSize = 21.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
@@ -427,7 +427,7 @@ private fun SpaceScreen(
                             text = profile?.vipLabel.orEmpty().ifBlank { "大会员" },
                             color = Color.White,
                             fontSize = 9.sp,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.Normal,
                             maxLines = 1,
                         )
                     }
@@ -536,7 +536,7 @@ private fun SpaceScreen(
                             text = "IP",
                             color = colors.onBackgroundVariant,
                             fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                         )
                     }
                     Spacer(Modifier.width(5.dp))
@@ -698,7 +698,7 @@ private fun FollowButton(
             },
             color = if (filled) Color.White else colors.primary,
             fontSize = 12.5.sp,
-            fontWeight = FontWeight.Medium,
+            fontWeight = FontWeight.Normal,
         )
     }
 }
@@ -711,7 +711,7 @@ private fun SpaceStat(label: String, value: Long, modifier: Modifier = Modifier)
             text = formatCount(value),
             color = colors.onBackground,
             fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Medium,
             maxLines = 1,
         )
         Spacer(Modifier.height(2.dp))
@@ -790,7 +790,7 @@ private fun SpaceVideoCard(video: VideoItem, onClick: () -> Unit) {
             color = colors.onBackground,
             fontSize = 13.sp,
             lineHeight = 18.sp,
-            fontWeight = FontWeight.Medium,
+            fontWeight = FontWeight.Normal,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
@@ -821,7 +821,7 @@ private fun VideoGridContent(
                 text = "视频",
                 color = MiuixTheme.colorScheme.onBackground,
                 fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Medium,
             )
             Spacer(Modifier.width(6.dp))
             Text(
@@ -877,7 +877,7 @@ private fun DynamicListContent(
                 text = "动态",
                 color = MiuixTheme.colorScheme.onBackground,
                 fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Medium,
             )
             Spacer(Modifier.weight(1f))
             Text(
@@ -914,7 +914,7 @@ private fun SpaceDynamicRow(item: DynamicItem, onOpen: (DynamicItem) -> Unit) {
                 text = item.title,
                 color = colors.onBackground,
                 fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Medium,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )

@@ -19,8 +19,8 @@ android {
         // miuix-blur 鐨?RuntimeShader 璺緞鍩虹嚎
         minSdk = 33
         targetSdk = 37
-        versionCode = 125
-        versionName = "preview-3.9.4"
+        versionCode = 400
+        versionName = "preview-4.0"
         // 每次配置都刷新，打进 BuildConfig 后可以直接在「设置 → 关于 → 版本」里核对装的是哪一版。
         buildConfigField("String", "BUILD_STAMP", "\"$buildStamp\"")
         vectorDrawables.useSupportLibrary = true
@@ -45,6 +45,7 @@ android {
         release {
             // 用 debug 签名，方便直接安装体验（正式发布再换 keystore）
             signingConfig = signingConfigs.getByName("debug")
+            isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -71,6 +72,7 @@ kotlin {
 
 dependencies {
     implementation(project(":TeakUI"))
+    implementation(project(":danmaku-engine"))
 
     implementation(libs.compose.runtime)
     implementation(libs.compose.foundation)

@@ -60,6 +60,7 @@ import com.aritxonly.bdfun.ui.TeakGlassChip
 import com.aritxonly.teak.common.navigation.TeakPagerTabs
 import com.aritxonly.bdfun.ui.UiSwapDurationMs
 import com.aritxonly.bdfun.ui.VideoPageBus
+import com.aritxonly.bdfun.ui.VideoOrientationLock
 import com.aritxonly.bdfun.ui.VideoScreen
 import com.aritxonly.bdfun.ui.blockTouches
 import com.aritxonly.bdfun.ui.rememberManualProgress
@@ -107,7 +108,7 @@ class VideoActivity : ComponentActivity() {
             override fun onOrientationChanged(orientation: Int) {
                 if (orientation == ORIENTATION_UNKNOWN) return
                 // 每次方向变化都重新读：用户可能中途打开 / 关闭了方向锁定
-                if (!autoRotateAllowed()) return
+                if (!autoRotateAllowed() || VideoOrientationLock.locked) return
                 // 判定：横屏要转到离水平 12° 以内（比上一版 18° 更严格）
                 val landscape = orientation in 78..102 || orientation in 258..282
                 val portrait =

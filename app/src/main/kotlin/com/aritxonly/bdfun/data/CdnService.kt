@@ -8,18 +8,62 @@ data class CdnService(
     val label: String,
     val host: String? = null,
     val useBackup: Boolean = false,
+    val auto: Boolean = false,
 ) {
     fun rewrite(url: String, backupUrls: List<String> = emptyList()): String {
         if (useBackup) return backupUrls.firstOrNull { it.isNotBlank() } ?: url
-        val targetHost = host ?: return url
-        val uri = Uri.parse(url)
-        if (uri.host.isNullOrBlank()) return url
-        return uri.buildUpon().authority(targetHost).build().toString()
+        if (url.isBlank()) return backupUrls.firstOrNull { it.isNotBlank() }.orEmpty()
+        val targetHost = host
+        val portable = bestPortableUrl(url, backupUrls)
+        if (auto && targetHost == null) {
+            // 自动模式还没测出结果时，优先用 B 站给的备用地址，避免直接连 mcdn 的 8082 端口。
+            return portable ?: url
+        }
+        if (targetHost == null) return url
+        // mcdn 地址是“指定仓库”的取货单，换 host 会被拒绝（403）；没有可用备用地址时保持原样。
+        return portable?.let { replaceHost(it, targetHost) } ?: url
     }
 }
 
+private val McdnHostSuffixes = listOf(
+    ".mcdn.bilivideo.cn",
+    ".mcdn.bilivideo.com",
+    ".mcdn.bilivideo.net",
+)
+private val McdnPath = Regex("^/v\\d+/resource(/.*)?$")
+
+/** mcdn 的 `/vN/resource/...` 地址只接受 mcdn 前端，不能换到 upos 节点。 */
+internal fun isMcdnResource(url: String): Boolean = runCatching {
+    val uri = Uri.parse(url)
+    val host = uri.host.orEmpty().lowercase()
+    McdnHostSuffixes.any { host.endsWith(it) } && McdnPath.matches(uri.path.orEmpty())
+}.getOrDefault(false)
+
+private fun isUpgcxcode(url: String): Boolean =
+    runCatching { Uri.parse(url).path.orEmpty().contains("/upgcxcode/") }.getOrDefault(false)
+
+private fun isUposHost(url: String): Boolean =
+    runCatching { Uri.parse(url).host.orEmpty().startsWith("upos-") }.getOrDefault(false)
+
+/**
+ * 在 baseUrl + backupUrl 里挑一个“可以安全换 host”的地址。
+ * 优先 upos 节点，其次是 B 站给的备份节点；完全找不到就返回 null。
+ */
+private fun bestPortableUrl(url: String, backupUrls: List<String>): String? {
+    val candidates = (listOf(url) + backupUrls)
+        .filter { it.isNotBlank() && isUpgcxcode(it) && !isMcdnResource(it) }
+    return candidates.firstOrNull(::isUposHost) ?: candidates.firstOrNull()
+}
+
+private fun replaceHost(url: String, targetHost: String): String {
+    val uri = Uri.parse(url)
+    if (uri.host.isNullOrBlank()) return url
+    return uri.buildUpon().authority(targetHost).build().toString()
+}
+
 val CdnServices = listOf(
-    CdnService("base", "基础URL"),
+    CdnService("auto", "自动", auto = true),
+    CdnService("base", "原地址"),
     CdnService("backup", "备用URL", useBackup = true),
     CdnService("ali", "ali（阿里云）", "upos-sz-mirrorali.bilivideo.com"),
     CdnService("alib", "alib（阿里云）", "upos-sz-mirroralib.bilivideo.com"),
@@ -44,7 +88,7 @@ val CdnServices = listOf(
 
 fun cdnServiceById(id: String): CdnService {
     if (id == CdnAutoSelector.ID) {
-        // 自动模式还没测出结果时先用基础地址，拿到测速结果后自动切到最佳节点。
+        // 自动模式还没测出结果时先用备用地址，拿到测速结果后再切到最佳节点。
         return CdnAutoSelector.currentService() ?: CdnServices.first()
     }
     return CdnServices.firstOrNull { it.id == id } ?: CdnServices.first()

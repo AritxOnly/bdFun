@@ -88,6 +88,15 @@ data class DanmakuItem(
     val self: Boolean = false,
 )
 
+/** 空降助手片段（来自 BilibiliSponsorBlock 公共 API）。 */
+data class SponsorSegment(
+    val startMs: Long,
+    val endMs: Long,
+    val category: String,
+    val actionType: String,
+    val uuid: String,
+)
+
 data class PlayInfo(
     val qualities: List<Quality>,
     val audioUrl: String?,
@@ -222,6 +231,19 @@ data class HistoryItem(
     /** 播放量 / 弹幕数（接口里的 stat 字段，历史与稍后再看都有） */
     val play: Int = 0,
     val danmaku: Int = 0,
+    /** 稿件 aid：批量删除历史 / 稍后再看时要用；历史游标接口放在 history.oid 里。 */
+    val aid: Long = 0,
+)
+
+/** 搜索结果里的用户卡片（search_type = bili_user）。 */
+data class SearchUser(
+    val mid: Long,
+    val name: String,
+    val face: String,
+    val sign: String,
+    val fans: Long = 0,
+    val videos: Long = 0,
+    val level: Int = 0,
 )
 
 data class FavoriteFolder(
@@ -261,6 +283,16 @@ data class MessageItem(
     val followed: Boolean = false,
     val likeNames: List<String> = emptyList(),
     val likeCount: Int = 0,
+)
+
+/** 私信会话里的一条消息。 */
+data class ChatMessage(
+    val id: Long,
+    val senderId: Long,
+    val timestamp: Long,
+    val text: String,
+    val imageUrl: String = "",
+    val isMine: Boolean = false,
 )
 
 /** 消息中心的一个会话（系统通知 / 私信）。 */

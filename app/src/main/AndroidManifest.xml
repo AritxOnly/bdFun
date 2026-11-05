@@ -68,6 +68,10 @@
             android:name=".MessageDetailActivity"
             android:exported="false" />
         <activity
+            android:name=".PrivateChatActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
             android:name=".LoginActivity"
             android:exported="false" />
         <activity
@@ -112,6 +116,18 @@
             android:name=".data.CacheService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <activity
+            android:name=".LogActivity"
+            android:exported="false" />
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
         <receiver
             android:name=".ui.MediaActionReceiver"
             android:exported="false" />

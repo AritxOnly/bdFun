@@ -36,6 +36,16 @@ object TeakNavigator {
         )
     }
 
+    fun openPrivateChat(context: Context, session: com.aritxonly.bdfun.data.MessageSession) {
+        context.startActivity(
+            Intent(context, PrivateChatActivity::class.java)
+                .putExtra("talker_id", session.talkerId)
+                .putExtra("session_type", session.sessionType)
+                .putExtra("name", session.name)
+                .putExtra("avatar", session.avatar),
+        )
+    }
+
     fun openLogin(context: Context) {
         context.startActivity(Intent(context, LoginActivity::class.java))
     }
@@ -50,6 +60,10 @@ object TeakNavigator {
 
     fun openCredits(context: Context) {
         context.startActivity(Intent(context, CreditsActivity::class.java))
+    }
+
+    fun openLogs(context: Context) {
+        context.startActivity(Intent(context, LogActivity::class.java))
     }
 
     fun openMySent(context: Context) {

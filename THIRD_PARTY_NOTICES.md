@@ -26,6 +26,15 @@ bdFun 包含或参考了以下第三方项目的代码、材质和参数。分�
 - 使用方式：第三方依赖，未复制源码。提供 `miuix-ui`、`miuix-blur`、`miuix-icons`、`MiuixTheme`、`LayerBackdrop`、`textureBlur`、`progressiveTextureBlur` 等。
 - 分发时按 Apache-2.0 保留 NOTICE / 许可证信息（如上游提供）。
 
+## BiliPai / bytedance DanmakuRenderEngine
+
+- 仓库：https://github.com/jay3-yy/BiliPai
+- 上游：https://github.com/bytedance/DanmakuRenderEngine（commit `577d3f4e170283a5bdb198af3ca924b8c32d1ab4`）
+- 许可证：Apache License 2.0
+- 使用方式：**完整移植** `danmaku-engine` 模块（66 个源文件）到本地 `danmaku-engine/`，保留上游版权头和 `LICENSE` / `UPSTREAM.md`。
+- 本地仅做了两类小改动：`TextData` 增加 `isSelf` 字段、`TextDrawItem` 增加自发送弹幕的粉色圆角底；其余轨道、渲染、解析代码保持上游。
+- 分发时保留该模块的 `LICENSE` 与版权声明。
+
 ## 其他主要依赖
 
 | 项目 | 地址 | 许可证 |

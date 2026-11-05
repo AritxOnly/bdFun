@@ -453,7 +453,7 @@ private fun FloatingTabItemContent(
                     lineHeight = 11.sp,
                 )
             },
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -512,7 +512,7 @@ private fun FloatingTabBadge(
             color = colors.onError,
             fontSize = 9.sp,
             lineHeight = 11.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Medium,
             maxLines = 1,
         )
     }

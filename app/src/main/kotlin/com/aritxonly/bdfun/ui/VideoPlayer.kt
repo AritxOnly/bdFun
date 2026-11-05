@@ -28,6 +28,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateRotation
 import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -73,6 +74,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -154,6 +156,9 @@ private val BottomGradientInline = 92.dp
 private fun buildPlayer(context: Context, decoderMode: Int): ExoPlayer {
     val renderers = DefaultRenderersFactory(context)
         .setEnableDecoderFallback(decoderMode != 3)
+        // 长按倍速时让 AudioTrack 直接改播放参数，避免 Sonic 音频缓冲导致
+        // “震动已经触发、过一两秒才听到加速”的延迟。
+        .setEnableAudioTrackPlaybackParams(true)
     if (decoderMode in 1..3) {
         renderers.setMediaCodecSelector(TeakCodecSelector(decoderMode))
     }
@@ -324,6 +329,11 @@ internal fun VideoPlayer(
     LaunchedEffect(info, quality) {
         usingFallback = false
         usingOriginal = false
+        com.aritxonly.bdfun.data.LogCollector.record(
+            "PLAYER",
+            "quality-change bvid=$bvid q=${quality?.id} hasInfo=${info != null} " +
+                "qualities=${info?.qualities?.size ?: 0}",
+        )
     }
     LaunchedEffect(ready, AppGraph.settings.loudnessEq) {
         loudnessEnhancer?.release()
@@ -348,6 +358,18 @@ internal fun VideoPlayer(
     var bufferedMs by remember { mutableLongStateOf(0L) }
     var durationMs by remember { mutableLongStateOf(0L) }
     var controlsVisible by remember { mutableStateOf(false) }
+    var sponsorSegments by remember(bvid) { mutableStateOf<List<com.aritxonly.bdfun.data.SponsorSegment>>(emptyList()) }
+    var dismissedSponsor by remember(bvid) { mutableStateOf<Set<String>>(emptySet()) }
+    val sponsorEnabled = AppGraph.settings.sponsorSkipEnabled
+    LaunchedEffect(bvid, sponsorEnabled) {
+        if (!sponsorEnabled) {
+            sponsorSegments = emptyList()
+            return@LaunchedEffect
+        }
+        sponsorSegments = runCatching {
+            AppGraph.api.sponsorSegments(bvid)
+        }.getOrDefault(emptyList())
+    }
     var speed by remember { mutableFloatStateOf(1f) }
     var speedMenu by remember { mutableStateOf(false) }
     val speedSpring = rememberSpringFloat(if (speedMenu) 1f else 0f, stiffness = 300f, damping = 22f)
@@ -357,6 +379,25 @@ internal fun VideoPlayer(
     // 全屏新 UI 的本地状态：二级面板、听视频、镜像、循环、画面尺寸、定时关闭等
     var fsPanel by remember { mutableStateOf(FullscreenPanel.None) }
     var fsInputOpen by remember { mutableStateOf(false) }
+    var fsLocked by remember { mutableStateOf(false) }
+    var fsLockHint by remember { mutableStateOf(false) }
+    LaunchedEffect(fsLockHint) {
+        if (fsLockHint) {
+            kotlinx.coroutines.delay(3_000L)
+            fsLockHint = false
+        }
+    }
+    LaunchedEffect(fsLocked, fullscreen) {
+        VideoOrientationLock.locked = fsLocked && fullscreen
+        if (fsLocked && fullscreen) {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LOCKED
+        } else if (fullscreen) {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose { VideoOrientationLock.locked = false }
+    }
     var fsAudioOnly by remember { mutableStateOf(false) }
     var halfMoreOpen by remember { mutableStateOf(false) }
     var fsAutoPlayNext by remember { mutableStateOf(true) }
@@ -600,6 +641,10 @@ internal fun VideoPlayer(
         val listener = object : Player.Listener {
             override fun onRenderedFirstFrame() {
                 firstFrame = true
+                com.aritxonly.bdfun.data.LogCollector.record(
+                    "PLAYER",
+                    "first-frame bvid=$bvid q=${latestQuality?.id}",
+                )
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -609,6 +654,13 @@ internal fun VideoPlayer(
             }
 
             override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_BUFFERING || state == Player.STATE_READY) {
+                    com.aritxonly.bdfun.data.LogCollector.record(
+                        "PLAYER",
+                        "state=${if (state == Player.STATE_BUFFERING) "buffering" else "ready"} " +
+                            "bvid=$bvid q=${latestQuality?.id}",
+                    )
+                }
                 buffering = state == Player.STATE_BUFFERING
                 if (state == Player.STATE_READY) {
                     ready = true
@@ -623,6 +675,12 @@ internal fun VideoPlayer(
             }
 
             override fun onPlayerError(error: PlaybackException) {
+                com.aritxonly.bdfun.data.LogCollector.record(
+                    "PLAYER",
+                    "error code=${error.errorCodeName} q=${latestQuality?.id} " +
+                        "usingOriginal=$usingOriginal usingFallback=$usingFallback " +
+                        "message=${error.message?.take(300)}",
+                )
                 // CDN 节点有时会拒绝带签名的 4K/音轨地址（403），先用原地址重试，再考虑降画质。
                 val rawVideo = latestQuality?.rawVideoUrl.orEmpty()
                 val rawAudio = latestInfo?.rawAudioUrl.orEmpty()
@@ -659,12 +717,29 @@ internal fun VideoPlayer(
                 ?: quality?.videoUrl
                 ?: info?.fallbackUrl
             else -> quality?.videoUrl ?: info?.fallbackUrl
-        } ?: return@LaunchedEffect
+        } ?: run {
+            com.aritxonly.bdfun.data.LogCollector.record(
+                "PLAYER",
+                "no-source bvid=$bvid q=${quality?.id} hasInfo=${info != null} " +
+                    "qualities=${info?.qualities?.size ?: 0} " +
+                    "usingOriginal=$usingOriginal usingFallback=$usingFallback",
+            )
+            if (info != null && info.qualities.isEmpty() && info.fallbackUrl.isNullOrBlank()) {
+                context.showToast("播放地址为空，已记录日志")
+            }
+            return@LaunchedEffect
+        }
         val audioUrl = when {
             usingFallback -> null
             usingOriginal -> info?.rawAudioUrl?.takeIf { it.isNotBlank() } ?: info?.audioUrl
             else -> info?.audioUrl
         }
+        com.aritxonly.bdfun.data.LogCollector.record(
+            "PLAYER",
+            "source bvid=$bvid q=${quality?.id} auto=$autoQuality " +
+                "usingOriginal=$usingOriginal usingFallback=$usingFallback " +
+                "video=${describeMediaUrl(url)} audio=${describeMediaUrl(audioUrl)}",
+        )
         val httpFactory = DefaultHttpDataSource.Factory()
             .setUserAgent(BiliApi.UA)
             .setDefaultRequestProperties(
@@ -731,12 +806,66 @@ internal fun VideoPlayer(
 
     val danmakuVisible = !fsAudioOnly && DanmakuSettings.enabled && danmaku.isNotEmpty()
 
-    // 弹幕关闭、列表为空或听视频模式时，不需要每帧驱动进度。
+    // 弹幕计数：按相同文本的出现次数统计，每秒挑最近 15 秒里重复最多的两条。
+    // 只在列表/开关变化时重算计数，循环本身 1 秒一次，不参与每帧绘制。
+    val danmakuTextCounts = remember(danmaku) {
+        if (danmaku.isEmpty()) emptyMap() else danmaku.groupingBy { it.text }.eachCount()
+    }
+    var hotDanmaku by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
+    LaunchedEffect(danmaku, danmakuVisible) {
+        if (!danmakuVisible) {
+            hotDanmaku = emptyList()
+            return@LaunchedEffect
+        }
+        while (true) {
+            val now = positionMs
+            val from = (now - 15_000L).coerceAtLeast(0L)
+            hotDanmaku = danmaku.asSequence()
+                .filter { it.timeMs in from..now }
+                .mapNotNull { item ->
+                    val count = danmakuTextCounts[item.text] ?: 0
+                    if (count >= 3) item.text to count else null
+                }
+                .distinctBy { it.first }
+                .sortedByDescending { it.second }
+                .take(2)
+                .toList()
+            kotlinx.coroutines.delay(1_000L)
+        }
+    }
+
+    val activeSponsor = sponsorSegments.firstOrNull { segment ->
+        segment.uuid !in dismissedSponsor &&
+            positionMs >= segment.startMs &&
+            positionMs < segment.endMs
+    }
     LaunchedEffect(playing, danmakuVisible) {
         if (!playing || !danmakuVisible) return@LaunchedEffect
+        var lastEmitNs = 0L
+        val frameIntervalNs = 16_666_667L // 弹幕最多 60 帧，降低 120Hz 下的无效重绘
         while (true) {
-            withFrameNanos { }
-            frameMs = exo.currentPosition
+            withFrameNanos { frameTimeNs ->
+                if (lastEmitNs == 0L) {
+                    frameMs = exo.currentPosition
+                    lastEmitNs = frameTimeNs
+                } else if (frameTimeNs - lastEmitNs >= frameIntervalNs) {
+                    val deltaMs = (frameTimeNs - lastEmitNs) / 1_000_000.0
+                    // 用界面上的目标倍速，而不是等播放器内部慢慢生效的倍速，
+                    // 这样长按加速/松开恢复时弹幕会立刻跟着变，不会晚半拍。
+                    val rate = if (boosting) boostSpeed else speed
+                    val predicted = frameMs + (deltaMs * rate).toLong()
+                    val actual = exo.currentPosition
+                    val error = actual - predicted
+                    frameMs = if (abs(error) > 2_500L) {
+                        // 拖动进度条等大跳变：直接回同步。
+                        actual
+                    } else {
+                        // 小偏差每次最多修正 4ms，避免画面一卡一卡。
+                        predicted + error.coerceIn(-4L, 4L)
+                    }
+                    lastEmitNs = frameTimeNs
+                }
+            }
         }
     }
 
@@ -813,7 +942,7 @@ internal fun VideoPlayer(
         modifier = modifier
             .background(Color.Black)
             .then(
-                if (fsPanel == FullscreenPanel.None && !fsInputOpen && !fsAudioOnly) {
+                if (fsPanel == FullscreenPanel.None && !fsInputOpen && !fsAudioOnly && !fsLocked) {
                     Modifier.playerGestures(
                         onTap = {
                             controlsVisible = !controlsVisible
@@ -825,9 +954,10 @@ internal fun VideoPlayer(
                         },
                         onLongPressStart = {
                             if (playing) {
-                                boosting = true
                                 boostSpeed = AppGraph.settings.boostDefaultSpeed
+                                // 先让播放器收到倍速，再触发界面状态，减少“先震动、后加速”的感觉。
                                 exo.setPlaybackSpeed(boostSpeed)
+                                boosting = true
                                 // 触发加速的瞬间震一下，确认手势已生效
                                 buzzDevice(context)
                                 // 面板/控件开着时直接收起，把画面让出来
@@ -836,8 +966,8 @@ internal fun VideoPlayer(
                             }
                         },
                         onLongPressEnd = {
-                            boosting = false
                             exo.setPlaybackSpeed(speed)
+                            boosting = false
                         },
                         onDragStart = { leftSide, horizontal, verticalAllowed ->
                             if (horizontal) {
@@ -970,9 +1100,106 @@ internal fun VideoPlayer(
                 DanmakuLayer(
                     items = danmaku,
                     positionMs = { frameMs - btLatencyMs },
+                    playing = playing,
+                    playbackSpeed = if (boosting) boostSpeed else speed,
                     modifier = Modifier.fillMaxSize(),
                     fullscreen = fullscreen,
                 )
+            }
+
+            // 进度条常显：控件整体隐藏时，在画面最底部留一条 1dp 的粉色进度。
+            val progressBarMode = AppGraph.settings.progressBarMode
+            val alwaysProgress = !controlsVisible && !fsAudioOnly &&
+                (progressBarMode == 3 ||
+                    (progressBarMode == 1 && !fullscreen) ||
+                    (progressBarMode == 2 && fullscreen))
+            if (alwaysProgress && durationMs > 0L) {
+                val fraction = (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .background(Color.White.copy(alpha = 0.12f)),
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth(fraction)
+                        .height(2.dp)
+                        .background(BrandPink),
+                )
+            }
+
+            // 弹幕计数：最近 15 秒里重复次数最多的两条，附带 ×次数。
+            if (AppGraph.settings.hotDanmakuEnabled &&
+                hotDanmaku.isNotEmpty() && !controlsVisible && !fsAudioOnly
+            ) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = if (fullscreen) 44.dp else 8.dp)
+                        .padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    hotDanmaku.forEach { (text, count) ->
+                        Row(
+                            modifier = Modifier
+                                .clip(Capsule())
+                                .background(Color.Black.copy(alpha = 0.50f))
+                                .padding(horizontal = 10.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = text,
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                text = "×$count",
+                                color = BrandPink,
+                                fontSize = 12.sp,
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 空降助手：进入赞助片段时在右下角出现跳过按钮。
+            if (sponsorEnabled) activeSponsor?.let { segment ->
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(
+                            end = 16.dp,
+                            bottom = if (fullscreen) 104.dp else 62.dp,
+                        )
+                        .clip(Capsule())
+                        .background(Color.Black.copy(alpha = 0.50f))
+                        .clickable(interactionSource = null, indication = null) {
+                            exo.seekTo(segment.endMs)
+                            positionMs = segment.endMs
+                            dismissedSponsor = dismissedSponsor + segment.uuid
+                        }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "空降助手 · ${sponsorCategoryLabel(segment.category)}",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "跳过",
+                        color = BrandPink,
+                        fontSize = 12.sp,
+                    )
+                }
             }
         }
 
@@ -999,7 +1226,7 @@ internal fun VideoPlayer(
                     text = "播放完成",
                     color = Color.White,
                     fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Normal,
                 )
             }
         }
@@ -1011,7 +1238,7 @@ internal fun VideoPlayer(
                     .then(if (fullscreen) Modifier.statusBarsPadding() else Modifier)
                     .padding(top = 12.dp)
                     .clip(Capsule())
-                    .background(Color.Black.copy(alpha = 0.70f))
+                    .background(Color.Black.copy(alpha = 0.50f))
                     .padding(horizontal = 14.dp, vertical = 8.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1061,6 +1288,11 @@ internal fun VideoPlayer(
                 qualityMenu = false
                 speedMenu = false
             }
+        }
+
+        BackHandler(enabled = fullscreen && fsLocked) {
+            // 锁屏时返回键只解锁，不退出全屏。
+            fsLocked = false
         }
 
         BackHandler(enabled = fullscreen && (fsPanel != FullscreenPanel.None || fsInputOpen)) {
@@ -1237,19 +1469,23 @@ internal fun VideoPlayer(
                     text = "取消缩放",
                     color = Color(0xFFFB7299),
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Normal,
                 )
             }
         }
 
-        if (fullscreen && !fsInputOpen && controlsAlpha > 0.005f) {
+        if (fullscreen) {
             FullscreenPlayerChrome(
                 info = fullscreenInfo,
                 playback = FullscreenPlaybackState(
                     playing = playing,
-                    positionMs = if (seekPreviewMs >= 0L) seekPreviewMs else positionMs,
-                    durationMs = durationMs,
-                    bufferedMs = bufferedMs,
+                    positionMs = if (controlsVisible) {
+                        if (seekPreviewMs >= 0L) seekPreviewMs else positionMs
+                    } else {
+                        0L
+                    },
+                    durationMs = if (controlsVisible) durationMs else 0L,
+                    bufferedMs = if (controlsVisible) bufferedMs else 0L,
                     speed = speed,
                     qualities = info?.qualities.orEmpty(),
                     qualityId = quality?.id ?: 0,
@@ -1263,8 +1499,8 @@ internal fun VideoPlayer(
                     audioOnly = fsAudioOnly,
                     sleepAtMs = fsSleepAt,
                     backgroundPlay = AppGraph.settings.backgroundPlay,
-                    seekLook = fsSeekLook,
-                    scrubbing = fsScrubbing,
+                    seekLook = if (controlsVisible) fsSeekLook else 0f,
+                    scrubbing = controlsVisible && fsScrubbing,
                 ),
                 actions = fsActions,
                 panel = fsPanel,
@@ -1272,7 +1508,8 @@ internal fun VideoPlayer(
                 modifier = Modifier
                     .fillMaxSize()
                     .zIndex(10f)
-                    .graphicsLayer { alpha = controlsAlpha },
+                    .offset(x = if (controlsVisible && !fsInputOpen) 0.dp else 10_000.dp)
+                    .graphicsLayer { alpha = if (fsInputOpen) 0f else controlsAlpha },
                 scrubOnly = fsScrubbing,
                 onScrubStart = { fsScrubbing = true },
                 onScrubEnd = {
@@ -1286,6 +1523,48 @@ internal fun VideoPlayer(
                     PlayerUiState.controlsVisible = false
                 },
             )
+        }
+
+        // 全屏锁：未锁定时跟控件一起出现；锁定后点画面才短暂显示锁图标。
+        if (fullscreen && fsLocked) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(15f)
+                    .pointerInput(Unit) {
+                        detectTapGestures {
+                            fsLockHint = true
+                        }
+                    },
+            )
+        }
+        if (fullscreen && ((fsLocked && fsLockHint) ||
+                (!fsLocked && controlsVisible && fsPanel == FullscreenPanel.None && !fsInputOpen))
+        ) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 10.dp)
+                    .size(50.dp)
+                    .zIndex(20f)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.50f))
+                    .clickable(interactionSource = null, indication = null) {
+                        fsLocked = !fsLocked
+                        fsLockHint = false
+                        if (fsLocked) {
+                            controlsVisible = false
+                            PlayerUiState.controlsVisible = false
+                            fsPanel = FullscreenPanel.None
+                            fsInputOpen = false
+                            qualityMenu = false
+                            speedMenu = false
+                        }
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                LockGlyph(locked = fsLocked)
+            }
         }
 
         if (fullscreen && fsScrubbing) {
@@ -1640,7 +1919,7 @@ internal fun VideoPlayer(
                                         fontSize = 13.sp,
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                                         fontWeight = if (active) {
-                                            FontWeight.SemiBold
+                                            FontWeight.Medium
                                         } else {
                                             FontWeight.Normal
                                         },
@@ -1688,7 +1967,7 @@ internal fun VideoPlayer(
                                 text = "画质",
                                 color = Color.White.copy(alpha = 0.92f),
                                 fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = FontWeight.Medium,
                                 modifier = Modifier.padding(bottom = 2.dp),
                             )
                             // 自动：按当前网速挑一档，播放器里也能直接切
@@ -1709,7 +1988,7 @@ internal fun VideoPlayer(
                                         color = if (autoQuality) BrandPink else Color.White,
                                         fontSize = 13.sp,
                                         fontWeight = if (autoQuality) {
-                                            FontWeight.SemiBold
+                                            FontWeight.Medium
                                         } else {
                                             FontWeight.Normal
                                         },
@@ -1740,7 +2019,7 @@ internal fun VideoPlayer(
                                                 color = if (active) BrandPink else Color.White,
                                                 fontSize = 13.sp,
                                                 fontWeight = if (active) {
-                                                    FontWeight.SemiBold
+                                                    FontWeight.Medium
                                                 } else {
                                                     FontWeight.Normal
                                                 },
@@ -1783,49 +2062,60 @@ internal fun VideoPlayer(
         }
 
         // 半屏播放器：参考官方横屏的紧凑条，不再使用竖屏那套完整控件
-        if (!fullscreen && controlsVisible && !fsAudioOnly) {
-            InlineCompactChrome(
-                playing = playing,
-                positionMs = if (seekPreviewMs >= 0L) seekPreviewMs else positionMs,
-                durationMs = durationMs,
-                bufferedMs = bufferedMs,
-                scrubbing = fsScrubbing,
-                seekLook = fsSeekLook,
-                immersiveStatusBar = immersiveStatusBar,
-                onBack = { touch(); onBackClick() },
-                onHome = { touch(); onHomeClick() },
-                onRewind6 = {
-                    touch()
-                    val target = (exo.currentPosition - 6_000L).coerceAtLeast(0L)
-                    exo.seekTo(target)
-                    positionMs = target
-                },
-                onPlayPause = {
-                    touch()
-                    togglePlay(exo, playing)
-                },
-                onSeek = { target ->
-                    touch()
-                    exo.seekTo(target)
-                    positionMs = target
-                },
-                onScrubStart = { fsScrubbing = true },
-                onScrubEnd = {
-                    fsScrubbing = false
-                    fsSeekLook = 0f
-                },
-                onScrubLook = { fsSeekLook = it },
-                onFullscreen = {
-                    touch()
-                    onToggleFullscreen()
-                },
-                onListen = {
-                    touch()
-                    fsAudioOnly = true
-                },
-                onCast = { touch(); fsActions.onCast() },
-                onMore = { touch(); halfMoreOpen = true },
-            )
+        if (!fullscreen && !fsAudioOnly) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .offset(x = if (controlsVisible) 0.dp else 10_000.dp)
+                    .graphicsLayer { alpha = controlsAlpha },
+            ) {
+                InlineCompactChrome(
+                    playing = playing,
+                    positionMs = if (controlsVisible) {
+                        if (seekPreviewMs >= 0L) seekPreviewMs else positionMs
+                    } else {
+                        0L
+                    },
+                    durationMs = if (controlsVisible) durationMs else 0L,
+                    bufferedMs = if (controlsVisible) bufferedMs else 0L,
+                    scrubbing = controlsVisible && fsScrubbing,
+                    seekLook = if (controlsVisible) fsSeekLook else 0f,
+                    immersiveStatusBar = immersiveStatusBar,
+                    onBack = { touch(); onBackClick() },
+                    onHome = { touch(); onHomeClick() },
+                    onRewind6 = {
+                        touch()
+                        val target = (exo.currentPosition - 6_000L).coerceAtLeast(0L)
+                        exo.seekTo(target)
+                        positionMs = target
+                    },
+                    onPlayPause = {
+                        touch()
+                        togglePlay(exo, playing)
+                    },
+                    onSeek = { target ->
+                        touch()
+                        exo.seekTo(target)
+                        positionMs = target
+                    },
+                    onScrubStart = { fsScrubbing = true },
+                    onScrubEnd = {
+                        fsScrubbing = false
+                        fsSeekLook = 0f
+                    },
+                    onScrubLook = { fsSeekLook = it },
+                    onFullscreen = {
+                        touch()
+                        onToggleFullscreen()
+                    },
+                    onListen = {
+                        touch()
+                        fsAudioOnly = true
+                    },
+                    onCast = { touch(); fsActions.onCast() },
+                    onMore = { touch(); halfMoreOpen = true },
+                )
+            }
         }
 
         // 半屏听视频：不进入全屏也能用，播放器区域换成音频模式。
@@ -2292,7 +2582,7 @@ private fun GestureIconTip(
     Row(
         modifier = modifier
             .clip(Capsule())
-            .background(Color.Black.copy(alpha = 0.70f))
+            .background(Color.Black.copy(alpha = 0.50f))
             .padding(horizontal = 18.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -2377,7 +2667,7 @@ private fun GestureTip(label: String, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .clip(Capsule())
-            .background(Color.Black.copy(alpha = 0.70f))
+            .background(Color.Black.copy(alpha = 0.50f))
             .padding(horizontal = 12.dp, vertical = 7.dp),
     ) {
         Text(text = label, color = Color.White, fontSize = 12.sp)
@@ -2584,8 +2874,8 @@ private fun buzzDevice(context: Context) {
             as? android.os.VibratorManager)?.defaultVibrator
         vibrator?.vibrate(
             android.os.VibrationEffect.createOneShot(
-                28L,
-                android.os.VibrationEffect.DEFAULT_AMPLITUDE,
+                12L,
+                48,
             ),
         )
     }
@@ -3106,13 +3396,13 @@ private fun HalfScreenAudioMode(
             )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text("听视频", color = BrandPink, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                Text("听视频", color = BrandPink, fontSize = 11.sp, fontWeight = FontWeight.Normal)
                 Spacer(Modifier.height(3.dp))
                 Text(
                     text = title,
                     color = Color.White,
                     fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Normal,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -3191,4 +3481,56 @@ private fun HalfScreenAudioMode(
             )
         }
     }
+}
+
+/** 日志里只记录域名和路径，避免把带签名的完整播放地址写进文件。 */
+private fun describeMediaUrl(url: String?): String {
+    if (url.isNullOrBlank()) return "none"
+    return runCatching {
+        val uri = android.net.Uri.parse(url)
+        "${uri.host}${uri.path}"
+    }.getOrDefault("invalid")
+}
+
+/** Fullscreen lock glyph: shackle closed when locked, open when unlocked. */
+@Composable
+private fun LockGlyph(locked: Boolean) {
+    Canvas(modifier = Modifier.size(23.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.8.dp.toPx()
+        // lock body
+        drawRoundRect(
+            color = Color.White,
+            topLeft = Offset(w * 0.22f, h * 0.45f),
+            size = Size(w * 0.56f, h * 0.40f),
+            cornerRadius = CornerRadius(w * 0.10f, w * 0.10f),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(stroke),
+        )
+        // shackle: full arc when locked, open arc when unlocked
+        drawArc(
+            color = Color.White,
+            startAngle = 180f,
+            sweepAngle = if (locked) 180f else 140f,
+            useCenter = false,
+            topLeft = Offset(
+                w * if (locked) 0.32f else 0.30f,
+                h * if (locked) 0.18f else 0.12f,
+            ),
+            size = Size(w * 0.36f, h * 0.46f),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(stroke),
+        )
+    }
+}
+
+private fun sponsorCategoryLabel(category: String): String = when (category) {
+    "sponsor" -> "赞助"
+    "selfpromo" -> "自我推广"
+    "interaction" -> "互动提醒"
+    "intro" -> "开场"
+    "outro" -> "结尾"
+    "preview" -> "预览"
+    "music_offtopic" -> "非音乐部分"
+    "filler" -> "填充"
+    else -> "片段"
 }

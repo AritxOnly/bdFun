@@ -129,7 +129,7 @@ private fun TermsButton(
             text = text,
             color = if (primary) Color.White else colors.onBackgroundVariant,
             fontSize = 14.sp,
-            fontWeight = if (primary) FontWeight.Medium else FontWeight.Normal,
+            fontWeight = if (primary) FontWeight.Normal else FontWeight.Normal,
         )
     }
 }

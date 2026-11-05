@@ -42,7 +42,7 @@ fun TabTopBar(
             text = title,
             color = MaterialTheme.colorScheme.onSurface,
             fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Medium,
             modifier = Modifier
                 .align(Alignment.Center)
                 .padding(top = statusBarTop)
