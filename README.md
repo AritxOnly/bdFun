@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/build-Gradle-02303A?logo=gradle&logoColor=white&style=flat-square" alt="build">
 </p>
 
-bdFun 是一个第三方哔哩哔哩 Android 客户端，使用 Kotlin + Jetpack Compose 编写，致力于轻快、流畅、简洁、美观的使用体验。
+bdFun 是一个第三方哔哩哔哩 Android 客户端，使用 Kotlin + Jetpack Compose 编写，弹幕模块移植自 BiliPai，致力于轻快、流畅、简洁、美观的使用体验。
 
 > 本项目为第三方非官方客户端，与哔哩哔哩（上海宽娱数码科技有限公司）及其关联方无任何隶属、授权或合作关系。项目仅用于学习、研究与技术交流，不提供、不包含、不传播任何破解内容、付费内容绕过机制或会员权益破解功能。
 
@@ -79,7 +79,7 @@ bdFun 使用了 / 参考了以下项目，感谢作者和社区的工作：
 - [PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus)（[@bggRGjQaUbCoE](https://github.com/bggRGjQaUbCoE)）：功能与交互参考
 - [Miuix](https://github.com/compose-miuix-ui/miuix)（[@compose-miuix-ui](https://github.com/compose-miuix-ui)）：Compose UI / 玻璃 blur 依赖
 - [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)（[@SocialSisterYi](https://github.com/SocialSisterYi)）：B 站接口资料
-- [BiliPai](https://github.com/jay3-yy/BiliPai) / [bytedance DanmakuRenderEngine](https://github.com/bytedance/DanmakuRenderEngine)：弹幕渲染模块与实现参考（Apache-2.0）
+- [BiliPai](https://github.com/jay3-yy/BiliPai) / [bytedance DanmakuRenderEngine](https://github.com/bytedance/DanmakuRenderEngine)：弹幕渲染模块实现移植（Apache-2.0）
 - AndroidX / Jetpack Compose、Media3 / ExoPlayer、OkHttp、Coil、Kotlin / kotlinx.coroutines、ZXing
 
 感谢所有上游项目作者与贡献者。
