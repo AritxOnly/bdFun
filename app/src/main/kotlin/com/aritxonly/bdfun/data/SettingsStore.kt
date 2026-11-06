@@ -140,6 +140,9 @@ class SettingsStore(context: Context) {
     /** 进入视频是否自动播放（默认开）。 */
     private val autoPlayState = mutableStateOf(prefs.getBoolean("auto_play", true))
 
+    /** 播放结束后是否自动连播（默认开，需记住用户关闭状态）。 */
+    private val autoPlayNextState = mutableStateOf(prefs.getBoolean("auto_play_next", true))
+
     /** 动态页视频滚到屏幕中心附近时是否自动静音预览播放。 */
     private val dynamicAutoPlayState = mutableStateOf(prefs.getBoolean("dynamic_auto_play", true))
 
@@ -174,6 +177,9 @@ class SettingsStore(context: Context) {
         mutableStateOf(prefs.getBoolean("gesture_boost_swipe", true))
     private val boostDefaultSpeedState =
         mutableFloatStateOf(prefs.getFloat("boost_default_speed", 3f))
+    /** 打开每个视频时的默认播放倍速。 */
+    private val defaultPlaybackSpeedState =
+        mutableFloatStateOf(prefs.getFloat("default_playback_speed", 1f))
     private val showFullscreenTimeState = mutableStateOf(prefs.getBoolean("show_fullscreen_time", true))
     private val showFullscreenActionsState =
         mutableStateOf(prefs.getBoolean("show_fullscreen_actions", true))
@@ -525,6 +531,13 @@ class SettingsStore(context: Context) {
             prefs.edit().putBoolean("auto_play", value).apply()
         }
 
+    var autoPlayNext: Boolean
+        get() = autoPlayNextState.value
+        set(value) {
+            autoPlayNextState.value = value
+            prefs.edit().putBoolean("auto_play_next", value).apply()
+        }
+
     var dynamicAutoPlay: Boolean
         get() = dynamicAutoPlayState.value
         set(value) {
@@ -647,6 +660,16 @@ class SettingsStore(context: Context) {
         set(value) {
             gestureBoostSwipeState.value = value
             prefs.edit().putBoolean("gesture_boost_swipe", value).apply()
+        }
+
+    /** 打开视频时的默认倍速，默认 1 倍。 */
+    var defaultPlaybackSpeed: Float
+        get() = defaultPlaybackSpeedState.value.coerceIn(0.5f, 3f)
+        set(value) {
+            defaultPlaybackSpeedState.value = value.coerceIn(0.5f, 3f)
+            prefs.edit()
+                .putFloat("default_playback_speed", defaultPlaybackSpeedState.value)
+                .apply()
         }
 
     /** 长按加速的默认倍率。 */

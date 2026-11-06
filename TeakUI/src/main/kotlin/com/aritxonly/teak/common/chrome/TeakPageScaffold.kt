@@ -262,6 +262,8 @@ fun TeakPageScaffold(
     topBarCenter: @Composable BoxScope.() -> Unit = {},
     topBarActions: @Composable RowScope.() -> Unit = {},
     overlay: @Composable BoxScope.() -> Unit = {},
+    /** 画在顶栏按钮之上的浮层，给需要盖住顶栏的玻璃菜单用。 */
+    menuOverlay: @Composable BoxScope.() -> Unit = {},
     titleAlwaysVisible: Boolean = false,
     content: @Composable () -> Unit,
 ) {
@@ -303,6 +305,9 @@ fun TeakPageScaffold(
                 center = topBarCenter,
                 trailing = topBarActions,
             )
+            Box(modifier = Modifier.fillMaxSize()) {
+                menuOverlay()
+            }
         }
     }
 }

@@ -50,6 +50,8 @@ fun TeakGlassSurface(
     tintStyle: GlassTintStyle = GlassTintStyle.Neutral,
     interaction: GlassMaterialInteraction = GlassMaterialInteraction(),
     materialAlpha: Float = 1f,
+    /** 玻璃下面那层近白底的透明度；1 = 原来的不透明底，0 = 只保留模糊和 tint。 */
+    baseAlpha: Float = 1f,
     backdrop: Backdrop? = LocalTeakBackdrop.current,
     contentAlignment: Alignment = Alignment.Center,
     content: @Composable BoxScope.() -> Unit,
@@ -70,7 +72,7 @@ fun TeakGlassSurface(
         )
 
     Box(
-        modifier = modifier.clip(shape).background(resolvedTint.copy(alpha = 1f)),
+        modifier = modifier.clip(shape).background(resolvedTint.copy(alpha = baseAlpha.coerceIn(0f, 1f))),
         contentAlignment = contentAlignment,
     ) {
         Box(

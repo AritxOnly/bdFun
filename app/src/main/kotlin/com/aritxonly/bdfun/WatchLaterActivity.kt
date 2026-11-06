@@ -5,11 +5,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import com.aritxonly.bdfun.data.BiliApi
 import com.aritxonly.bdfun.ui.LibraryBatchOverlay
+import com.aritxonly.bdfun.ui.LibraryMorphMenuContent
 import com.aritxonly.bdfun.ui.LibraryScreen
 import com.aritxonly.bdfun.ui.LibraryTopActions
 import com.aritxonly.bdfun.ui.TeakActivityScaffold
+import com.aritxonly.teak.common.navigation.TeakMorphMenuHost
+import com.aritxonly.teak.common.navigation.TeakMorphMenuState
 
 class WatchLaterActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -19,12 +23,20 @@ class WatchLaterActivity : ComponentActivity() {
         val api = AppGraph.api
         val settings = AppGraph.settings
         setContent {
+            val menuState = remember { TeakMorphMenuState() }
             TeakActivityScaffold(
                 settings = settings,
                 onBack = { finish() },
                 title = "稍后再看",
-                topBarActions = { LibraryTopActions() },
-                overlay = { LibraryBatchOverlay() },
+                topBarActions = { LibraryTopActions(menuState) },
+                overlay = {
+                    LibraryBatchOverlay()
+                },
+                menuOverlay = {
+                    TeakMorphMenuHost(menuState) { dismiss ->
+                        LibraryMorphMenuContent(dismiss)
+                    }
+                },
             ) {
                 WatchLaterActivityRoute(api, this)
             }

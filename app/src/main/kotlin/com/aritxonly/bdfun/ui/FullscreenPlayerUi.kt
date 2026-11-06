@@ -2411,7 +2411,7 @@ private fun PixelIcon(
 
 @Composable
 private fun BackChevron(tint: Color = Color.White) {
-    Canvas(modifier = Modifier.size(22.dp)) {
+    Canvas(modifier = Modifier.size(23.5.dp)) {
         val path = Path().apply {
             moveTo(size.width * 0.64f, size.height * 0.12f)
             lineTo(size.width * 0.28f, size.height * 0.5f)
@@ -2421,7 +2421,7 @@ private fun BackChevron(tint: Color = Color.White) {
             path = path,
             color = tint,
             style = Stroke(
-                width = size.width * 0.11f,
+                width = size.width * 0.095f,
                 cap = StrokeCap.Round,
                 join = StrokeJoin.Round,
             ),

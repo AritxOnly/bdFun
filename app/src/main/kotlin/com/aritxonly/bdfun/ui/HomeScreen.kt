@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -105,6 +106,7 @@ fun HomeScreen(
     val colors = MiuixTheme.colorScheme
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
+    val context = LocalContext.current
     val thresholdPx = with(density) { RefreshThreshold.toPx() }
     val maxPullPx = with(density) { MaxPull.toPx() }
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -249,10 +251,21 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(items = state.videos, key = { it.bvid }) { video ->
+                val oneTake = rememberOneTakeAnchor()
+                val radiusPx = with(density) { (if (largeCards) 14.dp else 16.dp).toPx() }
+                val bgArgb = colors.background.toArgb()
+                val openCard = {
+                    oneTake.open(
+                        context = context,
+                        video = video,
+                        radiusPx = radiusPx,
+                        backgroundColor = bgArgb,
+                    ) { onOpenVideo(video) }
+                }
                 if (largeCards) {
-                    VideoLargeCard(video = video, onClick = { onOpenVideo(video) })
+                    VideoLargeCard(video = video, modifier = oneTake.modifier, onClick = openCard)
                 } else {
-                    VideoGridCard(video = video, onClick = { onOpenVideo(video) })
+                    VideoGridCard(video = video, modifier = oneTake.modifier, onClick = openCard)
                 }
             }
 
@@ -328,17 +341,20 @@ fun HomeScreen(
 internal fun VideoGridCard(
     video: VideoItem,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     /** 已看进度 0..1（历史记录用），默认不显示 */
     progress: Float = 0f,
     /** 批量管理：显示右上角勾选圈，点击仍交给 onClick 处理 */
     selectionEnabled: Boolean = false,
     selected: Boolean = false,
+    /** 历史页：统计行先占位，避免补数据时整行突然出现 */
+    reserveMeta: Boolean = false,
 ) {
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .clip(FeedCardShape)
             .background(colors.surface)
             .clickable(interactionSource = null, indication = null, onClick = onClick),
@@ -374,14 +390,14 @@ internal fun VideoGridCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // 历史记录等没有播放/弹幕数据的来源就不显示这两个 0
-                if (video.play > 0 || video.danmaku > 0) {
+                if (reserveMeta || video.play > 0 || video.danmaku > 0) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         MetricGlyph(play = true)
                         Spacer(Modifier.width(3.dp))
                         Text(
-                            text = formatCount(video.play),
+                            text = if (reserveMeta && video.play <= 0) "—" else formatCount(video.play),
                             color = Color.White,
                             fontSize = 10.sp,
                             lineHeight = 11.sp,
@@ -391,7 +407,7 @@ internal fun VideoGridCard(
                         MetricGlyph(play = false)
                         Spacer(Modifier.width(3.dp))
                         Text(
-                            text = formatCount(video.danmaku),
+                            text = if (reserveMeta && video.danmaku <= 0) "—" else formatCount(video.danmaku),
                             color = Color.White,
                             fontSize = 10.sp,
                             lineHeight = 11.sp,
@@ -507,12 +523,13 @@ internal fun VideoGridCard(
 internal fun VideoLargeCard(
     video: VideoItem,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     progress: Float = 0f,
 ) {
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(ContinuousCornerShape(14.dp))
             .background(colors.surface)

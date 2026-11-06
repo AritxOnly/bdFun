@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -82,11 +83,19 @@ fun CacheScreen() {
         subtitle = "共 ${entries.size} 个 · ${formatCacheSize(entries.sumOf { it.totalBytes })}",
     ) {
         items(entries, key = { it.id }) { entry ->
-            TeakSettingsCard(modifier = Modifier.padding(bottom = 10.dp)) {
+            val oneTake = rememberOneTakeAnchor()
+            val cacheRadiusPx = with(LocalDensity.current) { 16.dp.toPx() }
+            TeakSettingsCard(
+                modifier = Modifier.padding(bottom = 10.dp).then(oneTake.modifier),
+            ) {
                 CacheRow(
                     entry = entry,
                     onOpen = {
-                        TeakNavigator.openVideo(context, entry.toVideoItem())
+                        oneTake.open(
+                            context = context,
+                            video = entry.toVideoItem(),
+                            radiusPx = cacheRadiusPx,
+                        ) { TeakNavigator.openVideo(context, entry.toVideoItem()) }
                     },
                     onDelete = {
                         VideoCacheManager.delete(entry.id)

@@ -908,12 +908,23 @@ class BiliApi(context: Context) {
 
     // ---------------------------------------------------------------- account
 
-    suspend fun history(): List<HistoryItem> = withContext(Dispatchers.IO) {
+    suspend fun history(): List<HistoryItem> = historyPage(0L, 0L, "").items
+
+    suspend fun historyPage(
+        maxCursor: Long,
+        viewAtCursor: Long,
+        businessCursor: String = "",
+    ): HistoryPage = withContext(Dispatchers.IO) {
         val data = dataRequest(
             "/x/web-interface/history/cursor",
-            mapOf("max" to "0", "view_at" to "0", "business" to ""),
+            mapOf(
+                "max" to maxCursor.toString(),
+                "view_at" to viewAtCursor.toString(),
+                "business" to businessCursor,
+                "ps" to "30",
+            ),
         )
-        data.optJSONArray("list").objects().mapNotNull { item ->
+        val items = data.optJSONArray("list").objects().mapNotNull { item ->
             val history = item.optJSONObject("history") ?: return@mapNotNull null
             val bvid = history.s("bvid")
             if (bvid.isBlank()) return@mapNotNull null
@@ -931,6 +942,23 @@ class BiliApi(context: Context) {
                 aid = history.l("oid"),
             )
         }
+        val cursor = data.optJSONObject("cursor")
+        val cursorHasMore = cursor?.optBoolean("has_more", false) == true ||
+            cursor?.optInt("has_more", 0) == 1 ||
+            data.optBoolean("has_more", false)
+        LogCollector.record(
+            "HISTORY",
+            "page max=$maxCursor viewAt=$viewAtCursor items=${items.size} " +
+                "cursorMax=${cursor?.l("max")} cursorViewAt=${cursor?.l("view_at")} " +
+                "cursorHasMore=${cursor?.opt("has_more")}",
+        )
+        HistoryPage(
+            items = items,
+            max = cursor?.l("max") ?: 0L,
+            viewAt = cursor?.l("view_at") ?: items.lastOrNull()?.viewedAt ?: 0L,
+            business = cursor?.s("business").orEmpty(),
+            hasMore = cursorHasMore || items.size >= 30,
+        )
     }
 
     /**
@@ -999,7 +1027,7 @@ class BiliApi(context: Context) {
         if (items.isEmpty()) return items
         val missing = items.map { it.bvid }.distinct().filter { videoStatCache[it] == null }
         if (missing.isNotEmpty()) {
-            val limiter = Semaphore(3)
+            val limiter = Semaphore(6)
             kotlinx.coroutines.coroutineScope {
                 missing.forEach { bvid ->
                     launch {
@@ -1066,39 +1094,45 @@ class BiliApi(context: Context) {
         }
     }
 
-    suspend fun favoriteVideos(folderId: Long): List<VideoItem> = withContext(Dispatchers.IO) {
-        val data = dataRequest(
-            "/x/v3/fav/resource/list",
-            mapOf(
-                "media_id" to folderId.toString(),
-                "pn" to "1",
-                "ps" to "40",
-                "order" to "mtime",
-                "type" to "0",
-                "tid" to "0",
-                "platform" to "web",
-            ),
-        )
-        data.optJSONArray("medias").objects().mapNotNull { media ->
-            val bvid = media.s("bvid")
-            if (bvid.isBlank()) return@mapNotNull null
-            val upper = media.optJSONObject("upper")
-            val cnt = media.optJSONObject("cnt_info")
-            VideoItem(
-                bvid = bvid,
-                aid = media.l("id"),
-                title = media.s("title"),
-                cover = image(media.s("cover"), 420),
-                ownerName = upper?.s("name").orEmpty(),
-                ownerFace = "",
-                ownerMid = upper?.l("mid") ?: 0,
-                play = cnt?.l("play") ?: 0,
-                danmaku = cnt?.l("danmaku") ?: 0,
-                duration = media.optInt("duration", 0),
-                pubdate = media.l("pubtime"),
+    suspend fun favoriteVideos(folderId: Long): List<VideoItem> =
+        favoriteVideosPage(folderId, 1).first
+
+    suspend fun favoriteVideosPage(folderId: Long, page: Int): Pair<List<VideoItem>, Boolean> =
+        withContext(Dispatchers.IO) {
+            val data = dataRequest(
+                "/x/v3/fav/resource/list",
+                mapOf(
+                    "media_id" to folderId.toString(),
+                    "pn" to page.toString(),
+                    "ps" to "40",
+                    "order" to "mtime",
+                    "type" to "0",
+                    "tid" to "0",
+                    "platform" to "web",
+                ),
             )
+            val medias = data.optJSONArray("medias").objects()
+            val videos = medias.mapNotNull { media ->
+                val bvid = media.s("bvid")
+                if (bvid.isBlank()) return@mapNotNull null
+                val upper = media.optJSONObject("upper")
+                val cnt = media.optJSONObject("cnt_info")
+                VideoItem(
+                    bvid = bvid,
+                    aid = media.l("id"),
+                    title = media.s("title"),
+                    cover = image(media.s("cover"), 420),
+                    ownerName = upper?.s("name").orEmpty(),
+                    ownerFace = "",
+                    ownerMid = upper?.l("mid") ?: 0,
+                    play = cnt?.l("play") ?: 0,
+                    danmaku = cnt?.l("danmaku") ?: 0,
+                    duration = media.optInt("duration", 0),
+                    pubdate = media.l("pubtime"),
+                )
+            }
+            videos to data.optBoolean("has_more", medias.size >= 40)
         }
-    }
 
     suspend fun userDynamics(mid: Long): List<DynamicItem> = withContext(Dispatchers.IO) {
         val data = dataRequest(
@@ -1816,7 +1850,7 @@ class BiliApi(context: Context) {
                 "group_fold" to "0",
                 "unfollow_fold" to "0",
                 "sort_rule" to "2",
-                "size" to "50",
+                "size" to "200",
                 "mobi_app" to "web",
             )
             val root = rawRequest(
@@ -1856,19 +1890,21 @@ class BiliApi(context: Context) {
             // 私信会话只给 talker_id，名字/头像要单独补；最多补 12 个，避免一次打太多接口。
             val needResolve = system
                 .filter { it.name.isBlank() && it.sessionType == 1 && !it.isSystem }
-                .take(12)
             if (needResolve.isEmpty()) return@withContext system
+            // 不再只补前 12 个；分批并发，保证下拉到底的人名和头像也都齐全。
             val resolved = kotlinx.coroutines.coroutineScope {
-                needResolve.map { session ->
-                    async {
-                        val brief = userBrief(session.talkerId)
-                        if (brief == null) {
-                            session
-                        } else {
-                            session.copy(name = brief.first, avatar = brief.second)
+                needResolve.chunked(8).flatMap { chunk ->
+                    chunk.map { session ->
+                        async {
+                            val brief = userBrief(session.talkerId)
+                            if (brief == null) {
+                                session
+                            } else {
+                                session.copy(name = brief.first, avatar = brief.second)
+                            }
                         }
-                    }
-                }.awaitAll()
+                    }.awaitAll()
+                }
             }.associateBy { it.id }
             system.map { resolved[it.id] ?: it }
         }
@@ -2173,6 +2209,9 @@ class BiliApi(context: Context) {
                     title = ep.s("title").ifBlank { arc?.s("title").orEmpty() },
                     cover = image(arc?.s("pic").orEmpty(), 480),
                     duration = arc?.optInt("duration", 0) ?: 0,
+                    play = (arc?.optJSONObject("stat") ?: ep.optJSONObject("stat"))?.l("view") ?: 0L,
+                    danmaku = (arc?.optJSONObject("stat") ?: ep.optJSONObject("stat"))?.l("danmaku") ?: 0L,
+                    pubdate = arc?.l("pubdate") ?: ep.l("pubdate"),
                 )
             }
             .orEmpty()
@@ -2199,6 +2238,7 @@ class BiliApi(context: Context) {
             tname = data.s("tname"),
             pages = pages,
             episodes = episodes,
+            seasonTitle = data.optJSONObject("ugc_season")?.s("title").orEmpty(),
             liked = req?.optInt("like", 0) == 1,
             coined = (req?.optInt("coin", 0) ?: 0) > 0,
             favorited = (req?.optInt("favorite", 0) ?: 0) > 0,
@@ -2449,6 +2489,10 @@ class BiliApi(context: Context) {
                 if (key.isNotBlank() && url.isNotBlank()) emotes[key] = url
             }
         }
+        val pictures = content?.optJSONArray("pictures")?.objects()?.mapNotNull { pic ->
+            val url = pic.s("img_src").ifBlank { pic.s("url") }
+            if (url.isBlank()) null else image(url, 720)
+        }.orEmpty()
         return CommentItem(
             rpid = reply.l("rpid"),
             uname = member?.s("uname").orEmpty(),
@@ -2467,6 +2511,8 @@ class BiliApi(context: Context) {
             parent = reply.l("parent"),
             emotes = emotes,
             ipLocation = reply.optJSONObject("reply_control")?.s("location").orEmpty(),
+            isVip = member?.optJSONObject("vip")?.optInt("vipStatus", 0) == 1,
+            pictures = pictures,
             previewReplies = if (depth < 1) {
                 reply.optJSONArray("replies")?.objects()
                     ?.take(3)

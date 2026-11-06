@@ -58,10 +58,10 @@ fun TeakBackButton(
 ) {
     val glyph = teakGlassGlyphColor()
     TeakGlassCircleButton(onClick = onClick, modifier = modifier, size = size) {
-        Canvas(modifier = Modifier.size(size * 0.45f).align(Alignment.Center)) {
+        Canvas(modifier = Modifier.size(size * 0.50f).align(Alignment.Center)) {
             val w = this.size.width
             val h = this.size.height
-            val stroke = w * 0.13f
+            val stroke = w * 0.115f
             val chevron = Path().apply {
                 moveTo(w * 0.62f, h * 0.16f)
                 lineTo(w * 0.34f, h * 0.5f)

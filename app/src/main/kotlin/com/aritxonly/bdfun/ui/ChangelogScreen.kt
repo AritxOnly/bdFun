@@ -37,6 +37,19 @@ private data class ChangelogVersion(
 
 private val CHANGELOG = listOf(
     ChangelogVersion(
+        version = "preview-4.3",
+        changes = listOf(
+            "新增 HyperOS 4 一镜到底转场动画",
+            "新增 视频详情页查看合集与分P",
+            "新增 默认播放倍速",
+            "优化 部分动画效果",
+            "优化 部分页面显示效果",
+            "修复 评论不显示图片",
+            "修复 自动连播未记忆的问题",
+            "修复 历史、收藏、稍后再看页划动至底部时不刷新视频的问题",
+        ),
+    ),
+    ChangelogVersion(
         version = "preview-4.0",
         changes = listOf(
             "新增 播放器锁定",

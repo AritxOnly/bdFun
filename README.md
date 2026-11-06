@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/build-Gradle-02303A?logo=gradle&logoColor=white&style=flat-square" alt="build">
 </p>
 
-bdFun 是一个第三方哔哩哔哩 Android 客户端，使用 Kotlin + Jetpack Compose 编写，弹幕模块移植自 BiliPai，致力于轻快、流畅、简洁、美观的使用体验。
+bdFun 是一个第三方哔哩哔哩 Android 客户端，使用 Kotlin + Jetpack Compose 编写，致力于轻快、流畅、简洁、美观的使用体验。
 
 > 本项目为第三方非官方客户端，与哔哩哔哩（上海宽娱数码科技有限公司）及其关联方无任何隶属、授权或合作关系。项目仅用于学习、研究与技术交流，不提供、不包含、不传播任何破解内容、付费内容绕过机制或会员权益破解功能。
 
@@ -24,9 +24,15 @@ bdFun 是一个第三方哔哩哔哩 Android 客户端，使用 Kotlin + Jetpack
   <img src="docs/preview.webp" width="100%" alt="bdFun 界面预览">
 </p>
 
+采用 HyperOS 4 的设计风格。
+
+## 安装
+
+系统要求：Android 13+
+
 ## 反馈
 
-提交 Bug 反馈时请勿涉及未完成界面。
+欢迎通过 Issue 反馈问题、提出建议，但请勿反馈未完成界面 Bug（可以提出设计建议）。如果你的问题可以稳定复现，请使用 Debug 包抓取日志，方便进行修复。
 
 ## 构建
 
@@ -78,8 +84,9 @@ bdFun 使用了 / 参考了以下项目，感谢作者和社区的工作：
 - [HyperIsland](https://github.com/1812z/HyperIsland)（[@1812z](https://github.com/1812z)）：渐进模糊参数与观感参考
 - [PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus)（[@bggRGjQaUbCoE](https://github.com/bggRGjQaUbCoE)）：功能与交互参考
 - [Miuix](https://github.com/compose-miuix-ui/miuix)（[@compose-miuix-ui](https://github.com/compose-miuix-ui)）：Compose UI / 玻璃 blur 依赖
-- [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)（[@SocialSisterYi](https://github.com/SocialSisterYi)）：B 站接口资料
-- [BiliPai](https://github.com/jay3-yy/BiliPai) / [bytedance DanmakuRenderEngine](https://github.com/bytedance/DanmakuRenderEngine)：弹幕渲染模块实现移植（Apache-2.0）
+- [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)（[@SocialSisterYi](https://github.com/SocialSisterYi)）：哔哩哔哩接口资料
+- [BiliPai](https://github.com/jay3-yy/BiliPai) / [bytedance DanmakuRenderEngine](https://github.com/bytedance/DanmakuRenderEngine)：弹幕渲染模块实现移植，并使用其水滴动画效果（Apache-2.0）
+- HyperOS 4：一镜到底动效
 - AndroidX / Jetpack Compose、Media3 / ExoPlayer、OkHttp、Coil、Kotlin / kotlinx.coroutines、ZXing
 
 感谢所有上游项目作者与贡献者。
@@ -90,7 +97,7 @@ bdFun 使用了 / 参考了以下项目，感谢作者和社区的工作：
 
 Copyright (C) 2026 bdFun contributors
 
-由于项目直接包含 / 移植了 [Hyper-PiliPlus](https://github.com/AritxOnly/Hyper-PiliPlus)（GPL-3.0）的部分代码，bdFun 同样按 GPL-3.0 分发。你可以自由使用、修改、再分发，但需要：
+你可以自由使用、修改、再分发，但需要：
 
 1. 保留 `LICENSE`、`THIRD_PARTY_NOTICES.md`、`TeakUI/docs/PROVENANCE.md`；
 2. 对外分发修改版时，按 GPL-3.0 提供对应完整源码；
