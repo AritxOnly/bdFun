@@ -34,6 +34,9 @@ data class VideoEpisode(
     val title: String,
     val cover: String,
     val duration: Int,
+    val play: Long = 0L,
+    val danmaku: Long = 0L,
+    val pubdate: Long = 0L,
 )
 
 data class VideoDetail(
@@ -60,6 +63,8 @@ data class VideoDetail(
     val pages: List<VideoPage>,
     /** 该视频所属 UGC 合集的全部单集（没有合集时为空）。 */
     val episodes: List<VideoEpisode> = emptyList(),
+    /** UGC 合集标题（没有合集时为空）。 */
+    val seasonTitle: String = "",
     val isFollowed: Boolean = false,
     val liked: Boolean = false,
     val coined: Boolean = false,
@@ -132,6 +137,10 @@ data class CommentItem(
     val emotes: Map<String, String> = emptyMap(),
     /** 评论 IP 属地（reply_control.location）。 */
     val ipLocation: String = "",
+    /** 大会员（评论名称显示主题色）。 */
+    val isVip: Boolean = false,
+    /** 评论附图（content.pictures，已转成可直接加载的地址）。 */
+    val pictures: List<String> = emptyList(),
 )
 
 /** 评论表情（B 站表情包，插入时用 `[文本]`）。 */
@@ -217,6 +226,14 @@ data class DynamicItem(
 data class DynamicPage(
     val items: List<DynamicItem>,
     val offset: String,
+    val hasMore: Boolean,
+)
+
+data class HistoryPage(
+    val items: List<HistoryItem>,
+    val max: Long,
+    val viewAt: Long,
+    val business: String,
     val hasMore: Boolean,
 )
 

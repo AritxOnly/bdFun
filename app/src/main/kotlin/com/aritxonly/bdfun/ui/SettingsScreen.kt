@@ -203,6 +203,14 @@ fun SettingsScreen(
                         .coerceAtLeast(0),
                     onSelected = { settings.boostDefaultSpeed = BOOST_SPEED_VALUES[it] },
                 )
+                TeakSettingsDropdownRow(
+                    title = "默认播放倍速",
+                    options = PLAYBACK_SPEED_LABELS,
+                    selected = PLAYBACK_SPEED_VALUES
+                        .indexOfFirst { kotlin.math.abs(it - settings.defaultPlaybackSpeed) < 0.01f }
+                        .coerceAtLeast(0),
+                    onSelected = { settings.defaultPlaybackSpeed = PLAYBACK_SPEED_VALUES[it] },
+                )
                 TeakSettingsSwitchRow(
                     title = "全屏显示时间",
                     checked = settings.showFullscreenTime,
@@ -433,6 +441,10 @@ fun SettingsScreen(
 private val QUALITY_LABELS = listOf("自动", "HDR", "4K", "1080P+", "1080P", "720P", "480P")
 private val QUALITY_VALUES = listOf(0, 125, 120, 112, 80, 64, 32)
 private val LATENCY_VALUES = listOf(50, 100, 150, 200, 250, 300)
+private val PLAYBACK_SPEED_VALUES = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f, 2.5f, 3f)
+private val PLAYBACK_SPEED_LABELS = PLAYBACK_SPEED_VALUES.map {
+    if (it % 1f == 0f) "${it.toInt()}×" else "${it}×"
+}
 private val BOOST_SPEED_VALUES = listOf(1.5f, 2f, 2.5f, 3f, 4f, 5f)
 private val BOOST_SPEED_LABELS = BOOST_SPEED_VALUES.map {
     if (it % 1f == 0f) "${it.toInt()}×" else "${it}×"

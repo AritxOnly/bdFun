@@ -58,6 +58,12 @@ object VideoPageBus {
     var aid by mutableLongStateOf(0L)
     var cid by mutableLongStateOf(0L)
 
+    /** 播完且没有下一分P时，请求 Activity 打开播放队列里的下一个视频。 */
+    var autoNextRequest by mutableIntStateOf(0)
+        private set
+
+    fun requestAutoNext() { autoNextRequest++ }
+
     /** 发的弹幕是否启用（由「弹」按钮切换，同步 DanmakuSettings）。 */
     var danmakuOn by mutableStateOf(true)
 

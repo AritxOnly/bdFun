@@ -8,6 +8,8 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -53,6 +55,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -638,6 +641,8 @@ fun CommentScreen(
             },
         )
     }
+
+    CommentImageDialog()
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -692,7 +697,7 @@ private fun CommentRow(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = item.uname,
-                        color = colors.onBackgroundVariant,
+                        color = if (item.isVip) colors.primary else colors.onBackgroundVariant,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Normal,
                         modifier = Modifier.clickable(
@@ -704,6 +709,10 @@ private fun CommentRow(
                             }
                         },
                     )
+                    if (item.isUp) {
+                        Spacer(Modifier.width(4.dp))
+                        UpBadge()
+                    }
                     Spacer(Modifier.width(4.dp))
                     Image(
                         painter = androidx.compose.ui.res.painterResource(
@@ -719,10 +728,6 @@ private fun CommentRow(
                         contentDescription = null,
                         modifier = Modifier.size(width = 22.dp, height = 10.dp),
                     )
-                    if (item.isUp) {
-                        Spacer(Modifier.width(4.dp))
-                        UpBadge()
-                    }
                 }
                 Spacer(Modifier.height(4.dp))
                 EmoteText(
@@ -733,6 +738,12 @@ private fun CommentRow(
                     extraEmotes = item.emotes,
                     fontWeight = FontWeight.Normal,
                 )
+                if (item.pictures.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    CommentPictures(item.pictures) { index ->
+                        CommentImageViewer.open(item.pictures, index)
+                    }
+                }
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -864,6 +875,113 @@ private fun CommentRow(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
+private fun CommentPictures(urls: List<String>, onOpen: (Int) -> Unit) {
+    val colors = MiuixTheme.colorScheme
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        urls.take(3).forEachIndexed { index, url ->
+            AsyncImage(
+                model = rememberImageRequest(url),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(colors.surfaceContainerHigh)
+                    .clickable(interactionSource = null, indication = null) { onOpen(index) },
+            )
+        }
+        if (urls.size > 3) {
+            Text(
+                text = "+${urls.size - 3}",
+                color = colors.onBackgroundVariant,
+                fontSize = 11.sp,
+            )
+        }
+    }
+}
+
+private object CommentImageViewer {
+    var images by mutableStateOf<List<String>>(emptyList())
+    var index by mutableIntStateOf(0)
+
+    fun open(list: List<String>, at: Int) {
+        images = list
+        index = at.coerceIn(0, (list.size - 1).coerceAtLeast(0))
+    }
+
+    fun close() {
+        images = emptyList()
+        index = 0
+    }
+}
+
+@Composable
+private fun CommentImageDialog() {
+    val images = CommentImageViewer.images
+    if (images.isEmpty()) return
+    val pager = androidx.compose.foundation.pager.rememberPagerState(
+        initialPage = CommentImageViewer.index.coerceIn(0, images.lastIndex),
+    ) { images.size }
+    androidx.activity.compose.BackHandler { CommentImageViewer.close() }
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = { CommentImageViewer.close() },
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+        ) {
+            androidx.compose.foundation.pager.HorizontalPager(
+                state = pager,
+                modifier = Modifier.fillMaxSize(),
+            ) { page ->
+                var scale by androidx.compose.runtime.remember {
+                    androidx.compose.runtime.mutableFloatStateOf(1f)
+                }
+                var pan by androidx.compose.runtime.remember {
+                    androidx.compose.runtime.mutableStateOf(androidx.compose.ui.geometry.Offset.Zero)
+                }
+                AsyncImage(
+                    model = rememberImageRequest(images[page]),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectTransformGestures { _, delta, zoom, _ ->
+                                scale = (scale * zoom).coerceIn(1f, 4f)
+                                pan = if (scale > 1f) {
+                                    pan + delta
+                                } else {
+                                    androidx.compose.ui.geometry.Offset.Zero
+                                }
+                            }
+                        }
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                            translationX = pan.x
+                            translationY = pan.y
+                        },
+                )
+            }
+            Text(
+                text = "${pager.currentPage + 1}/${images.size}",
+                color = Color.White,
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 28.dp),
+            )
+        }
+    }
+}
+
+@Composable
 private fun ReplyBlock(
     item: CommentItem,
     onOpen: () -> Unit,
@@ -895,7 +1013,7 @@ private fun ReplyBlock(
                 vertical = 8.dp,
             ),
     ) {
-        preview.forEach { reply ->
+        preview.forEachIndexed { replyIndex, reply ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -915,7 +1033,17 @@ private fun ReplyBlock(
                     text = reply.message,
                     prefix = reply.uname,
                     color = colors.onBackground,
-                    prefixColor = colors.onBackgroundVariant,
+                    // 折叠回复：普通用户用淡一点的主题色；大会员用完整主题色。
+                    prefixColor = if (reply.isVip) {
+                        colors.primary
+                    } else {
+                        colors.primary.copy(alpha = 0.72f)
+                    },
+                    prefixBadge = if (reply.isUp) {
+                        { UpBadge() }
+                    } else {
+                        null
+                    },
                     fontSize = 13.5.sp,
                     lineHeight = 20.sp,
                     modifier = Modifier.weight(1f),
@@ -956,6 +1084,10 @@ private fun ReplyBlock(
                         }
                     },
                 )
+            }
+            // 折叠回复之间多留 2dp，避免两条挤在一起。
+            if (replyIndex != preview.lastIndex) {
+                Spacer(Modifier.height(2.dp))
             }
         }
 
@@ -1236,7 +1368,7 @@ private fun ReplySheet(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = comment.uname,
-                                    color = colors.onBackgroundVariant,
+                                    color = if (comment.isVip) colors.primary else colors.onBackgroundVariant,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Normal,
                                     modifier = Modifier.clickable(
@@ -1251,6 +1383,10 @@ private fun ReplySheet(
                                         }
                                     },
                                 )
+                                if (comment.isUp) {
+                                    Spacer(Modifier.width(4.dp))
+                                    UpBadge()
+                                }
                                 Spacer(Modifier.width(4.dp))
                                 Image(
                                     painter = androidx.compose.ui.res.painterResource(
@@ -1334,7 +1470,7 @@ private fun ReplySheet(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
                                             text = reply.uname,
-                                            color = colors.onBackgroundVariant,
+                                            color = if (reply.isVip) colors.primary else colors.onBackgroundVariant,
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Normal,
                                             modifier = Modifier.clickable(
@@ -1349,6 +1485,10 @@ private fun ReplySheet(
                                                 }
                                             },
                                         )
+                                        if (reply.isUp) {
+                                            Spacer(Modifier.width(4.dp))
+                                            UpBadge()
+                                        }
                                         Spacer(Modifier.width(4.dp))
                                         Image(
                                             painter = androidx.compose.ui.res.painterResource(

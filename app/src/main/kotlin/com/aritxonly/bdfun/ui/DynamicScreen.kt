@@ -623,12 +623,16 @@ internal fun DynamicCard(
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
     val shape = ContinuousCornerShape(16.dp)
+    // 整张动态卡片当"起飞点"：点卡片里的视频时，从整卡放大到视频页
+    val oneTake = rememberOneTakeAnchor()
+    val cardRadiusPx = with(LocalDensity.current) { 16.dp.toPx() }
     // 点图片只看大图，不进详情页；点卡片其他区域仍然是进详情
     var viewerUrl by remember { mutableStateOf<String?>(null) }
     var viewerOrigin by remember { mutableStateOf<Rect?>(null) }
 
     Column(
         modifier = modifier
+            .then(oneTake.modifier)
             .fillMaxWidth()
             .clip(shape)
             .background(colors.surface)
@@ -767,7 +771,7 @@ internal fun DynamicCard(
                 isCollection = item.isCollection,
                 autoPlay = autoPlay,
                 muted = muted,
-                onOpenVideo = onOpenVideo,
+                onOpenVideo = { v -> oneTake.open(context, v, cardRadiusPx) { onOpenVideo(v) } },
                 onToggleMute = onToggleMute,
             )
         }
@@ -777,7 +781,7 @@ internal fun DynamicCard(
             ForwardedDynamicBlock(
                 item = orig,
                 onOpen = { onOpenForwarded(orig) },
-                onOpenVideo = onOpenVideo,
+                onOpenVideo = { v -> oneTake.open(context, v, cardRadiusPx) { onOpenVideo(v) } },
                 autoPlay = autoPlay,
                 muted = muted,
                 onToggleMute = onToggleMute,
@@ -1080,6 +1084,13 @@ private fun DynamicImageViewer(
         animationSpec = androidx.compose.animation.core.tween(durationMillis = 180),
         label = "dynamic-image-alpha",
     )
+    val images = remember(item.images, url) {
+        item.images.ifEmpty { listOf(url) }
+    }
+    val imagePager = androidx.compose.foundation.pager.rememberPagerState(
+        initialPage = images.indexOf(url).coerceAtLeast(0).coerceAtMost(images.lastIndex),
+        pageCount = { images.size },
+    )
     androidx.compose.ui.window.Dialog(
         onDismissRequest = dismissAnimated,
         properties = androidx.compose.ui.window.DialogProperties(
@@ -1122,13 +1133,10 @@ private fun DynamicImageViewer(
                     .fillMaxWidth(),
                 contentAlignment = Alignment.Center,
             ) {
-                AsyncImage(
-                    model = rememberImageRequest(url),
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
+                androidx.compose.foundation.pager.HorizontalPager(
+                    state = imagePager,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 10.dp)
                         .graphicsLayer {
                             scaleX = startScaleX + (1f - startScaleX) * progress
                             scaleY = startScaleY + (1f - startScaleY) * progress
@@ -1136,7 +1144,16 @@ private fun DynamicImageViewer(
                             translationY = (originCenter.y - screenHeightPx / 2f) * (1f - progress)
                             this.alpha = alpha
                         },
-                )
+                ) { page ->
+                    AsyncImage(
+                        model = rememberImageRequest(images[page]),
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 10.dp),
+                    )
+                }
             }
             Column(
                 modifier = Modifier

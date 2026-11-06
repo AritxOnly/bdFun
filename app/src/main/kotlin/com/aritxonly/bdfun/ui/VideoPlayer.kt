@@ -139,7 +139,8 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
-private val SPEEDS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
+// 高倍速放最上面。
+private val SPEEDS = listOf(2f, 1.5f, 1.25f, 1f, 0.75f, 0.5f)
 
 /** 控件无操作后自动渐隐的时长。 */
 private const val HIDE_DELAY_MS = 4000L
@@ -370,7 +371,7 @@ internal fun VideoPlayer(
             AppGraph.api.sponsorSegments(bvid)
         }.getOrDefault(emptyList())
     }
-    var speed by remember { mutableFloatStateOf(1f) }
+    var speed by remember { mutableFloatStateOf(AppGraph.settings.defaultPlaybackSpeed) }
     var speedMenu by remember { mutableStateOf(false) }
     val speedSpring = rememberSpringFloat(if (speedMenu) 1f else 0f, stiffness = 300f, damping = 22f)
     var qualityMenu by remember { mutableStateOf(false) }
@@ -400,7 +401,12 @@ internal fun VideoPlayer(
     }
     var fsAudioOnly by remember { mutableStateOf(false) }
     var halfMoreOpen by remember { mutableStateOf(false) }
-    var fsAutoPlayNext by remember { mutableStateOf(true) }
+    var fsAutoPlayNext by remember {
+        mutableStateOf(AppGraph.settings.autoPlayNext)
+    }
+    LaunchedEffect(fsAutoPlayNext) {
+        AppGraph.settings.autoPlayNext = fsAutoPlayNext
+    }
     var fsLoopMode by remember { mutableIntStateOf(0) }
     var fsMirror by remember { mutableStateOf(false) }
     var fsResizeMode by remember { mutableIntStateOf(0) }
@@ -471,6 +477,11 @@ internal fun VideoPlayer(
                             .coerceAtMost(fullscreenInfo.pages.lastIndex)
                     ],
                 )
+            }
+            (fsLoopMode == 2 || fsAutoPlayNext) &&
+                com.aritxonly.bdfun.data.VideoPlayQueue.hasNext() -> {
+                ended = false
+                VideoPageBus.requestAutoNext()
             }
         }
     }
@@ -592,11 +603,14 @@ internal fun VideoPlayer(
         }
     }
 
+    var lastFullscreenForControls by remember { mutableStateOf(fullscreen) }
     LaunchedEffect(fullscreen) {
-        if (fullscreen) {
-            controlsVisible = true
-            PlayerUiState.controlsVisible = true
-        } else {
+        if (fullscreen == lastFullscreenForControls) return@LaunchedEffect
+        lastFullscreenForControls = fullscreen
+        // 进入 / 退出全屏（包括旋转触发）都不自动弹出控件，全部先收起。
+        controlsVisible = false
+        PlayerUiState.controlsVisible = false
+        if (!fullscreen) {
             fsPanel = FullscreenPanel.None
             fsInputOpen = false
             fsAudioOnly = false
@@ -2056,7 +2070,12 @@ internal fun VideoPlayer(
                 SubtitleOverlay(
                     cues = fullscreenInfo.subtitleCues,
                     positionMs = positionMs,
-                    bottomPadding = if (fullscreen) 116.dp else 52.dp,
+                    // 控件打开时字幕抬到进度条上方，控件收起时贴到底部。
+                    bottomPadding = if (controlsVisible) {
+                        if (fullscreen) 116.dp else 52.dp
+                    } else {
+                        if (fullscreen) 24.dp else 14.dp
+                    },
                 )
             }
         }

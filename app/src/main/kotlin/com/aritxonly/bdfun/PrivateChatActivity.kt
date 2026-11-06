@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -45,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
@@ -59,12 +61,14 @@ import coil.compose.AsyncImage
 import com.aritxonly.bdfun.data.BiliApi
 import com.aritxonly.bdfun.data.ChatMessage
 import com.aritxonly.bdfun.data.MessageSession
+import com.aritxonly.bdfun.data.VideoItem
 import com.aritxonly.bdfun.ui.ComposerIcon
 import com.aritxonly.bdfun.ui.ComposerIconButton
 import com.aritxonly.bdfun.ui.EmojiPanel
 import com.aritxonly.bdfun.ui.EmoteCache
 import com.aritxonly.bdfun.ui.EmoteText
 import com.aritxonly.bdfun.ui.TeakActivityScaffold
+import com.aritxonly.bdfun.ui.formatCount
 import com.aritxonly.bdfun.ui.rememberImageRequest
 import com.aritxonly.bdfun.ui.showToast
 import com.aritxonly.teak.common.chrome.TeakChromeDefaults
@@ -479,7 +483,10 @@ private fun ChatBubble(
                         .background(colors.surfaceContainerHigh),
                 )
             }
-            if (message.text.isNotBlank()) {
+            val sharedVideo = remember(message.text) { parseSharedVideo(message.text) }
+            if (sharedVideo != null) {
+                ChatSharedVideoCard(info = sharedVideo)
+            } else if (message.text.isNotBlank()) {
                 EmoteText(
                     text = message.text,
                     color = if (mine) Color.White else Color.Black,
@@ -495,6 +502,124 @@ private fun ChatBubble(
         if (mine) {
             Spacer(Modifier.width(7.dp))
             ChatAvatar(url = myAvatar, placeholder = "我")
+        }
+    }
+}
+
+/** 私信里的视频分享是一段 JSON 文本，解析出来按动态视频卡片展示。 */
+private data class SharedVideoInfo(
+    val bvid: String,
+    val title: String,
+    val cover: String,
+    val play: Long,
+    val danmaku: Long,
+    val desc: String,
+)
+
+private fun parseSharedVideo(text: String): SharedVideoInfo? {
+    val trimmed = text.trim()
+    if (!trimmed.startsWith("{")) return null
+    return runCatching {
+        val json = JSONObject(trimmed)
+        val bvid = json.optString("bvid")
+        if (bvid.isBlank()) return@runCatching null
+        SharedVideoInfo(
+            bvid = bvid,
+            title = json.optString("title").ifBlank { "视频" },
+            cover = json.optString("cover"),
+            play = json.optLong("view"),
+            danmaku = json.optLong("danmaku"),
+            desc = json.optString("desc"),
+        )
+    }.getOrNull()
+}
+
+@Composable
+private fun ChatSharedVideoCard(info: SharedVideoInfo) {
+    val context = LocalContext.current
+    val colors = MiuixTheme.colorScheme
+    Column(
+        modifier = Modifier
+            .width(240.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(colors.surface)
+            .clickable(interactionSource = null, indication = null) {
+                TeakNavigator.openVideo(
+                    context,
+                    VideoItem(
+                        bvid = info.bvid,
+                        aid = 0,
+                        title = info.title,
+                        cover = info.cover,
+                        ownerName = "",
+                        ownerFace = "",
+                        ownerMid = 0,
+                        play = info.play,
+                        danmaku = info.danmaku,
+                        duration = 0,
+                        pubdate = 0,
+                    ),
+                )
+            },
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .background(colors.surfaceContainerHigh),
+        ) {
+            AsyncImage(
+                model = rememberImageRequest(info.cover),
+                contentDescription = info.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(34.dp)
+                    .background(
+                        Brush.verticalGradient(listOf(Color.Transparent, Color(0x66000000))),
+                    ),
+            )
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, end = 8.dp, bottom = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "${formatCount(info.play)} 播放",
+                    color = Color.White,
+                    fontSize = 10.sp,
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "${formatCount(info.danmaku)} 弹幕",
+                    color = Color.White,
+                    fontSize = 10.sp,
+                )
+            }
+        }
+        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+            Text(
+                text = info.title,
+                color = colors.onBackground,
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                maxLines = 2,
+            )
+            if (info.desc.isNotBlank() && info.desc != "-") {
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text = info.desc,
+                    color = colors.onBackgroundVariant,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }

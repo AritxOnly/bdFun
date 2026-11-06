@@ -118,21 +118,21 @@ internal fun LibrarySearchPage(
                         .clickable(interactionSource = null, indication = null, onClick = onBack),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Canvas(modifier = Modifier.size(17.dp)) {
+                    Canvas(modifier = Modifier.size(18.dp)) {
                         val w = size.width
                         val h = size.height
                         drawLine(
                             color = colors.onBackground,
                             start = Offset(w * 0.62f, h * 0.18f),
                             end = Offset(w * 0.3f, h * 0.5f),
-                            strokeWidth = w * 0.12f,
+                            strokeWidth = w * 0.11f,
                             cap = StrokeCap.Round,
                         )
                         drawLine(
                             color = colors.onBackground,
                             start = Offset(w * 0.3f, h * 0.5f),
                             end = Offset(w * 0.62f, h * 0.82f),
-                            strokeWidth = w * 0.12f,
+                            strokeWidth = w * 0.11f,
                             cap = StrokeCap.Round,
                         )
                     }

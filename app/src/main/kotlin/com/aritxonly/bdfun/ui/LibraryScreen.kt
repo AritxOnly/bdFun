@@ -11,8 +11,9 @@ import com.aritxonly.teak.common.material.TeakGlassRecipes
 import com.aritxonly.teak.common.material.TeakGlassSurface
 import com.aritxonly.teak.common.navigation.TeakBatchAction
 import com.aritxonly.teak.common.navigation.TeakBatchActionBar
-import com.aritxonly.teak.common.navigation.TeakMenuAnchor
 import com.aritxonly.teak.common.navigation.TeakPagerTabs
+import com.aritxonly.teak.common.navigation.TeakMorphMenuAnchor
+import com.aritxonly.teak.common.navigation.TeakMorphMenuState
 import com.kyant.shapes.Capsule
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.platform.LocalViewConfiguration
@@ -54,6 +55,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -71,11 +73,13 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -92,6 +96,7 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import kotlin.math.roundToInt
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -100,6 +105,7 @@ import com.aritxonly.bdfun.data.BiliApi
 import com.aritxonly.bdfun.data.FavoriteFolder
 import com.aritxonly.bdfun.data.HistoryItem
 import com.aritxonly.bdfun.data.VideoItem
+import com.aritxonly.bdfun.data.VideoPlayQueue
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -139,34 +145,27 @@ object LibraryPageBus {
 }
 
 @Composable
-fun LibraryTopActions() {
-    var menuOpen by remember { mutableStateOf(false) }
+fun LibraryTopActions(menuState: TeakMorphMenuState) {
     TeakTopGlassButton(onClick = { LibraryPageBus.requestSearch() }) {
         LibrarySearchGlyph()
     }
-    // 省略号让位 + 渐隐 + 二级菜单，全部交给 TeakUI 的统一菜单入口。
-    TeakMenuAnchor(
-        expanded = menuOpen,
-        onExpandedChange = { menuOpen = it },
-        panelWidth = 196.dp,
-        panelTopPadding = 36.dp,
-        panelEndPadding = 28.dp,
-        trigger = { onClick ->
-            TeakTopGlassButton(onClick = onClick) {
-                LibraryThreeDotsGlyph()
-            }
-        },
-        panel = {
-            LibraryMenuRow("回到顶部") {
-                LibraryPageBus.requestScrollTop()
-                menuOpen = false
-            }
-            LibraryMenuRow("批量管理") {
-                LibraryPageBus.requestBatch()
-                menuOpen = false
-            }
-        },
-    )
+    // 省略号现在走 BiliPai 同款形变菜单：按钮被吸进玻璃，菜单从按钮位置长出来。
+    TeakMorphMenuAnchor(menuState) { onClick ->
+        TeakTopGlassButton(onClick = onClick) {
+            LibraryThreeDotsGlyph()
+        }
+    }
+}
+
+/** 顶栏省略号菜单的内容；动作在收回动画结束后才执行。 */
+@Composable
+fun LibraryMorphMenuContent(dismiss: (after: () -> Unit) -> Unit) {
+    LibraryMenuRow("回到顶部") {
+        dismiss { LibraryPageBus.requestScrollTop() }
+    }
+    LibraryMenuRow("批量管理") {
+        dismiss { LibraryPageBus.requestBatch() }
+    }
 }
 
 /**
@@ -474,6 +473,14 @@ fun LibraryScreen(
     var folders by remember { mutableStateOf<List<FavoriteFolder>>(emptyList()) }
     var folderIndex by remember { mutableIntStateOf(0) }
     var folderVideos by remember { mutableStateOf<List<VideoItem>>(emptyList()) }
+    var folderPage by remember { mutableIntStateOf(1) }
+    var folderHasMore by remember { mutableStateOf(false) }
+    var loadingMoreFolders by remember { mutableStateOf(false) }
+    var historyMax by remember { mutableLongStateOf(0L) }
+    var historyViewAt by remember { mutableLongStateOf(0L) }
+    var historyBusiness by remember { mutableStateOf("") }
+    var historyHasMore by remember { mutableStateOf(false) }
+    var loadingMoreHistory by remember { mutableStateOf(false) }
     // 首次收藏夹内容加载完成之前不显示收藏夹栏；之后切换收藏夹时保持不动。
     var foldersReady by remember { mutableStateOf(false) }
     // 历史 / 稍后再看
@@ -546,10 +553,28 @@ fun LibraryScreen(
         val folder = folders.getOrNull(index) ?: return
         loadingTabs[0] = true
         errorTabs[0] = null
-        folderVideos = runCatching { api.favoriteVideos(folder.id) }
+        val page = runCatching { api.favoriteVideosPage(folder.id, 1) }
             .onFailure { errorTabs[0] = it.message ?: "收藏夹加载失败" }
-            .getOrDefault(emptyList())
+            .getOrNull()
+        folderVideos = page?.first ?: emptyList()
+        folderPage = 1
+        folderHasMore = page?.second == true
         loadingTabs[0] = false
+    }
+
+    suspend fun loadMoreFolders() {
+        if (!folderHasMore || loadingMoreFolders) return
+        val folder = folders.getOrNull(folderIndex) ?: return
+        loadingMoreFolders = true
+        val next = folderPage + 1
+        val page = runCatching { api.favoriteVideosPage(folder.id, next) }.getOrNull()
+        if (page != null) {
+            val existing = folderVideos.mapTo(HashSet()) { it.bvid }
+            folderVideos = folderVideos + page.first.filter { existing.add(it.bvid) }
+            folderPage = next
+            folderHasMore = page.second
+        }
+        loadingMoreFolders = false
     }
 
     suspend fun loadFavorites() {
@@ -571,19 +596,48 @@ fun LibraryScreen(
     suspend fun loadHistory() {
         loadingTabs[1] = true
         errorTabs[1] = null
-        val loaded = runCatching { api.history() }
+        val page = runCatching { api.historyPage(0L, 0L) }
             .onFailure { errorTabs[1] = it.message ?: "历史记录加载失败" }
-            .getOrDefault(emptyList())
-        historyEntries = loaded
-        loadingTabs[1] = false
-        // 先显示历史列表，播放量/弹幕数在后台补齐，避免逐条请求把页面卡住。
-        if (loaded.isNotEmpty()) {
-            scope.launch {
-                val enriched = runCatching { api.enrichHistoryStats(loaded) }
-                    .getOrDefault(loaded)
-                historyEntries = enriched
-            }
+            .getOrNull()
+        val loaded = page?.items.orEmpty()
+        historyMax = page?.max ?: 0L
+        historyViewAt = page?.viewAt ?: 0L
+        historyBusiness = page?.business.orEmpty()
+        // 接口的 has_more 字段偶尔缺失或类型不一致；先允许再翻一页，
+        // 下一页若无新内容会在 loadMore 里自动停止。
+        historyHasMore = loaded.isNotEmpty()
+        // 历史接口本身不带播放量/弹幕数：先补齐再显示，避免列表出现后整行统计突然跳出来。
+        val enriched = if (loaded.isEmpty()) {
+            loaded
+        } else {
+            runCatching { api.enrichHistoryStats(loaded) }.getOrDefault(loaded)
         }
+        historyEntries = enriched
+        loadingTabs[1] = false
+    }
+
+    suspend fun loadMoreHistory() {
+        if (!historyHasMore || loadingMoreHistory) return
+        loadingMoreHistory = true
+        val page = runCatching {
+            api.historyPage(historyMax, historyViewAt, historyBusiness)
+        }.getOrNull()
+        if (page != null) {
+            val enriched = runCatching { api.enrichHistoryStats(page.items) }
+                .getOrDefault(page.items)
+            val existing = historyEntries.mapTo(HashSet()) { it.bvid }
+            val added = enriched.filter { existing.add(it.bvid) }
+            historyEntries = historyEntries + added
+            historyMax = page.max
+            historyViewAt = page.viewAt
+            historyHasMore = added.isNotEmpty()
+            com.aritxonly.bdfun.data.LogCollector.record(
+                "HISTORY",
+                "loadMore max=${page.max} viewAt=${page.viewAt} items=${page.items.size} " +
+                    "added=${added.size} hasMore=$historyHasMore",
+            )
+        }
+        loadingMoreHistory = false
     }
 
     suspend fun loadWatchLater() {
@@ -834,6 +888,17 @@ fun LibraryScreen(
                 scope.launch { loadFolder(index) }
             },
             onOpenVideo = onOpenVideo,
+            onLoadMore = {
+                when (mode) {
+                    0 -> scope.launch { loadMoreFolders() }
+                    1 -> scope.launch { loadMoreHistory() }
+                }
+            },
+            canLoadMore = when (mode) {
+                0 -> folderHasMore
+                1 -> historyHasMore
+                else -> false
+            },
         )
     }
     }
@@ -908,6 +973,24 @@ fun LibraryScreen(
 }
 
 @Composable
+private fun LibraryCardEntrance(index: Int, content: @Composable () -> Unit) {
+    var started by remember { mutableStateOf(false) }
+    LaunchedEffect(index) {
+        kotlinx.coroutines.delay(kotlin.math.min(index / 2, 6) * 70L)
+        started = true
+    }
+    val progress = rememberManualProgress(if (started) 1f else 0f, 140f)
+    Box(
+        modifier = Modifier.graphicsLayer {
+            alpha = progress
+            translationY = (1f - progress) * 12.dp.toPx()
+        },
+    ) {
+        content()
+    }
+}
+
+@Composable
 private fun LibraryModePage(
     mode: Int,
     title: String,
@@ -936,10 +1019,22 @@ private fun LibraryModePage(
     onCancelBatch: () -> Unit,
     onFolderSelect: (Int) -> Unit,
     onOpenVideo: (VideoItem) -> Unit,
+    onLoadMore: () -> Unit,
+    canLoadMore: Boolean,
 ) {
     val colors = MiuixTheme.colorScheme
     val gridState = rememberLazyGridState()
     if (isActive) TrackTeakPageScroll(gridState)
+    if (isActive) {
+        LaunchedEffect(gridState) {
+            snapshotFlow {
+                gridState.layoutInfo.totalItemsCount to gridState.canScrollForward
+            }.collect { (total, canScroll) ->
+                // 数据刚加载完时 total 会变化；即使列表短到不能滚动，也要再试一次下一页。
+                if (total > 0 && !canScroll) onLoadMore()
+            }
+        }
+    }
 
     // 只在当前页响应「回到顶部」；切换页时把旧请求标记为已看过，避免之后突然跳顶。
     var seenScrollTop by remember { mutableIntStateOf(scrollTopTick) }
@@ -1005,31 +1100,49 @@ private fun LibraryModePage(
             }
 
             if (mode == 0) {
-                items(items = folderVideos, key = { it.bvid }) { video ->
+                itemsIndexed(items = folderVideos, key = { _, video -> video.bvid }) { index, video ->
+                    val oneTake = rememberOneTakeAnchor()
+                    val itemContext = LocalContext.current
+                    val cardRadiusPx = with(LocalDensity.current) { 16.dp.toPx() }
+                    LibraryCardEntrance(index) {
                     VideoGridCard(
                         video = video,
+                        modifier = oneTake.modifier,
                         onClick = {
                             if (batchMode) {
                                 onToggleSelected(video.bvid)
                             } else {
-                                onOpenVideo(video)
+                                VideoPlayQueue.set(folderVideos, video.bvid)
+                                oneTake.open(itemContext, video, cardRadiusPx) { onOpenVideo(video) }
                             }
                         },
                         selectionEnabled = batchMode,
                         selected = video.bvid in selected,
                     )
+                    }
                 }
             } else {
                 val entries = if (mode == 1) historyEntries else watchLaterEntries
-                items(items = entries, key = { it.bvid }) { entry ->
+                itemsIndexed(items = entries, key = { _, entry -> entry.bvid }) { index, entry ->
                     val video = entry.toVideoItem()
+                    val oneTake = rememberOneTakeAnchor()
+                    val itemContext = LocalContext.current
+                    val cardRadiusPx = with(LocalDensity.current) { 16.dp.toPx() }
+                    LibraryCardEntrance(index) {
                     VideoGridCard(
                         video = video,
+                        modifier = oneTake.modifier,
                         onClick = {
                             if (batchMode) {
                                 onToggleSelected(entry.bvid)
                             } else {
-                                onOpenVideo(video)
+                                val queue = if (mode == 1) {
+                                    historyEntries.map { it.toVideoItem() }
+                                } else {
+                                    watchLaterEntries.map { it.toVideoItem() }
+                                }
+                                VideoPlayQueue.set(queue, entry.bvid)
+                                oneTake.open(itemContext, video, cardRadiusPx) { onOpenVideo(video) }
                             }
                         },
                         progress = if (entry.duration > 0) {
@@ -1040,6 +1153,27 @@ private fun LibraryModePage(
                         selectionEnabled = batchMode,
                         selected = entry.bvid in selected,
                     )
+                    }
+                }
+            }
+
+            if (canLoadMore) {
+                item(key = "load-more", span = { GridItemSpan(maxLineSpan) }) {
+                    // 滑到底时这个哨兵会被组合，随即请求下一页；用列表长度做 key，
+                    // 新数据到达后如果还没到底，会再次触发。
+                    val dataSize = if (mode == 0) folderVideos.size else if (mode == 1) {
+                        historyEntries.size
+                    } else {
+                        watchLaterEntries.size
+                    }
+                    LaunchedEffect(dataSize) {
+                        com.aritxonly.bdfun.data.LogCollector.record(
+                            "HISTORY",
+                            "bottom sentinel mode=$mode size=$dataSize canLoadMore=$canLoadMore",
+                        )
+                        onLoadMore()
+                    }
+                    Spacer(Modifier.height(1.dp))
                 }
             }
 

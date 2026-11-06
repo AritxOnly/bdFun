@@ -96,6 +96,8 @@ fun EmoteText(
     prefix: String? = null,
     prefixColor: Color = color,
     prefixWeight: FontWeight = FontWeight.Normal,
+    /** 紧跟在人名后面的行内标识，比如评论区的 UP 胶囊。 */
+    prefixBadge: (@Composable () -> Unit)? = null,
     maxLines: Int = Int.MAX_VALUE,
     extraEmotes: Map<String, String> = emptyMap(),
     /** 追加在最后一个字后面的行内内容（比如折叠评论的点赞）。 */
@@ -134,6 +136,7 @@ fun EmoteText(
         prefix,
         prefixColor,
         prefixWeight,
+        prefixBadge != null,
         fontSize,
         trailingContent != null,
     ) {
@@ -142,6 +145,26 @@ fun EmoteText(
             if (!prefix.isNullOrBlank()) {
                 withStyle(SpanStyle(color = prefixColor, fontWeight = prefixWeight)) {
                     append(prefix)
+                }
+                if (prefixBadge != null) {
+                    append(" ")
+                    appendInlineContent("prefixBadge", "UP")
+                    inline["prefixBadge"] = InlineTextContent(
+                        Placeholder(
+                            width = fontSize * 1.9f,
+                            height = fontSize * 1.35f,
+                            placeholderVerticalAlign = PlaceholderVerticalAlign.Center,
+                        ),
+                    ) { _ ->
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.CenterStart,
+                        ) {
+                            prefixBadge()
+                        }
+                    }
+                }
+                withStyle(SpanStyle(color = prefixColor, fontWeight = prefixWeight)) {
                     append("：")
                 }
             }

@@ -71,7 +71,7 @@ fun TeakGlassBackButton(
                 }
             }
         }
-        Canvas(modifier = Modifier.size(size * 0.46f).align(Alignment.Center)) {
+        Canvas(modifier = Modifier.size(size * 0.50f).align(Alignment.Center)) {
             val w = this.size.width
             val h = this.size.height
             val chevron = Path().apply {
@@ -79,7 +79,7 @@ fun TeakGlassBackButton(
                 lineTo(w * 0.30f, h * 0.5f)
                 lineTo(w * 0.66f, h * 0.88f)
             }
-            val stroke = w * 0.14f
+            val stroke = w * 0.10f
             if (!light) {
                 // 没有背景时给一点点投影，保证压在白底上也看得清。
                 drawPath(
