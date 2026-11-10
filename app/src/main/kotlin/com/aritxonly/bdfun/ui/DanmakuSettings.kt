@@ -56,6 +56,13 @@ object DanmakuSettings {
             store.danmakuStroke = value
         }
 
+    /** 降低弹幕刷新率（默认开，最多 60 帧）。 */
+    var lowRefresh: Boolean
+        get() = store.danmakuLowRefresh
+        set(value) {
+            store.danmakuLowRefresh = value
+        }
+
     /** 人像防挡：弹幕避开画面中间的人像区域。 */
     var portraitGuard: Boolean
         get() = store.danmakuPortraitGuard
@@ -114,6 +121,7 @@ object DanmakuSettings {
         area = 1f
         opacity = 1f
         stroke = 1.5f
+        lowRefresh = true
         dedupe = false
         subtitleGuard = false
         portraitGuard = false

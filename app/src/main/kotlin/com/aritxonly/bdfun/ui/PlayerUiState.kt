@@ -23,6 +23,12 @@ object PlayerUiState {
     var danmakuInteract by mutableIntStateOf(0)
 }
 
+/** 视频页全屏锁：锁定期间忽略系统方向变化。 */
+object VideoOrientationLock {
+    @Volatile
+    var locked: Boolean = false
+}
+
 /** 回复目标：点某条评论的「回复」后写进来，底部回复栏读它显示占位符并决定 root/parent。 */
 object ReplyTarget {
     var name by mutableStateOf<String?>(null)
@@ -51,6 +57,12 @@ object ReplyTarget {
 object VideoPageBus {
     var aid by mutableLongStateOf(0L)
     var cid by mutableLongStateOf(0L)
+
+    /** 播完且没有下一分P时，请求 Activity 打开播放队列里的下一个视频。 */
+    var autoNextRequest by mutableIntStateOf(0)
+        private set
+
+    fun requestAutoNext() { autoNextRequest++ }
 
     /** 发的弹幕是否启用（由「弹」按钮切换，同步 DanmakuSettings）。 */
     var danmakuOn by mutableStateOf(true)

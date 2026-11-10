@@ -145,7 +145,7 @@ private fun DonationMethodChip(
             text = text,
             color = if (selected) Color.White else colors.onBackgroundVariant,
             fontSize = 14.sp,
-            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+            fontWeight = if (selected) FontWeight.Normal else FontWeight.Normal,
         )
     }
 }

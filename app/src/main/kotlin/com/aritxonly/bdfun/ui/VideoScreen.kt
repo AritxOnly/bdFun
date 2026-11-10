@@ -3,7 +3,14 @@ package com.aritxonly.bdfun.ui
 import com.aritxonly.teak.common.chrome.TrackTeakPageScroll
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -39,7 +46,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -67,7 +76,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.unit.Velocity
+import top.yukonga.miuix.kmp.utils.overScrollVertical
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -105,20 +121,25 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Playlist
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /** 全屏选集用：优先展示 UGC 合集，否则展示多 P 分集。 */
 private fun VideoDetail.playerPages(): List<VideoPage> {
-    if (episodes.size > 1) {
-        return episodes.mapIndexed { index, episode ->
-            VideoPage(
-                cid = episode.cid,
-                page = index + 1,
-                part = episode.title,
-                duration = episode.duration,
-            )
-        }
+    val episodePages = episodes.mapIndexed { index, episode ->
+        VideoPage(
+            cid = episode.cid,
+            page = index + 1,
+            part = episode.title,
+            duration = episode.duration,
+        )
     }
+    // 有分 P 时先列分 P，再接合集里的其它视频；去重避免同一集出现两次。
+    if (pages.size > 1) {
+        return (pages + episodePages).distinctBy { it.cid }
+    }
+    if (episodePages.size > 1) return episodePages
     return pages
 }
 
@@ -189,6 +210,8 @@ fun VideoScreen(
     var upVideos by remember { mutableLongStateOf(0L) }
     var onlineCount by remember { mutableLongStateOf(0L) }
     var onlineText by remember { mutableStateOf("") }
+    // 播放器下方的信息统一等详情/粉丝数据回来后再一起淡入，避免一块一块跳出来。
+    var metaReady by remember { mutableStateOf(false) }
     // 投币 / 收藏夹 弹出面板
     var coinSheet by remember { mutableStateOf(false) }
     var favSheet by remember { mutableStateOf(false) }
@@ -562,16 +585,28 @@ fun VideoScreen(
         videoContext.showToast(if (queued) "已加入缓存" else "该清晰度已在缓存中")
     }
 
-    /** 下一集：当前视频有多 P / 合集时播放下一集。 */
+    /** 下一集：先走完当前视频的分 P，再进入合集的下一集。 */
     fun nextEpisode() {
         val d = detail ?: return
-        val pages = d.playerPages()
-        if (pages.size <= 1) {
-            context.showToast("下一集不存在")
-            return
+        val pageIndex = d.pages.indexOfFirst { it.cid == currentCid }
+        val next = if (pageIndex >= 0 && pageIndex < d.pages.lastIndex) {
+            d.pages[pageIndex + 1]
+        } else {
+            val episodeIndex = d.episodes.indexOfFirst {
+                it.cid == currentCid || it.bvid == activeBvid
+            }
+            if (episodeIndex >= 0 && episodeIndex < d.episodes.lastIndex) {
+                val ep = d.episodes[episodeIndex + 1]
+                com.aritxonly.bdfun.data.VideoPage(
+                    cid = ep.cid,
+                    page = episodeIndex + 2,
+                    part = ep.title,
+                    duration = ep.duration,
+                )
+            } else {
+                null
+            }
         }
-        val index = pages.indexOfFirst { it.cid == currentCid }
-        val next = pages.getOrNull(index + 1)
         if (next == null) {
             context.showToast("已经是最后一集")
         } else {
@@ -598,11 +633,18 @@ fun VideoScreen(
     }
 
     LaunchedEffect(video.bvid) {
+        metaReady = false
         // 离线缓存优先：直接从本地视频轨 + 音轨起播，不再请求播放地址。
         val offline = VideoCacheManager.findPlayable(video.bvid, video.cid)
         if (offline != null) {
+            val offlinePlay = offline.toPlayInfo()
+            com.aritxonly.bdfun.data.LogCollector.record(
+                "VIDEO",
+                "source=offline bvid=${video.bvid} qualities=${offlinePlay.qualities.size} " +
+                    "audio=${offlinePlay.audioUrl != null}",
+            )
             detail = offline.toDetail()
-            playInfo = offline.toPlayInfo()
+            playInfo = offlinePlay
             currentCid = offline.cid
             danmaku = emptyList()
             related = emptyList()
@@ -616,6 +658,12 @@ fun VideoScreen(
         // 从相关推荐点进去再返回：直接用缓存，不再重新请求
         val cached = VideoCache.get(video.bvid)
         if (cached != null) {
+            com.aritxonly.bdfun.data.LogCollector.record(
+                "VIDEO",
+                "source=memory-cache bvid=${video.bvid} " +
+                    "qualities=${cached.playInfo?.qualities?.size} " +
+                    "audio=${cached.playInfo?.audioUrl != null}",
+            )
             detail = cached.detail
             playInfo = cached.playInfo
             danmaku = cached.danmaku
@@ -644,6 +692,7 @@ fun VideoScreen(
             currentCid = loaded.cid
             // playurl / 弹幕 / 相关推荐互不依赖，并行发起：
             // 播放地址先回来就先起播，不再等弹幕和相关推荐串行跑完。
+            var playError: Throwable? = null
             val playDeferred = async {
                 runCatching {
                     api.playInfo(
@@ -652,7 +701,7 @@ fun VideoScreen(
                         codecPreference = AppGraph.settings.codecPreference,
                         cdnService = AppGraph.settings.cdnService,
                     )
-                }.getOrNull()
+                }.onFailure { playError = it }.getOrNull()
             }
             val danmakuDeferred = async {
                 runCatching { api.danmaku(loaded.cid) }.getOrDefault(emptyList())
@@ -676,6 +725,12 @@ fun VideoScreen(
                 resumePositionMs = cloudResume
             }
             playInfo = play
+            com.aritxonly.bdfun.data.LogCollector.record(
+                "VIDEO",
+                "source=network bvid=${video.bvid} hasInfo=${play != null} " +
+                    "qualities=${play?.qualities?.size} audio=${play?.audioUrl != null} " +
+                    "err=${playError?.javaClass?.simpleName}:${playError?.message?.take(160)}",
+            )
             // 播放地址就绪即可撤掉全屏 loading，弹幕和相关推荐在后台继续补。
             loading = false
             danmaku = danmakuDeferred.await()
@@ -704,6 +759,17 @@ fun VideoScreen(
         }
         upFollowers = runCatching { api.relationStat(mid).second }.getOrDefault(0L)
         upVideos = api.upVideoCount(mid)
+        metaReady = true
+    }
+
+    // 粉丝接口偶发很慢时，最多等 350ms 就让下方信息一起出现，避免页面长时间空着。
+    LaunchedEffect(detail?.bvid) {
+        if (detail == null) {
+            metaReady = false
+            return@LaunchedEffect
+        }
+        delay(350)
+        metaReady = true
     }
 
     // 当前同时观看人数
@@ -875,8 +941,12 @@ fun VideoScreen(
                             ),
                         ) {
             item(key = "meta") {
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                Column(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                ) {
                     // UP 行：头像 + 昵称 + 签名 + 粉色实心关注
+                    StaggerLine(metaReady, 0) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         AsyncImage(
                             model = rememberImageRequest(detail?.ownerFace ?: video.ownerFace),
@@ -905,7 +975,7 @@ fun VideoScreen(
                                     text = detail?.ownerName ?: video.ownerName,
                                     color = colors.onBackground,
                                     fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium,
+                                    fontWeight = FontWeight.Normal,
                                 )
                             }
                             Text(
@@ -938,24 +1008,28 @@ fun VideoScreen(
                                 text = if (followed) "已关注" else "+ 关注",
                                 color = Color.White,
                                 fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
+                                fontWeight = FontWeight.Normal,
                             )
                         }
+                    }
                     }
 
                     Spacer(Modifier.height(10.dp))
                     // 标题：可长按选择 / 复制
+                    StaggerLine(metaReady, 1) {
                     androidx.compose.foundation.text.selection.SelectionContainer {
                         Text(
                             text = detail?.title ?: video.title,
                             color = colors.onBackground,
                             fontSize = 17.sp,
                             lineHeight = 24.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Medium,
                         )
+                    }
                     }
                     Spacer(Modifier.height(4.dp))
                     // 播放 / 弹幕 / 日期（各元素间距统一 8dp）
+                    StaggerLine(metaReady, 2) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -993,6 +1067,7 @@ fun VideoScreen(
                             )
                         }
                     }
+                    }
                     val descText = detail?.desc?.takeIf { it.isNotBlank() }
                     val descProgress = rememberManualProgress(
                         if (descExpanded) 1f else 0f,
@@ -1000,6 +1075,7 @@ fun VideoScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                     // BV 号那一栏：最右侧的箭头负责展开 / 收起简介（简介没被折叠时不显示）
+                    StaggerLine(metaReady, 3) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(start = 1.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -1048,6 +1124,8 @@ fun VideoScreen(
                             }
                         }
                     }
+                    }
+                    StaggerLine(metaReady, 4) {
                     if (descText != null) {
                         Spacer(Modifier.height(4.dp))
                         CollapsibleDescription(
@@ -1069,8 +1147,10 @@ fun VideoScreen(
                                 },
                         )
                     }
+                    }
 
                     // 分区标签
+                    StaggerLine(metaReady, 5) {
                     if (!detail?.tname.isNullOrBlank()) {
                         Spacer(Modifier.height(12.dp))
                         Row {
@@ -1088,9 +1168,11 @@ fun VideoScreen(
                             }
                         }
                     }
+                    }
 
                     Spacer(Modifier.height(14.dp))
                     // 五宫格：点赞 / 不喜欢 / 币 / 收藏 / 分享
+                    StaggerLine(metaReady, 6) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -1132,6 +1214,64 @@ fun VideoScreen(
                             onClick = { shareVideo() },
                         )
                     }
+                    }
+                }
+            }
+
+            val detailForPages = detail
+            if (detailForPages != null && detailForPages.pages.size > 1) {
+                item(key = "pages-card") {
+                    val enter = rememberStaggerProgress(metaReady, 7)
+                    // 分 P 不要整体背景：每个 P 自己一张白色圆角卡片。
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 12.dp, end = 12.dp, top = 12.dp)
+                            .padding(vertical = 8.dp)
+                            .graphicsLayer {
+                                alpha = enter
+                                translationY = (1f - enter) * 12.dp.toPx()
+                            },
+                    ) {
+                        VideoPageStrip(
+                            pages = detailForPages.pages,
+                            currentCid = currentCid,
+                            onSelect = { switchPage(it) },
+                        )
+                    }
+                }
+            }
+            if (detailForPages != null && detailForPages.episodes.size > 1) {
+                item(key = "collection-card") {
+                    val enter = rememberStaggerProgress(metaReady, 8)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 12.dp, end = 12.dp, top = 10.dp)
+                            .graphicsLayer {
+                                alpha = enter
+                                translationY = (1f - enter) * 12.dp.toPx()
+                            },
+                    ) {
+                        VideoCollectionCard(
+                            title = detailForPages.seasonTitle.ifBlank { detailForPages.title },
+                            episodes = detailForPages.episodes,
+                            currentCid = currentCid,
+                            onSelect = { episode ->
+                                val index = detailForPages.episodes
+                                    .indexOf(episode)
+                                    .coerceAtLeast(0)
+                                switchPage(
+                                    com.aritxonly.bdfun.data.VideoPage(
+                                        cid = episode.cid,
+                                        page = index + 1,
+                                        part = episode.title,
+                                        duration = episode.duration,
+                                    ),
+                                )
+                            },
+                        )
+                    }
                 }
             }
 
@@ -1148,10 +1288,15 @@ fun VideoScreen(
 
             if (related.isNotEmpty()) {
                 item(key = "related-card") {
+                    val enter = rememberStaggerProgress(metaReady, 9)
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 6.dp)
+                            .graphicsLayer {
+                                alpha = enter
+                                translationY = (1f - enter) * 12.dp.toPx()
+                            }
                             .clip(ContinuousCornerShape(16.dp))
                             .background(colors.surface)
                             .padding(vertical = 2.dp),
@@ -1505,14 +1650,30 @@ private fun ActionStat(
             .width(58.dp)
             // 不要 clip：外扩的圆环需要画出 36dp 图标框之外
             .pointerInput(Unit) {
+                val touchSlop = viewConfiguration.touchSlop
                 awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val startX = down.position.x
+                    val startY = down.position.y
                     // 所有按钮按住期间都保持压满状态
                     isPressing = true
                     press = 1f
-                    val up = waitForUpOrCancellation()
+                    var canceled = false
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) break
+                        // 父级翻页/滚动一旦接管，就不再算点击。
+                        if (change.isConsumed ||
+                            kotlin.math.abs(change.position.x - startX) > touchSlop ||
+                            kotlin.math.abs(change.position.y - startY) > touchSlop
+                        ) {
+                            canceled = true
+                            break
+                        }
+                    }
                     isPressing = false
-                    if (up != null && !longPressFired) onClick()
+                    if (!canceled && !longPressFired) onClick()
                 }
             }
             .padding(vertical = 2.dp),
@@ -1797,15 +1958,347 @@ private fun CollapsibleDescription(
     }
 }
 
+/** 和简介一样的展开箭头：展开/收回都旋转，带补间动画。 */
+@Composable
+private fun ExpandChevron(expanded: Boolean) {
+    val colors = MiuixTheme.colorScheme
+    val progress = rememberManualProgress(if (expanded) 1f else 0f, 300f)
+    Box(
+        modifier = Modifier.size(width = 24.dp, height = 24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        androidx.compose.foundation.Canvas(
+            modifier = Modifier
+                .size(width = 12.dp, height = 8.dp)
+                .graphicsLayer { rotationZ = 180f * progress },
+        ) {
+            val w = size.width
+            val h = size.height
+            val path = androidx.compose.ui.graphics.Path().apply {
+                moveTo(w * 0.12f, h * 0.28f)
+                lineTo(w * 0.5f, h * 0.72f)
+                lineTo(w * 0.88f, h * 0.28f)
+            }
+            drawPath(
+                path = path,
+                color = colors.onBackgroundVariant,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(
+                    width = 1.6.dp.toPx(),
+                    cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                    join = androidx.compose.ui.graphics.StrokeJoin.Round,
+                ),
+            )
+        }
+    }
+}
+
+/** 多 P 分集：横向滑动查看、点一下切换。 */
+@Composable
+private fun VideoPageStrip(
+    pages: List<com.aritxonly.bdfun.data.VideoPage>,
+    currentCid: Long,
+    onSelect: (com.aritxonly.bdfun.data.VideoPage) -> Unit,
+) {
+    val colors = MiuixTheme.colorScheme
+    val stripState = rememberLazyListState()
+    val leftAlpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (stripState.canScrollBackward) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.tween(180),
+        label = "pageStripLeftMask",
+    )
+    val rightAlpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (stripState.canScrollForward) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.tween(180),
+        label = "pageStripRightMask",
+    )
+    Box(modifier = Modifier.fillMaxWidth()) {
+        LazyRow(
+            state = stripState,
+            modifier = Modifier.fillMaxWidth(),
+            // 外层已经有 12dp；这里不再加，让第一个 P 的左边和合集圆角卡片左边缘对齐。
+            contentPadding = PaddingValues(horizontal = 0.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(items = pages, key = { it.cid }) { page ->
+                val active = page.cid == currentCid
+                Box(
+                    modifier = Modifier
+                        .width(150.dp)
+                        .height(54.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(colors.surface)
+                        .clickable(interactionSource = null, indication = null) { onSelect(page) }
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    Text(
+                        text = page.part.ifBlank { "P${page.page}" },
+                        color = if (active) colors.primary else colors.onBackground,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+        // 左右各 6dp 渐变，提示这里还能横向滑动；到最左/最右才淡出。
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .width(6.dp)
+                .height(54.dp)
+                .graphicsLayer { alpha = leftAlpha }
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(colors.background, colors.background.copy(alpha = 0f)),
+                    ),
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .width(6.dp)
+                .height(54.dp)
+                .graphicsLayer { alpha = rightAlpha }
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(colors.background.copy(alpha = 0f), colors.background),
+                    ),
+                ),
+        )
+    }
+}
+
+/** 播放器下方内容按从上到下依次浮出；order 越大越晚，总时长控制在 1 秒内。 */
+@Composable
+private fun rememberStaggerProgress(ready: Boolean, order: Int): Float {
+    var target by remember { mutableStateOf(0f) }
+    LaunchedEffect(ready, order) {
+        if (!ready) {
+            target = 0f
+        } else {
+            kotlinx.coroutines.delay(order * 60L)
+            target = 1f
+        }
+    }
+    return rememberManualProgress(target, 120f)
+}
+
+@Composable
+private fun StaggerLine(
+    ready: Boolean,
+    order: Int,
+    content: @Composable () -> Unit,
+) {
+    val progress = rememberStaggerProgress(ready, order)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = progress
+                translationY = (1f - progress) * 10.dp.toPx()
+            },
+    ) {
+        content()
+    }
+}
+
+/** 合集：点开整张圆角卡片向下展开，内部可以上下滑查看更早/更晚的单集。 */
+@Composable
+private fun VideoCollectionCard(
+    title: String,
+    episodes: List<com.aritxonly.bdfun.data.VideoEpisode>,
+    currentCid: Long,
+    onSelect: (com.aritxonly.bdfun.data.VideoEpisode) -> Unit,
+) {
+    val colors = MiuixTheme.colorScheme
+    var expanded by remember(title, episodes.size) { mutableStateOf(false) }
+    val currentIndex = episodes.indexOfFirst { it.cid == currentCid }.let {
+        if (it < 0) 0 else it
+    }
+    val scrollState = rememberScrollState()
+    // Miuix 负责回弹，这一层负责把回弹之后剩下的位移/惯性吃掉，
+    // 否则快速一甩仍会把速度传给整页。
+    val keepInsideCollection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset = Offset(0f, available.y)
+
+            override suspend fun onPostFling(
+                consumed: Velocity,
+                available: Velocity,
+            ): Velocity = Velocity(0f, available.y)
+        }
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(colors.surface),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(interactionSource = null, indication = null) { expanded = !expanded }
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = MiuixIcons.Playlist,
+                contentDescription = null,
+                tint = colors.onBackground,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = "合集 · $title",
+                color = colors.onBackground,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "${currentIndex + 1}/${episodes.size}",
+                color = colors.onBackgroundVariant,
+                fontSize = 11.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                modifier = Modifier.width(52.dp),
+            )
+            Spacer(Modifier.width(2.dp))
+            ExpandChevron(expanded = expanded)
+        }
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut(),
+        ) {
+            Box(modifier = Modifier.fillMaxWidth().height(198.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .nestedScroll(keepInsideCollection)
+                        .overScrollVertical(nestedScrollToParent = false)
+                        .verticalScroll(scrollState)
+                        .padding(horizontal = 10.dp)
+                        .padding(bottom = 8.dp),
+                ) {
+                    episodes.forEachIndexed { index, episode ->
+                        val active = episode.cid == currentCid
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    if (active) colors.primary.copy(alpha = 0.12f) else Color.Transparent,
+                                )
+                                .clickable(interactionSource = null, indication = null) {
+                                    onSelect(episode)
+                                }
+                                .padding(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(84.dp)
+                                    .aspectRatio(16f / 9f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(colors.surface),
+                            ) {
+                                AsyncImage(
+                                    model = rememberImageRequest(episode.cover),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                                if (episode.duration > 0) {
+                                    Text(
+                                        text = formatDuration(episode.duration),
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        lineHeight = 11.sp,
+                                        modifier = Modifier
+                                            .align(Alignment.BottomEnd)
+                                            .padding(end = 5.dp, bottom = 4.dp),
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = episode.title,
+                                    color = if (active) colors.primary else colors.onBackground,
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                val meta = buildList {
+                                    if (episode.pubdate > 0) add(formatDateTime(episode.pubdate))
+                                    if (episode.play > 0) add("${formatCount(episode.play)} 播放")
+                                    if (episode.danmaku > 0) add("${formatCount(episode.danmaku)} 弹幕")
+                                }
+                                if (meta.isNotEmpty()) {
+                                    Text(
+                                        text = meta.joinToString(" · "),
+                                        color = colors.onBackgroundVariant,
+                                        fontSize = 10.sp,
+                                        lineHeight = 13.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(6.dp))
+                    }
+                }
+                // 上下 4dp 渐变，让列表在卡片边缘自然消失。
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(colors.surface, colors.surface.copy(alpha = 0f)),
+                            ),
+                        ),
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(colors.surface.copy(alpha = 0f), colors.surface),
+                            ),
+                        ),
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun RelatedRow(item: VideoItem, onClick: () -> Unit) {
     val colors = MiuixTheme.colorScheme
+    val context = LocalContext.current
+    val oneTake = rememberOneTakeAnchor()
+    val rowRadiusPx = with(LocalDensity.current) { 12.dp.toPx() }
     val coverWidth = 150.dp
     val coverHeight = coverWidth * 9f / 16f
     Row(
-        modifier = Modifier
+        modifier = oneTake.modifier
             .fillMaxWidth()
-            .clickable(interactionSource = null, indication = null, onClick = onClick)
+            .clickable(interactionSource = null, indication = null) {
+                oneTake.open(context, item, rowRadiusPx) { onClick() }
+            }
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.Top,
     ) {

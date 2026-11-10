@@ -37,6 +37,9 @@ fun TeakActivityScaffold(
     topBarActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
     /** 采集层之外的覆盖层：这里的玻璃可以安全读取 backdrop（真模糊）。 */
     overlay: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit = {},
+    /** 顶栏之上的浮层，玻璃菜单用，避免被搜索按钮等顶栏按钮盖住。 */
+    menuOverlay: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit = {},
+    titleAlwaysVisible: Boolean = false,
     pageState: TeakPageScrollState? = null,
     content: @Composable () -> Unit,
 ) {
@@ -67,6 +70,9 @@ fun TeakActivityScaffold(
             outline = Color(0xFFE6E6E6),
         )
     }
+    androidx.compose.runtime.SideEffect {
+        com.aritxonly.teak.common.theme.TeakUiStyle.style = settings.interfaceStyle
+    }
     TeakTheme(
         dark = dark,
         lightColors = lightColors,
@@ -90,6 +96,8 @@ fun TeakActivityScaffold(
             topBarCenter = topBarCenter,
             topBarActions = topBarActions,
             overlay = overlay,
+            menuOverlay = menuOverlay,
+            titleAlwaysVisible = titleAlwaysVisible,
             content = content,
         )
     }

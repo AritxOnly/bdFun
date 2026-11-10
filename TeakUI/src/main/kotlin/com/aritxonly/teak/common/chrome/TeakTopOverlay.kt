@@ -1,6 +1,8 @@
 package com.aritxonly.teak.common.chrome
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -101,17 +103,31 @@ fun TeakTopGlassButton(
 
     Box(modifier = modifier.size(40.dp)) {
         if (reveal > 0.01f) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .graphicsLayer { alpha = reveal },
-            ) {
-                TeakGlassIconButton(
-                    onClick = onClick,
-                    size = 40.dp,
-                    recipe = recipe,
-                    backdrop = LocalTeakBackdrop.current,
-                ) {}
+            val classic = com.aritxonly.teak.common.theme.TeakUiStyle.isClassic
+            if (classic) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .graphicsLayer { alpha = reveal }
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(
+                            top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainerHigh,
+                        )
+                        .clickable(interactionSource = null, indication = null, onClick = onClick),
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .graphicsLayer { alpha = reveal },
+                ) {
+                    TeakGlassIconButton(
+                        onClick = onClick,
+                        size = 40.dp,
+                        recipe = recipe,
+                        backdrop = LocalTeakBackdrop.current,
+                    ) {}
+                }
             }
         } else {
             Box(

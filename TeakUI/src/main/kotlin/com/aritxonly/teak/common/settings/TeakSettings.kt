@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.shadow.Shadow
@@ -97,8 +98,16 @@ fun TeakSettingsPage(
     pageState: TeakPageScrollState = TeakPageChrome.state,
     subtitle: String? = null,
     contentPadding: PaddingValues = PaddingValues(
-        start = TeakChromeDefaults.ContentHorizontalPadding,
-        end = TeakChromeDefaults.ContentHorizontalPadding,
+        start = if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) {
+            0.dp
+        } else {
+            TeakChromeDefaults.ContentHorizontalPadding
+        },
+        end = if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) {
+            0.dp
+        } else {
+            TeakChromeDefaults.ContentHorizontalPadding
+        },
         top = TeakChromeDefaults.ContentTopPadding,
         bottom = TeakChromeDefaults.ContentBottomPadding,
     ),
@@ -134,11 +143,16 @@ fun TeakSettingsCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
-    Column(modifier = modifier.padding(top = 12.dp)) {
+    val classic = com.aritxonly.teak.common.theme.TeakUiStyle.isClassic
+    Column(modifier = modifier.padding(top = if (classic) 0.dp else 12.dp)) {
         if (!title.isNullOrBlank()) {
             Text(
                 text = title,
-                modifier = Modifier.padding(start = 14.dp, bottom = 5.dp),
+                modifier = Modifier.padding(
+                    start = if (classic) 12.dp else 14.dp,
+                    top = if (classic) 12.dp else 0.dp,
+                    bottom = 5.dp,
+                ),
                 color = colors.onBackgroundVariant,
                 fontSize = 11.5.sp,
             )
@@ -146,8 +160,23 @@ fun TeakSettingsCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(CardShape)
-                .background(colors.surface),
+                .then(
+                    if (classic) {
+                        Modifier
+                            .background(colors.surface)
+                            .drawBehind {
+                                val y = size.height - 1.dp.toPx() / 2f
+                                drawLine(
+                                    color = colors.onBackground.copy(alpha = 0.12f),
+                                    start = Offset(0f, y),
+                                    end = Offset(size.width, y),
+                                    strokeWidth = 1.dp.toPx(),
+                                )
+                            }
+                    } else {
+                        Modifier.clip(CardShape).background(colors.surface)
+                    },
+                ),
             content = content,
         )
     }
@@ -241,77 +270,28 @@ fun TeakSettingsDropdownRow(
     onSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
     accentColor: Color? = null,
-    panelWidth: androidx.compose.ui.unit.Dp = 196.dp,
+    panelWidth: androidx.compose.ui.unit.Dp = 220.dp,
+    /** 关闭时右侧显示的文字；为空时用当前选项。用于 CDN 这种“收起不显示测速”的场景。 */
+    closedValue: String? = null,
 ) {
     if (options.isEmpty()) return
     val colors = MiuixTheme.colorScheme
     val accent = accentColor ?: MaterialTheme.colorScheme.primary
-    // 选项行和高度测量共用同一套 style；字重比外层行略细一点，但比默认粗
+    // 字号 15sp；颜色仍用 bdFun 主题色。
     val optionTextStyle = remember {
-        TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium)
+        TextStyle(fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.Normal)
     }
     var open by remember { mutableStateOf(false) }
     var rowSize by remember { mutableStateOf(IntSize.Zero) }
     var rowPos by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
-    var dismissArmed by remember { mutableStateOf(false) }
-    var selectArmed by remember { mutableStateOf(false) }
-    // Dialog 的存活时间跟退出动画对齐，不能等弹簧收敛：visibilityThreshold 1e-4 的尾巴
-    // 会拖到两秒以上，这期间全屏遮罩会吞掉点击，表现就是"关掉以后几秒内点不开"。
-    var mounted by remember { mutableStateOf(false) }
-    LaunchedEffect(open) {
-        if (open) {
-            mounted = true
-            dismissArmed = false
-            // 刚弹出的 220ms 内不接受选项点击：面板盖在原行上，
-            // 连点两下很容易直接选中手指底下的那一项。
-            selectArmed = false
-            delay(220)
-            dismissArmed = true
-            selectArmed = true
-        } else {
-            dismissArmed = false
-            selectArmed = false
-            delay(ExitHoldMs)
-            mounted = false
-        }
+    val anchorRect = remember(rowPos, rowSize) {
+        Rect(
+            left = rowPos.x,
+            top = rowPos.y,
+            right = rowPos.x + rowSize.width,
+            bottom = rowPos.y + rowSize.height,
+        )
     }
-    // 进场用弹簧（留一点回弹），退场用固定时长的 tween：
-    // 弹簧在 1e-4 阈值下尾巴能拖到两秒，期间模糊/玻璃 shader 每帧重算，
-    // 既卡又会在 Dialog 被拆掉时看起来"没播完就消失"。
-    val motionEnabled = TeakMotion.enabled
-    val fractionSpec = spring<Float>(
-        dampingRatio = 0.76f,
-        stiffness = 350f,
-        visibilityThreshold = 1e-4f,
-    )
-    val exitFractionSpec = tween<Float>(
-        durationMillis = 240,
-        easing = androidx.compose.animation.core.FastOutSlowInEasing,
-    )
-    val enterAlphaSpec = tween<Float>(durationMillis = 200)
-    val exitAlphaSpec = tween<Float>(durationMillis = 220)
-    val transitionState = remember { MutableTransitionState(false) }
-    transitionState.targetState = open
-    val transition = rememberTransition(transitionState, label = "settingsDropdown")
-    val fraction by transition.animateFloat(
-        transitionSpec = {
-            when {
-                !motionEnabled -> snap()
-                targetState -> fractionSpec
-                else -> exitFractionSpec
-            }
-        },
-        label = "fraction",
-    ) { state -> if (state) 1f else 0f }
-    val fade by transition.animateFloat(
-        transitionSpec = {
-            if (!motionEnabled) snap()
-            else if (targetState) enterAlphaSpec else exitAlphaSpec
-        },
-        label = "alpha",
-    ) { state -> if (state) 1f else 0f }
-    // 退出动画期间 Dialog 必须留着；mounted 由 LaunchedEffect 控制，不再等弹簧收敛
-    val visible = open || mounted
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -341,7 +321,7 @@ fun TeakSettingsDropdownRow(
             }
             Spacer(Modifier.width(12.dp))
             Text(
-                text = options.getOrElse(selected) { options.first() },
+                text = closedValue ?: options.getOrElse(selected) { options.first() },
                 color = colors.onBackgroundVariant,
                 fontSize = 14.sp,
             )
@@ -349,166 +329,52 @@ fun TeakSettingsDropdownRow(
             TeakChevronUpDown(color = colors.onBackgroundVariant)
         }
 
-        if (visible) {
-            val density = LocalDensity.current
-            Dialog(
-                onDismissRequest = { if (dismissArmed) open = false },
-                properties = DialogProperties(
-                    usePlatformDefaultWidth = false,
-                    decorFitsSystemWindows = false,
-                    dismissOnClickOutside = false,
-                ),
-            ) {
-                val view = androidx.compose.ui.platform.LocalView.current
-                val dialogWindow = (view.parent as? DialogWindowProvider)?.window
-                androidx.compose.runtime.SideEffect { dialogWindow?.setDimAmount(0f) }
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Transparent)
-                            .clickable(interactionSource = null, indication = null) {
-                                if (dismissArmed) open = false
-                            },
-                    )
-                    val panelWidthDp = panelWidth
-                    val panelX = with(density) {
-                        rowPos.x + rowSize.width - panelWidthDp.toPx() - 12.dp.toPx()
-                    }
-                    val screenH = with(density) {
-                        LocalConfiguration.current.screenHeightDp.dp.toPx()
-                    }
-                    // 面板高度不再预估：让内容自己撑开，量到实际高度后再兜住屏幕边缘。
-                    // 字体、字号、换行、选项数量怎么变都不会再裁掉最后一项。
-                    var measuredHeightPx by remember { mutableStateOf(0) }
-                    val maxContentHeight = with(density) {
-                        minOf(screenH - 40.dp.toPx(), 420.dp.toPx()).toDp()
-                    }
-                    val fallbackHeight = with(density) {
-                        (20.sp.toDp() + 24.dp) * options.size + 12.dp
-                    }
-                    val fallbackHeightPx = with(density) { fallbackHeight.toPx() }
-                    val bottomGapPx = with(density) { 24.dp.toPx() }
-                    // 阴影层在第一帧就要有尺寸，否则量到高度之前它会“突然闪出来”
-                    val shadowHeightPx = measuredHeightPx.takeIf { it > 0 } ?: fallbackHeightPx.toInt()
-                    val panelY = with(density) { rowPos.y + rowSize.height * 0.28f }
-                        .coerceIn(
-                            0f,
-                            (screenH - (measuredHeightPx.takeIf { it > 0 }?.toFloat()
-                                ?: fallbackHeightPx) - bottomGapPx).coerceAtLeast(0f),
-                        )
-                    // 阴影单独一层：透明度比面板升得更快（fade * 6），退得更快（fade²），
-                    // 面板层只负责缩放和内容模糊。
-                    Box(
-                        modifier = Modifier
-                            .offset { IntOffset(panelX.toInt(), panelY.toInt()) }
-                            .width(panelWidthDp)
-                            .height(with(density) { shadowHeightPx.toDp() })
-                            .graphicsLayer {
-                                val t = fraction.coerceAtLeast(0f)
-                                val a = fade.coerceIn(0f, 1f)
-                                alpha = if (open) {
-                                    (a * 6f).coerceIn(0f, 1f)
-                                } else {
-                                    (a * a).coerceIn(0f, 1f)
-                                }
-                                val s = 0.15f + 0.85f * t
-                                scaleX = s
-                                scaleY = s
-                                transformOrigin = TransformOrigin(1f, 0f)
-                            }
-                            .dropShadow(
-                                shape = RoundedCornerShape(18.dp),
-                                shadow = Shadow(
-                                    radius = 8.dp,
-                                    color = Color.Black,
-                                    alpha = 0.10f,
-                                ),
-                            )
-                            .background(Color.White.copy(alpha = 0.001f), RoundedCornerShape(18.dp)),
-                    )
-                    Box(
-                        modifier = Modifier
-                            .offset { IntOffset(panelX.toInt(), panelY.toInt()) }
-                            .width(panelWidthDp)
-                            .onGloballyPositioned { measuredHeightPx = it.size.height }
-                            .graphicsLayer {
-                                val t = fraction.coerceAtLeast(0f)
-                                alpha = fade.coerceIn(0f, 1f)
-                                val s = 0.15f + 0.85f * t
-                                scaleX = s
-                                scaleY = s
-                                transformOrigin = TransformOrigin(1f, 0f)
-                                // 内容模糊：半径随进度收拢（除以缩放，避免被缩放“锁死”）。
-                                // 放在 graphicsLayer 里算，只失效 draw，不触发重组。
-                                val blurDp = ((1f - t.coerceIn(0f, 1f)) * 6f / s.coerceAtLeast(0.2f))
-                                    .coerceAtMost(10f)
-                                renderEffect = if (blurDp > 0.05f) {
-                                    val r = blurDp.dp.toPx()
-                                    BlurEffect(
-                                        radiusX = r,
-                                        radiusY = r,
-                                        edgeTreatment = TileMode.Decal,
-                                    )
-                                } else {
-                                    null
-                                }
-                            },
-                    ) {
-                        TeakGlassPanel(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(18.dp),
-                            tintAlpha = 0.3f,
+        TeakDropdownPanel(
+            visible = open,
+            onDismiss = { open = false },
+            width = panelWidth,
+            anchorBounds = anchorRect,
+            anchorTopRatio = 0.36f,
+            anchorEndGap = 16.dp,
+            contentPadding = 6.dp,
+        ) {
+            val interactive = LocalTeakDropdownInteractive.current
+            options.forEachIndexed { index, option ->
+                val active = index == selected
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .clickable(
+                            interactionSource = null,
+                            indication = null,
+                            enabled = interactive,
                         ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = maxContentHeight)
-                                .verticalScroll(rememberScrollState())
-                                .padding(vertical = 6.dp),
-                        ) {
-                            options.forEachIndexed { index, option ->
-                                val active = index == selected
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable(interactionSource = null, indication = null) {
-                                            if (selectArmed) {
-                                                onSelected(index)
-                                                open = false
-                                            }
-                                        }
-                                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(
-                                        text = option,
-                                        style = optionTextStyle,
-                                        color = if (active) accent else colors.onBackground,
-                                        maxLines = 1,
-                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                    )
-                                    Spacer(Modifier.weight(1f))
-                                    if (active) {
-                                        // 用同一套 style：勾的字体一旦比选项高，切选项时行高会变，
-                                        // 面板会跟着重新量高，看起来就是文字"跳一下"
-                                        Text(
-                                            text = "✓",
-                                            style = optionTextStyle.copy(
-                                                fontWeight = FontWeight.Bold,
-                                            ),
-                                            color = accent,
-                                        )
-                                    }
-                                }
-                            }
+                            onSelected(index)
+                            open = false
                         }
+                        .padding(horizontal = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = option,
+                        style = optionTextStyle,
+                        color = if (active) accent else colors.onBackground,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    if (active) {
+                        Text(
+                            text = "✓",
+                            style = optionTextStyle.copy(fontWeight = FontWeight.SemiBold),
+                            color = accent,
+                        )
                     }
                 }
             }
         }
     }
-}
 }
 
 @Composable

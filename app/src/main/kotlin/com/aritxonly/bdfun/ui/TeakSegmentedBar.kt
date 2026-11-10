@@ -92,7 +92,7 @@ fun TeakSegmentedBar(
                             text = label,
                             color = textColor,
                             fontSize = 13.sp,
-                            fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
+                            fontWeight = if (active) FontWeight.Normal else FontWeight.Normal,
                         )
                     }
                 }

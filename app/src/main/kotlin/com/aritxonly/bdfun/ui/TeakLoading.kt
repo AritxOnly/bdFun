@@ -19,21 +19,30 @@ import com.aritxonly.bdfun.R
 import kotlinx.coroutines.delay
 
 /**
- * 全局加载指示：B 站小电视动图。
+ * 普通页面的加载占位。
  *
- * 素材是原始 GIF（16 帧 / 30ms）逐帧去白底得到的透明 PNG 序列，所以底色任意都不会有白块，
- * 动画就是原图的动画（吉祥物上下浮动 + 天线晃动），不是程序化模拟。
- *
- * 参数签名与 [androidx.compose.material3.CircularProgressIndicator] 兼容，
- * 调用点把名字换掉即可（color / strokeWidth 等参数会被忽略）。
+ * 按需求，小电视动图只保留在首页/动态页的下拉刷新里；
+ * 其他页面不再显示任何加载图标，所以这里保持空实现。
+ * 调用点不用删，布局会自然收起。
  */
 @Composable
+@Suppress("UNUSED_PARAMETER")
 fun TeakLoading(
     modifier: Modifier = Modifier,
     color: Color = Color.Unspecified,
     strokeWidth: Dp = 0.dp,
     trackColor: Color = Color.Unspecified,
     strokeCap: StrokeCap = StrokeCap.Round,
+    size: Dp = 88.dp,
+    animated: Boolean = true,
+    tint: Color? = null,
+) {
+}
+
+/** 下拉刷新专用：B 站小电视动图，只有在首页/动态页下拉时出现。 */
+@Composable
+fun TeakTvLoading(
+    modifier: Modifier = Modifier,
     size: Dp = 88.dp,
     /** false 时停在第一帧（下拉过程中用静态，松手后才播动画）。 */
     animated: Boolean = true,

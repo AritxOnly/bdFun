@@ -63,14 +63,19 @@ class SettingsStore(context: Context) {
                 .putBoolean("decoder_mode_v2", true)
                 .apply()
         }
-        // preview-3.9：CDN 默认改回「基础URL」；仍停在 auto 的用户迁移回 base。
-        if (!prefs.getBoolean("cdn_base_v1", false)) {
-            if (!prefs.contains("cdn_service") ||
-                prefs.getString("cdn_service", "base") == CdnAutoSelector.ID
-            ) {
-                prefs.edit().putString("cdn_service", "base").apply()
+        // preview-3.10.0：把旧版本遗留的「首页使用 Web 推荐」迁回 App 推荐一次。
+        if (!prefs.getBoolean("recommend_app_v2", false)) {
+            prefs.edit()
+                .putBoolean("recommend_web", false)
+                .putBoolean("recommend_app_v2", true)
+                .apply()
+        }
+        // preview-3.9.5：重新提供「自动」选项；新安装默认自动，已有手动选择保持不变。
+        if (!prefs.getBoolean("cdn_auto_v2", false)) {
+            if (!prefs.contains("cdn_service")) {
+                prefs.edit().putString("cdn_service", CdnAutoSelector.ID).apply()
             }
-            prefs.edit().putBoolean("cdn_base_v1", true).apply()
+            prefs.edit().putBoolean("cdn_auto_v2", true).apply()
         }
     }
 
@@ -83,6 +88,10 @@ class SettingsStore(context: Context) {
     private val darkModeState = mutableStateOf(prefs.getInt("dark_mode", 0))
     /** 色彩风格：0 = AC 粉（B 站粉），1 = Hyper 蓝（Miuix 默认蓝）。 */
     private val colorStyleState = mutableStateOf(prefs.getInt("color_style", 0))
+    /** 界面风格：0 = 官方（悬浮圆角 + 玻璃），1 = 经典（贴边栏目 + 分割线）。 */
+    private val interfaceStyleState = mutableStateOf(prefs.getInt("interface_style", 0))
+    /** 首页卡片样式：0 = 双排小卡，1 = 大卡（动态页视频卡同款）。 */
+    private val homeCardStyleState = mutableStateOf(prefs.getInt("home_card_style", 0))
     private val shadowsState = mutableStateOf(prefs.getBoolean("shadows", true))
     private val blurState = mutableStateOf(prefs.getBoolean("blur", true))
     private val danmakuScaleState = mutableStateOf(prefs.getFloat("danmaku_scale", 1f))
@@ -97,7 +106,7 @@ class SettingsStore(context: Context) {
     private val decoderState = mutableStateOf(prefs.getInt("decoder_mode", 0))
     private val codecPreferenceState = mutableStateOf(prefs.getString("codec_preference", "auto") ?: "auto")
     private val cdnServiceState = mutableStateOf(
-        prefs.getString("cdn_service", "base") ?: "base",
+        prefs.getString("cdn_service", CdnAutoSelector.ID) ?: CdnAutoSelector.ID,
     )
 
     /** 蓝牙耳机延迟补偿：检测到蓝牙输出时，让弹幕按设定延迟对齐。 */
@@ -109,6 +118,8 @@ class SettingsStore(context: Context) {
     private val dmAreaState = mutableFloatStateOf(prefs.getFloat("dm_area", 1f))
     private val dmSpeedState = mutableFloatStateOf(prefs.getFloat("dm_speed", 1f))
     private val dmAlphaState = mutableFloatStateOf(prefs.getFloat("dm_alpha", 1f))
+    /** 降低弹幕刷新率（默认开）：限制到 60 帧。 */
+    private val dmLowRefreshState = mutableStateOf(prefs.getBoolean("dm_low_refresh", true))
     /** 弹幕黑色描边宽度（dp），0 表示不描边。 */
     private val dmStrokeState = mutableFloatStateOf(prefs.getFloat("dm_stroke", 1.5f))
     private val dmPortraitGuardState = mutableStateOf(prefs.getBoolean("dm_portrait_guard", false))
@@ -128,6 +139,9 @@ class SettingsStore(context: Context) {
 
     /** 进入视频是否自动播放（默认开）。 */
     private val autoPlayState = mutableStateOf(prefs.getBoolean("auto_play", true))
+
+    /** 播放结束后是否自动连播（默认开，需记住用户关闭状态）。 */
+    private val autoPlayNextState = mutableStateOf(prefs.getBoolean("auto_play_next", true))
 
     /** 动态页视频滚到屏幕中心附近时是否自动静音预览播放。 */
     private val dynamicAutoPlayState = mutableStateOf(prefs.getBoolean("dynamic_auto_play", true))
@@ -163,9 +177,16 @@ class SettingsStore(context: Context) {
         mutableStateOf(prefs.getBoolean("gesture_boost_swipe", true))
     private val boostDefaultSpeedState =
         mutableFloatStateOf(prefs.getFloat("boost_default_speed", 3f))
+    /** 打开每个视频时的默认播放倍速。 */
+    private val defaultPlaybackSpeedState =
+        mutableFloatStateOf(prefs.getFloat("default_playback_speed", 1f))
     private val showFullscreenTimeState = mutableStateOf(prefs.getBoolean("show_fullscreen_time", true))
     private val showFullscreenActionsState =
         mutableStateOf(prefs.getBoolean("show_fullscreen_actions", true))
+    /** 进度条常显模式：0=关闭，1=仅半屏，2=仅全屏，3=永久。 */
+    private val progressBarModeState = mutableStateOf(prefs.getInt("progress_bar_mode", 0))
+    private val sponsorSkipState = mutableStateOf(prefs.getBoolean("sponsor_skip", true))
+    private val hotDanmakuState = mutableStateOf(prefs.getBoolean("hot_danmaku", true))
     private val btLatencyMsState = mutableStateOf(prefs.getInt("bt_latency_ms", 100))
 
     /** 「我的」页底部「我的评论与弹幕」入口是否显示（默认显示）。 */
@@ -273,6 +294,22 @@ class SettingsStore(context: Context) {
         set(value) {
             colorStyleState.value = value.coerceIn(0, 1)
             prefs.edit().putInt("color_style", colorStyleState.value).apply()
+        }
+
+    /** 界面风格：0 官方，1 经典。默认官方，不影响原有 UI。 */
+    var interfaceStyle: Int
+        get() = interfaceStyleState.value
+        set(value) {
+            interfaceStyleState.value = value.coerceIn(0, 1)
+            prefs.edit().putInt("interface_style", interfaceStyleState.value).apply()
+        }
+
+    /** 首页卡片样式：0 双排，1 大卡。 */
+    var homeCardStyle: Int
+        get() = homeCardStyleState.value
+        set(value) {
+            homeCardStyleState.value = value.coerceIn(0, 1)
+            prefs.edit().putInt("home_card_style", homeCardStyleState.value).apply()
         }
 
     var shadowsEnabled: Boolean
@@ -401,6 +438,14 @@ class SettingsStore(context: Context) {
             persistFloatEventually("dm_stroke", dmStrokeState.value)
         }
 
+    /** 降低弹幕刷新率：开启后弹幕最多 60 帧，关闭后跟屏幕刷新率。 */
+    var danmakuLowRefresh: Boolean
+        get() = dmLowRefreshState.value
+        set(value) {
+            dmLowRefreshState.value = value
+            prefs.edit().putBoolean("dm_low_refresh", value).apply()
+        }
+
     /** 人像防挡：弹幕避开画面中间的人像区域。 */
     var danmakuPortraitGuard: Boolean
         get() = dmPortraitGuardState.value
@@ -484,6 +529,13 @@ class SettingsStore(context: Context) {
         set(value) {
             autoPlayState.value = value
             prefs.edit().putBoolean("auto_play", value).apply()
+        }
+
+    var autoPlayNext: Boolean
+        get() = autoPlayNextState.value
+        set(value) {
+            autoPlayNextState.value = value
+            prefs.edit().putBoolean("auto_play_next", value).apply()
         }
 
     var dynamicAutoPlay: Boolean
@@ -610,6 +662,16 @@ class SettingsStore(context: Context) {
             prefs.edit().putBoolean("gesture_boost_swipe", value).apply()
         }
 
+    /** 打开视频时的默认倍速，默认 1 倍。 */
+    var defaultPlaybackSpeed: Float
+        get() = defaultPlaybackSpeedState.value.coerceIn(0.5f, 3f)
+        set(value) {
+            defaultPlaybackSpeedState.value = value.coerceIn(0.5f, 3f)
+            prefs.edit()
+                .putFloat("default_playback_speed", defaultPlaybackSpeedState.value)
+                .apply()
+        }
+
     /** 长按加速的默认倍率。 */
     var boostDefaultSpeed: Float
         get() = boostDefaultSpeedState.value.coerceIn(1f, 5f)
@@ -630,6 +692,28 @@ class SettingsStore(context: Context) {
         set(value) {
             showFullscreenActionsState.value = value
             prefs.edit().putBoolean("show_fullscreen_actions", value).apply()
+        }
+
+    /** 进度条常显：0 关闭 / 1 仅半屏 / 2 仅全屏 / 3 永久。 */
+    var progressBarMode: Int
+        get() = progressBarModeState.value.coerceIn(0, 3)
+        set(value) {
+            progressBarModeState.value = value.coerceIn(0, 3)
+            prefs.edit().putInt("progress_bar_mode", progressBarModeState.value).apply()
+        }
+
+    var sponsorSkipEnabled: Boolean
+        get() = sponsorSkipState.value
+        set(value) {
+            sponsorSkipState.value = value
+            prefs.edit().putBoolean("sponsor_skip", value).apply()
+        }
+
+    var hotDanmakuEnabled: Boolean
+        get() = hotDanmakuState.value
+        set(value) {
+            hotDanmakuState.value = value
+            prefs.edit().putBoolean("hot_danmaku", value).apply()
         }
 
     var bluetoothLatencyMs: Int

@@ -134,8 +134,11 @@ fun TeakActionSheet(
                             ),
                         ),
                     shape = RoundedCornerShape(28.dp),
-                    // 和设置页二级菜单同一套：底灰 0.3、24% 磨砂
+                    // 和设置页二级菜单同一套：底灰 0.3、24% 磨砂。
+                    // 页面内容层里没有可采样的 backdrop 时退化成与页面同色的纯色面板。
                     tintAlpha = 0.3f,
+                    solid = LocalTeakBackdrop.current == null,
+                    solidColor = colors.surface,
                 ) {
                     Column(
                         modifier = Modifier
@@ -148,7 +151,7 @@ fun TeakActionSheet(
                                 color = colors.onBackground,
                                 fontSize = 18.sp,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier
@@ -207,7 +210,7 @@ fun SheetActionRow(
                 text = label,
                 color = Color.White,
                 fontSize = 14.sp,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
             )
             trailing?.invoke()
         }

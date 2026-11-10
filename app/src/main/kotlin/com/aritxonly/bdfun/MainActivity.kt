@@ -24,6 +24,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.aritxonly.bdfun.data.LogCollector.init(applicationContext)
         enableEdgeToEdge()
         // 采样上限：底栏玻璃每帧要把整屏录一次，绘制频率跟屏幕刷新率一致。
         // 120Hz 屏上把整窗钉在 60Hz，录制次数直接减半、每帧预算翻倍；60Hz 设备上是 no-op。
@@ -44,8 +45,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             androidx.compose.foundation.layout.Box {
                 BdFunApp(api = api, settings = settings)
-                com.aritxonly.bdfun.ui.UpdatePromptHost(settings)
-                com.aritxonly.bdfun.ui.VersionUpdatedHost(settings)
                 com.aritxonly.bdfun.ui.SplashWallpaper(settings.splashWallpaper)
             }
         }

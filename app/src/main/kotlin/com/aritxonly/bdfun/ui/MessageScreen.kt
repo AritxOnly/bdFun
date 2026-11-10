@@ -25,14 +25,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -40,7 +41,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -50,7 +50,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.aritxonly.bdfun.BrandPink
 import com.aritxonly.bdfun.data.BiliApi
 import com.aritxonly.bdfun.data.MessageItem
@@ -60,6 +59,7 @@ import com.aritxonly.teak.common.chrome.TeakLargeTitle
 import com.aritxonly.teak.common.chrome.TeakTopGlassButton
 import com.aritxonly.teak.common.chrome.TrackTeakPageScroll
 import com.aritxonly.teak.common.chrome.teakGlassGlyphColor
+import com.aritxonly.teak.common.navigation.TeakPagerTabs
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import java.text.SimpleDateFormat
@@ -89,10 +89,11 @@ fun MessageScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-    var followingOnly by remember { mutableStateOf(false) }
-    var sessions by remember { mutableStateOf<List<MessageSession>>(emptyList()) }
-    var loading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var tabIndex by remember { mutableIntStateOf(0) }
+    val tabProgress = remember { mutableFloatStateOf(0f) }
+    val sessionsByTab = remember { mutableStateMapOf<Int, List<MessageSession>>() }
+    val loadingByTab = remember { mutableStateMapOf<Int, Boolean>() }
+    val errorByTab = remember { mutableStateMapOf<Int, String?>() }
     var consumedReadAll by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(MessagePageBus.readAllRequest) {
@@ -103,10 +104,12 @@ fun MessageScreen(
             context.showToast("登录后可操作")
             return@LaunchedEffect
         }
-        val snapshot = sessions
+        val snapshot = sessionsByTab.values.flatten()
         scope.launch {
             runCatching { api.clearAllUnread(snapshot) }
-            sessions = sessions.map { it.copy(unread = 0) }
+            sessionsByTab.keys.toList().forEach { key ->
+                sessionsByTab[key] = sessionsByTab[key].orEmpty().map { it.copy(unread = 0) }
+            }
             context.showToast("已全部标为已读")
         }
     }
@@ -114,15 +117,12 @@ fun MessageScreen(
     BackHandler(onBack = onBack)
     TrackTeakPageScroll(listState)
 
-    LaunchedEffect(loggedIn, followingOnly) {
-        if (!loggedIn) {
-            sessions = emptyList()
-            return@LaunchedEffect
-        }
-        loading = true
-        error = null
-        var loaded = runCatching { api.messageSessions(followingOnly) }
-            .onFailure { error = it.message ?: "消息加载失败" }
+    suspend fun loadTab(tab: Int) {
+        if (!loggedIn) return
+        loadingByTab[tab] = true
+        errorByTab[tab] = null
+        var loaded = runCatching { api.messageSessions(tab == 1) }
+            .onFailure { errorByTab[tab] = it.message ?: "消息加载失败" }
             .getOrDefault(emptyList())
         // 会话接口偶发空/失败时，退回系统通知列表，至少保证消息页有内容。
         if (loaded.isEmpty()) {
@@ -142,14 +142,28 @@ fun MessageScreen(
                     )
                 }
         }
-        sessions = loaded
-        loading = false
+        sessionsByTab[tab] = loaded
+        loadingByTab[tab] = false
+    }
+
+    LaunchedEffect(loggedIn) {
+        if (!loggedIn) {
+            sessionsByTab.clear()
+            loadingByTab.clear()
+            return@LaunchedEffect
+        }
+        // 两页都预取：左右滑过去时卡片已经就位，不会先空一下再跳出内容。
+        (0..1).forEach { tab ->
+            launch { loadTab(tab) }
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize().statusBarsPadding(),
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding(),
             contentPadding = PaddingValues(
                 start = 16.dp,
                 end = 16.dp,
@@ -180,7 +194,7 @@ fun MessageScreen(
                         label = "收到喜欢",
                         modifier = Modifier.weight(1f),
                         onClick = onOpenLikes,
-                    ) { ThumbGlyph(MessagePink) }
+                    ) { ResourceGlyph(res = TeakIcon.Like, tint = MessagePink, size = ShortcutGlyphSize) }
                     MessageShortcut(
                         label = "新增粉丝",
                         modifier = Modifier.weight(1f),
@@ -190,12 +204,21 @@ fun MessageScreen(
             }
 
             item(key = "tabs") {
-                Row(
-                    modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 22.dp, bottom = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 18.dp, bottom = 10.dp),
+                    contentAlignment = Alignment.CenterStart,
                 ) {
-                    MessageTab("全部", !followingOnly) { followingOnly = false }
-                    MessageTab("我关注的人", followingOnly) { followingOnly = true }
+                    TeakPagerTabs(
+                        options = listOf("全部", "我关注的人"),
+                        selected = tabIndex,
+                        onSelect = { tabIndex = it },
+                        itemWidth = 96.dp,
+                        backdrop = null,
+                        plain = true,
+                        position = tabProgress,
+                    )
                 }
             }
 
@@ -222,14 +245,25 @@ fun MessageScreen(
                 }
             } else {
                 item(key = "sessions") {
-                    SessionCard(
-                        sessions = sessions,
-                        loading = loading,
-                        error = error,
-                        onOpen = {
-                            context.showToast("私信功能暂未开放")
-                        },
-                    )
+                    SwipeCardPager(
+                        selected = tabIndex,
+                        pageCount = 2,
+                        onSelected = { tabIndex = it },
+                        progressState = tabProgress,
+                    ) { page ->
+                        SessionCard(
+                            sessions = sessionsByTab[page].orEmpty(),
+                            loading = loadingByTab[page] == true,
+                            error = errorByTab[page],
+                            onOpen = { session ->
+                                if (!session.isSystem && session.talkerId > 0L) {
+                                    com.aritxonly.bdfun.TeakNavigator.openPrivateChat(context, session)
+                                } else {
+                                    context.showToast("系统消息请在消息中心查看")
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -240,7 +274,7 @@ fun MessageScreen(
 @Composable
 fun MessageTopActions() {
     TeakTopGlassButton(onClick = { MessagePageBus.requestReadAll() }) {
-        MarkReadGlyph()
+        MenuGlyph(MenuGlyphKind.Delete, Color.Black, size = 21.dp)
     }
     TeakTopGlassButton(onClick = { /* 省略号暂时不做功能 */ }) {
         ThreeDotsGlyph()
@@ -296,7 +330,7 @@ private fun MessageTab(label: String, selected: Boolean, onClick: () -> Unit) {
             text = label,
             color = if (selected) BrandPink else colors.onBackground,
             fontSize = 13.sp,
-            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+            fontWeight = if (selected) FontWeight.Normal else FontWeight.Normal,
         )
     }
 }
@@ -355,14 +389,24 @@ private fun SessionRow(session: MessageSession, onClick: () -> Unit) {
         }
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = session.name.ifBlank { "消息" },
-                color = colors.onBackground,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = session.name.ifBlank { "消息" },
+                    color = colors.onBackground,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = formatSessionTime(session.time),
+                    color = colors.onBackgroundVariant.copy(alpha = 0.7f),
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                )
+            }
             Spacer(Modifier.height(4.dp))
             Text(
                 text = session.preview.ifBlank { "暂无新消息" },
@@ -372,17 +416,15 @@ private fun SessionRow(session: MessageSession, onClick: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Spacer(Modifier.width(10.dp))
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                text = formatSessionTime(session.time),
-                color = colors.onBackgroundVariant.copy(alpha = 0.7f),
-                fontSize = 10.sp,
+        if (session.unread > 0) {
+            Spacer(Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .padding(top = 5.dp)
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(MessageRed),
             )
-            Spacer(Modifier.height(12.dp))
-            if (session.unread > 0) {
-                Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(MessageRed))
-            }
         }
     }
 }
@@ -393,9 +435,10 @@ fun MessageDetailScreen(api: BiliApi, kind: MessageFeedKind) {
     val listState = rememberLazyListState()
     TrackTeakPageScroll(listState)
     var tab by remember(kind) { mutableIntStateOf(0) }
-    var items by remember(kind) { mutableStateOf<List<MessageItem>>(emptyList()) }
-    var loading by remember(kind) { mutableStateOf(false) }
-    var error by remember(kind) { mutableStateOf<String?>(null) }
+    val tabProgress = remember(kind) { mutableFloatStateOf(0f) }
+    val itemsByTab = remember(kind) { mutableStateMapOf<Int, List<MessageItem>>() }
+    val loadingByTab = remember(kind) { mutableStateMapOf<Int, Boolean>() }
+    val errorByTab = remember(kind) { mutableStateMapOf<Int, String?>() }
     val tabs = when (kind) {
         MessageFeedKind.Reply -> listOf("全部", "我关注的人", "@我")
         MessageFeedKind.Like -> listOf("全部", "我关注的人")
@@ -406,26 +449,46 @@ fun MessageDetailScreen(api: BiliApi, kind: MessageFeedKind) {
         MessageFeedKind.Like -> "收到喜欢"
         MessageFeedKind.Fans -> "新增粉丝"
     }
+    val pageCount = if (tabs.isEmpty()) 1 else tabs.size
 
-    LaunchedEffect(kind, tab) {
-        if (kind == MessageFeedKind.Fans) return@LaunchedEffect
-        loading = true
-        error = null
-        val type = when (kind) {
-            MessageFeedKind.Reply -> if (tab == 2) 1 else 0
-            MessageFeedKind.Like -> 2
-            MessageFeedKind.Fans -> 3
+    suspend fun loadPage(page: Int) {
+        loadingByTab[page] = true
+        errorByTab[page] = null
+        val result = if (kind == MessageFeedKind.Fans) {
+            runCatching { api.newFollowers() }
+        } else {
+            val type = when (kind) {
+                MessageFeedKind.Reply -> if (page == 2) 1 else 0
+                MessageFeedKind.Like -> 2
+                MessageFeedKind.Fans -> 3
+            }
+            runCatching { api.messages(type) }
         }
-        val loaded = runCatching { api.messages(type) }
-            .onFailure { error = it.message ?: "消息加载失败" }
+        val loaded = result
+            .onFailure { errorByTab[page] = it.message ?: "消息加载失败" }
             .getOrDefault(emptyList())
-        items = if (tab == 1) loaded.filter { it.followed } else loaded
-        loading = false
+        itemsByTab[page] = if (kind != MessageFeedKind.Fans && page == 1) {
+            // 接口不一定返回关注关系。整页都没有关注标记时退回全部，
+            // 否则用户看到的就是一个永远空白的「我关注的人」。
+            if (loaded.any { it.followed }) loaded.filter { it.followed } else loaded
+        } else {
+            loaded
+        }
+        loadingByTab[page] = false
+    }
+
+    LaunchedEffect(kind) {
+        // 先把所有页都取回来，左右滑过去时内容已经在卡片里。
+        repeat(pageCount) { page ->
+            launch { loadPage(page) }
+        }
     }
 
     LazyColumn(
         state = listState,
-        modifier = Modifier.fillMaxSize().statusBarsPadding(),
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding(),
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,
@@ -438,43 +501,63 @@ fun MessageDetailScreen(api: BiliApi, kind: MessageFeedKind) {
         }
         if (tabs.isNotEmpty()) {
             item(key = "tabs") {
-                Row(
-                    modifier = Modifier.padding(top = 16.dp, bottom = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp, bottom = 10.dp),
+                    contentAlignment = Alignment.CenterStart,
                 ) {
-                    tabs.forEachIndexed { index, label ->
-                        MessageTab(label, tab == index) { tab = index }
-                    }
+                    TeakPagerTabs(
+                        options = tabs,
+                        selected = tab,
+                        onSelect = { tab = it },
+                        itemWidth = if (tabs.size > 2) 76.dp else 96.dp,
+                        backdrop = null,
+                        plain = true,
+                        position = tabProgress,
+                    )
                 }
             }
         }
         item(key = "list") {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(colors.surface),
-            ) {
-                when {
-                    loading -> Text(
-                        text = "加载中…",
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 46.dp),
-                        color = colors.onBackgroundVariant,
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center,
-                    )
-                    items.isEmpty() -> Text(
-                        text = if (kind == MessageFeedKind.Fans) "暂无新增粉丝" else (error ?: "暂无消息"),
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 46.dp),
-                        color = colors.onBackgroundVariant,
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center,
-                    )
-                    else -> items.forEachIndexed { index, item ->
-                        if (kind == MessageFeedKind.Like) {
-                            LikeRow(item)
-                        } else {
-                            ReplyRow(item)
+            SwipeCardPager(
+                selected = tab,
+                pageCount = pageCount,
+                onSelected = { tab = it },
+                progressState = tabProgress,
+            ) { page ->
+                val pageItems = itemsByTab[page].orEmpty()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(colors.surface),
+                ) {
+                    when {
+                        loadingByTab[page] == true -> Text(
+                            text = "加载中…",
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 46.dp),
+                            color = colors.onBackgroundVariant,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center,
+                        )
+                        pageItems.isEmpty() -> Text(
+                            text = if (kind == MessageFeedKind.Fans) {
+                                "暂无新增粉丝"
+                            } else {
+                                errorByTab[page] ?: "暂无消息"
+                            },
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 46.dp),
+                            color = colors.onBackgroundVariant,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center,
+                        )
+                        else -> pageItems.forEach { item ->
+                            if (kind == MessageFeedKind.Like) {
+                                LikeRow(item)
+                            } else {
+                                ReplyRow(item)
+                            }
                         }
                     }
                 }
@@ -500,7 +583,7 @@ private fun ReplyRow(item: MessageItem) {
                     text = item.name.ifBlank { "用户" },
                     color = colors.onBackground,
                     fontSize = 14.5.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -637,62 +720,35 @@ private fun MessageAvatar(url: String) {
 
 /* ---------------------------------------------------------------- glyphs */
 
+/** 快捷入口三个图标统一按这个尺寸绘制，视觉大小保持一致。 */
+private val ShortcutGlyphSize = 28.dp
+
+/** 回复与@：实心圆角对话气泡 + 左下小尾巴（参考用户提供图一）。 */
 @Composable
 private fun ChatGlyph(color: Color) {
-    Canvas(modifier = Modifier.size(30.dp)) {
+    Canvas(modifier = Modifier.size(ShortcutGlyphSize)) {
         val w = size.width
         val h = size.height
-        drawRoundRect(
+        // 主体：略扁的椭圆气泡，留出底部尾巴的位置
+        drawOval(
             color = color,
-            topLeft = Offset(w * 0.08f, h * 0.12f),
-            size = Size(w * 0.84f, h * 0.62f),
-            cornerRadius = CornerRadius(w * 0.2f, w * 0.2f),
+            topLeft = Offset(w * 0.05f, h * 0.08f),
+            size = Size(w * 0.90f, h * 0.66f),
         )
+        // 尾巴：从气泡左下伸出，向下再收回气泡底边
         val tail = Path().apply {
-            moveTo(w * 0.3f, h * 0.7f)
-            lineTo(w * 0.24f, h * 0.9f)
-            lineTo(w * 0.46f, h * 0.73f)
+            moveTo(w * 0.30f, h * 0.66f)
+            cubicTo(w * 0.30f, h * 0.80f, w * 0.27f, h * 0.88f, w * 0.21f, h * 0.93f)
+            cubicTo(w * 0.31f, h * 0.94f, w * 0.43f, h * 0.85f, w * 0.48f, h * 0.70f)
             close()
         }
         drawPath(tail, color)
-        listOf(0.34f, 0.5f, 0.66f).forEach { x ->
-            drawCircle(Color.White.copy(alpha = 0.92f), w * 0.045f, Offset(w * x, h * 0.43f))
-        }
-    }
-}
-
-@Composable
-private fun ThumbGlyph(color: Color) {
-    Canvas(modifier = Modifier.size(30.dp)) {
-        val w = size.width
-        val h = size.height
-        val path = Path().apply {
-            moveTo(w * 0.18f, h * 0.46f)
-            lineTo(w * 0.34f, h * 0.46f)
-            lineTo(w * 0.34f, h * 0.86f)
-            lineTo(w * 0.18f, h * 0.86f)
-            close()
-        }
-        drawPath(path, color)
-        val thumb = Path().apply {
-            moveTo(w * 0.4f, h * 0.46f)
-            lineTo(w * 0.52f, h * 0.18f)
-            quadraticBezierTo(w * 0.58f, h * 0.1f, w * 0.64f, h * 0.18f)
-            lineTo(w * 0.6f, h * 0.42f)
-            lineTo(w * 0.84f, h * 0.42f)
-            quadraticBezierTo(w * 0.9f, h * 0.42f, w * 0.88f, h * 0.52f)
-            lineTo(w * 0.8f, h * 0.82f)
-            quadraticBezierTo(w * 0.78f, h * 0.88f, w * 0.7f, h * 0.88f)
-            lineTo(w * 0.4f, h * 0.88f)
-            close()
-        }
-        drawPath(thumb, color)
     }
 }
 
 @Composable
 private fun PersonGlyph(color: Color) {
-    Canvas(modifier = Modifier.size(30.dp)) {
+    Canvas(modifier = Modifier.size(ShortcutGlyphSize)) {
         val w = size.width
         val h = size.height
         drawCircle(color, w * 0.18f, Offset(w * 0.5f, h * 0.32f))
@@ -774,7 +830,7 @@ private fun formatSessionTime(seconds: Long): String {
         .format(Date(seconds * 1000L))
 }
 
-private fun formatMessageDate(seconds: Long): String {
+internal fun formatMessageDate(seconds: Long): String {
     if (seconds <= 0L) return ""
     return SimpleDateFormat("M月d日", Locale.CHINA).format(Date(seconds * 1000L))
 }

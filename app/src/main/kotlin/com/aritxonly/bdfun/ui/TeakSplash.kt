@@ -111,7 +111,7 @@ fun TeakSplash(
                         text = "Teak",
                         color = TeakOrange.copy(alpha = 0.85f),
                         fontSize = 46.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         letterSpacing = (-1.5).sp,
                         modifier = Modifier
                             .graphicsLayer {
@@ -126,7 +126,7 @@ fun TeakSplash(
                         text = "Teak",
                         color = TeakOrange,
                         fontSize = 46.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         letterSpacing = (-1.5).sp,
                         modifier = Modifier.graphicsLayer {
                             alpha = teakAlpha.value
@@ -142,7 +142,7 @@ fun TeakSplash(
                     text = "Bili",
                     color = TeakBiliPink,
                     fontSize = 46.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     letterSpacing = (-1.5).sp,
                     modifier = Modifier.graphicsLayer {
                         alpha = biliAlpha.value

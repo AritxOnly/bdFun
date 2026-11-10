@@ -53,7 +53,7 @@ fun PreviewNoticeDialog(
                     text = "bdFun 预览版说明",
                     color = colors.onBackground,
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Medium,
                 )
                 Spacer(Modifier.height(12.dp))
                 Text(
@@ -91,7 +91,7 @@ fun PreviewNoticeDialog(
                             text = "我已知晓",
                             color = Color.White,
                             fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.Normal,
                         )
                     }
                 }

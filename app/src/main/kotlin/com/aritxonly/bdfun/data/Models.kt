@@ -34,6 +34,9 @@ data class VideoEpisode(
     val title: String,
     val cover: String,
     val duration: Int,
+    val play: Long = 0L,
+    val danmaku: Long = 0L,
+    val pubdate: Long = 0L,
 )
 
 data class VideoDetail(
@@ -60,6 +63,8 @@ data class VideoDetail(
     val pages: List<VideoPage>,
     /** 该视频所属 UGC 合集的全部单集（没有合集时为空）。 */
     val episodes: List<VideoEpisode> = emptyList(),
+    /** UGC 合集标题（没有合集时为空）。 */
+    val seasonTitle: String = "",
     val isFollowed: Boolean = false,
     val liked: Boolean = false,
     val coined: Boolean = false,
@@ -86,6 +91,15 @@ data class DanmakuItem(
     val text: String,
     /** 自己刚发送的弹幕：渲染时加圆角底。 */
     val self: Boolean = false,
+)
+
+/** 空降助手片段（来自 BilibiliSponsorBlock 公共 API）。 */
+data class SponsorSegment(
+    val startMs: Long,
+    val endMs: Long,
+    val category: String,
+    val actionType: String,
+    val uuid: String,
 )
 
 data class PlayInfo(
@@ -123,6 +137,10 @@ data class CommentItem(
     val emotes: Map<String, String> = emptyMap(),
     /** 评论 IP 属地（reply_control.location）。 */
     val ipLocation: String = "",
+    /** 大会员（评论名称显示主题色）。 */
+    val isVip: Boolean = false,
+    /** 评论附图（content.pictures，已转成可直接加载的地址）。 */
+    val pictures: List<String> = emptyList(),
 )
 
 /** 评论表情（B 站表情包，插入时用 `[文本]`）。 */
@@ -211,6 +229,14 @@ data class DynamicPage(
     val hasMore: Boolean,
 )
 
+data class HistoryPage(
+    val items: List<HistoryItem>,
+    val max: Long,
+    val viewAt: Long,
+    val business: String,
+    val hasMore: Boolean,
+)
+
 data class HistoryItem(
     val bvid: String,
     val title: String,
@@ -222,6 +248,19 @@ data class HistoryItem(
     /** 播放量 / 弹幕数（接口里的 stat 字段，历史与稍后再看都有） */
     val play: Int = 0,
     val danmaku: Int = 0,
+    /** 稿件 aid：批量删除历史 / 稍后再看时要用；历史游标接口放在 history.oid 里。 */
+    val aid: Long = 0,
+)
+
+/** 搜索结果里的用户卡片（search_type = bili_user）。 */
+data class SearchUser(
+    val mid: Long,
+    val name: String,
+    val face: String,
+    val sign: String,
+    val fans: Long = 0,
+    val videos: Long = 0,
+    val level: Int = 0,
 )
 
 data class FavoriteFolder(
@@ -261,6 +300,16 @@ data class MessageItem(
     val followed: Boolean = false,
     val likeNames: List<String> = emptyList(),
     val likeCount: Int = 0,
+)
+
+/** 私信会话里的一条消息。 */
+data class ChatMessage(
+    val id: Long,
+    val senderId: Long,
+    val timestamp: Long,
+    val text: String,
+    val imageUrl: String = "",
+    val isMine: Boolean = false,
 )
 
 /** 消息中心的一个会话（系统通知 / 私信）。 */

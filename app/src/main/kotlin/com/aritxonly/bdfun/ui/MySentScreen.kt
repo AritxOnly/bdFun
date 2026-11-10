@@ -84,7 +84,7 @@ fun MySentScreen(onBack: () -> Unit) {
                         .blur((12f * (TeakPageChrome.state.collapse / 0.65f).coerceIn(0f, 1f)).dp),
                     color = colors.onBackground,
                     fontSize = 30.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Normal,
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
@@ -117,7 +117,7 @@ fun MySentScreen(onBack: () -> Unit) {
                             }",
                             color = if (active) Color.White else colors.onBackground,
                             fontSize = 12.sp,
-                            fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
+                            fontWeight = if (active) FontWeight.Normal else FontWeight.Normal,
                         )
                     }
                 }
@@ -209,7 +209,7 @@ private fun SentRecordRow(
                     text = if (isDanmaku) "弹幕" else "评论",
                     color = if (isDanmaku) Color(0xFF3C9BD9) else colors.primary,
                     fontSize = 9.5.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Normal,
                 )
             }
             Spacer(Modifier.width(8.dp))

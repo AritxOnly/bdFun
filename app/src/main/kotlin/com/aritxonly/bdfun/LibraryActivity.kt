@@ -4,7 +4,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.remember
+import com.aritxonly.bdfun.ui.LibraryBatchOverlay
+import com.aritxonly.bdfun.ui.LibraryMorphMenuContent
+import com.aritxonly.bdfun.ui.LibraryTopActions
 import com.aritxonly.bdfun.ui.TeakActivityScaffold
+import com.aritxonly.teak.common.navigation.TeakMorphMenuHost
+import com.aritxonly.teak.common.navigation.TeakMorphMenuState
 
 class LibraryActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -14,7 +20,21 @@ class LibraryActivity : ComponentActivity() {
         val api = AppGraph.api
         val settings = AppGraph.settings
         setContent {
-            TeakActivityScaffold(settings = settings, onBack = { finish() }, title = "收藏") {
+            val menuState = remember { TeakMorphMenuState() }
+            TeakActivityScaffold(
+                settings = settings,
+                onBack = { finish() },
+                title = "收藏",
+                topBarActions = { LibraryTopActions(menuState) },
+                overlay = {
+                    LibraryBatchOverlay()
+                },
+                menuOverlay = {
+                    TeakMorphMenuHost(menuState) { dismiss ->
+                        LibraryMorphMenuContent(dismiss)
+                    }
+                },
+            ) {
                 LibraryScreenRoute(api, this)
             }
         }

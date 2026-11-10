@@ -321,7 +321,7 @@ internal fun FullscreenPlayerChrome(
                 text = info.title,
                 color = Color.White,
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -427,7 +427,7 @@ internal fun FullscreenPlayerChrome(
                     text = if (info.followed) "已关注" else "+关注",
                     color = Color.White,
                     fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Normal,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -648,7 +648,7 @@ internal fun FullscreenDanmakuInput(
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                Text(text = "A", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(text = "A", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             }
             Spacer(Modifier.width(8.dp))
             Row(
@@ -667,7 +667,7 @@ internal fun FullscreenDanmakuInput(
                     textStyle = TextStyle(
                         color = Color.Black,
                         fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = FontWeight.Normal,
                     ),
                     cursorBrush = SolidColor(Color(0xFFFB7299)),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -877,7 +877,7 @@ private fun BadgeStatAction(
                 color = if (active) BrandPink else Color.White,
                 fontSize = 9.5.sp,
                 lineHeight = 10.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -945,7 +945,7 @@ private fun PlayerTextAction(
             else -> Color.White
         },
         fontSize = 14.sp,
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.Normal,
         modifier = Modifier
             .clip(Capsule())
             .clickable(interactionSource = null, indication = null, onClick = onClick)
@@ -967,7 +967,7 @@ private fun QualityAction(label: String, onClick: () -> Unit) {
             text = base,
             color = Color.White,
             fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
+            fontWeight = FontWeight.Normal,
             maxLines = 1,
         )
         if (badge != null) {
@@ -1092,7 +1092,7 @@ private fun PanelHeader(title: String, onClose: () -> Unit) {
             text = title,
             color = Color.White,
             fontSize = 20.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Medium,
         )
         Spacer(Modifier.weight(1f))
         Box(
@@ -1117,7 +1117,7 @@ private fun PanelCard(
             text = title,
             color = Color.White.copy(alpha = 0.92f),
             fontSize = 15.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
         )
         Column(
@@ -1214,7 +1214,7 @@ private fun FavoritePanel(
                 .clickable(interactionSource = null, indication = null, onClick = onClose),
             contentAlignment = Alignment.Center,
         ) {
-            Text("完成", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text("完成", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Normal)
         }
     }
 }
@@ -1739,7 +1739,7 @@ private fun SpeedPanel(
                         text = "${trimSpeed(speed)}x",
                         color = if (active) BrandPink else Color.White,
                         fontSize = 15.sp,
-                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                        fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
                     )
                     Spacer(Modifier.weight(1f))
                     if (active) CheckGlyph(BrandPink)
@@ -1785,7 +1785,7 @@ private fun QualityPanel(
                         text = "自动",
                         color = if (playback.autoQuality) BrandPink else Color.White,
                         fontSize = 15.sp,
-                        fontWeight = if (playback.autoQuality) FontWeight.SemiBold else FontWeight.Normal,
+                        fontWeight = if (playback.autoQuality) FontWeight.Medium else FontWeight.Normal,
                         modifier = Modifier.weight(1f),
                     )
                     if (playback.autoQuality) CheckGlyph(BrandPink)
@@ -1811,7 +1811,7 @@ private fun QualityPanel(
                                 text = qualityMenuLabel(item.label),
                                 color = if (active) BrandPink else Color.White,
                                 fontSize = 15.sp,
-                                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                                fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
                             )
                             if (item.width > 0 && item.height > 0) {
                                 Spacer(Modifier.height(2.dp))
@@ -2070,14 +2070,14 @@ private fun FullscreenAudioMode(
                     text = "听视频",
                     color = BrandPink,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Medium,
                 )
                 Spacer(Modifier.height(10.dp))
                 Text(
                     text = info.title,
                     color = Color.White,
                     fontSize = 26.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -2411,7 +2411,7 @@ private fun PixelIcon(
 
 @Composable
 private fun BackChevron(tint: Color = Color.White) {
-    Canvas(modifier = Modifier.size(22.dp)) {
+    Canvas(modifier = Modifier.size(23.5.dp)) {
         val path = Path().apply {
             moveTo(size.width * 0.64f, size.height * 0.12f)
             lineTo(size.width * 0.28f, size.height * 0.5f)
@@ -2421,7 +2421,7 @@ private fun BackChevron(tint: Color = Color.White) {
             path = path,
             color = tint,
             style = Stroke(
-                width = size.width * 0.11f,
+                width = size.width * 0.095f,
                 cap = StrokeCap.Round,
                 join = StrokeJoin.Round,
             ),
@@ -2785,7 +2785,7 @@ internal fun SubtitleOverlay(
             text = cue.text,
             color = Color.White,
             fontSize = 17.sp,
-            fontWeight = FontWeight.Medium,
+            fontWeight = FontWeight.Normal,
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .clip(RoundedCornerShape(6.dp))

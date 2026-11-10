@@ -8,6 +8,8 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -49,9 +51,11 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -381,7 +385,7 @@ fun CommentScreen(
                         text = if (total > 0) "评论 $total" else "评论",
                         color = colors.onBackground,
                         fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Medium,
                     )
                     Text(
                         text = title,
@@ -398,8 +402,8 @@ fun CommentScreen(
             LazyColumn(
                 state = listState,
                 contentPadding = PaddingValues(
-                    start = 12.dp,
-                    end = 12.dp,
+                    start = if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) 2.dp else 12.dp,
+                    end = if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) 2.dp else 12.dp,
                     top = 4.dp + topInset,
                     bottom = bottomPadding,
                 ),
@@ -422,7 +426,7 @@ fun CommentScreen(
                             text = if (sortHot) "按热度" else "按时间",
                             color = colors.onBackgroundVariant,
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.Normal,
                             modifier = Modifier
                                 .clip(Capsule())
                                 .clickable(
@@ -444,11 +448,25 @@ fun CommentScreen(
                         bottomStart = if (isLast) 16.dp else 0.dp,
                         bottomEnd = if (isLast) 16.dp else 0.dp,
                     )
+                    val classicComment = com.aritxonly.teak.common.theme.TeakUiStyle.isClassic
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(shape)
-                            .background(colors.surface),
+                            .then(
+                                if (classicComment) {
+                                    Modifier.drawBehind {
+                                        val y = size.height - 1.dp.toPx() / 2f
+                                        drawLine(
+                                            color = colors.onBackground.copy(alpha = 0.10f),
+                                            start = androidx.compose.ui.geometry.Offset(0f, y),
+                                            end = androidx.compose.ui.geometry.Offset(size.width, y),
+                                            strokeWidth = 1.dp.toPx(),
+                                        )
+                                    }
+                                } else {
+                                    Modifier.clip(shape).background(colors.surface)
+                                },
+                            ),
                     ) {
                         CommentRow(
                             item = item.copy(
@@ -623,6 +641,8 @@ fun CommentScreen(
             },
         )
     }
+
+    CommentImageDialog()
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -652,7 +672,10 @@ private fun CommentRow(
                 onClick = onReply,
                 onLongClick = onLongPress,
             )
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(
+                horizontal = if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) 6.dp else 12.dp,
+                vertical = 10.dp,
+            ),
     ) {
         Row {
             AsyncImage(
@@ -674,9 +697,9 @@ private fun CommentRow(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = item.uname,
-                        color = colors.onBackgroundVariant,
+                        color = if (item.isVip) colors.primary else colors.onBackgroundVariant,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = FontWeight.Normal,
                         modifier = Modifier.clickable(
                             interactionSource = null,
                             indication = null,
@@ -686,6 +709,10 @@ private fun CommentRow(
                             }
                         },
                     )
+                    if (item.isUp) {
+                        Spacer(Modifier.width(4.dp))
+                        UpBadge()
+                    }
                     Spacer(Modifier.width(4.dp))
                     Image(
                         painter = androidx.compose.ui.res.painterResource(
@@ -701,19 +728,22 @@ private fun CommentRow(
                         contentDescription = null,
                         modifier = Modifier.size(width = 22.dp, height = 10.dp),
                     )
-                    if (item.isUp) {
-                        Spacer(Modifier.width(4.dp))
-                        UpBadge()
-                    }
                 }
                 Spacer(Modifier.height(4.dp))
                 EmoteText(
                     text = item.message,
                     color = colors.onBackground,
-                    fontSize = (13.5f * scale).sp,
-                    lineHeight = (19.5f * scale).sp,
+                    fontSize = 14.85.sp,
+                    lineHeight = 21.8.sp,
                     extraEmotes = item.emotes,
+                    fontWeight = FontWeight.Normal,
                 )
+                if (item.pictures.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    CommentPictures(item.pictures) { index ->
+                        CommentImageViewer.open(item.pictures, index)
+                    }
+                }
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -744,7 +774,7 @@ private fun CommentRow(
                             .padding(horizontal = 4.dp, vertical = 2.dp),
                     )
                     Spacer(Modifier.weight(1f))
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(12.dp))
                     // 点赞：整体略上移
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -845,6 +875,113 @@ private fun CommentRow(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
+private fun CommentPictures(urls: List<String>, onOpen: (Int) -> Unit) {
+    val colors = MiuixTheme.colorScheme
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        urls.take(3).forEachIndexed { index, url ->
+            AsyncImage(
+                model = rememberImageRequest(url),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(colors.surfaceContainerHigh)
+                    .clickable(interactionSource = null, indication = null) { onOpen(index) },
+            )
+        }
+        if (urls.size > 3) {
+            Text(
+                text = "+${urls.size - 3}",
+                color = colors.onBackgroundVariant,
+                fontSize = 11.sp,
+            )
+        }
+    }
+}
+
+private object CommentImageViewer {
+    var images by mutableStateOf<List<String>>(emptyList())
+    var index by mutableIntStateOf(0)
+
+    fun open(list: List<String>, at: Int) {
+        images = list
+        index = at.coerceIn(0, (list.size - 1).coerceAtLeast(0))
+    }
+
+    fun close() {
+        images = emptyList()
+        index = 0
+    }
+}
+
+@Composable
+private fun CommentImageDialog() {
+    val images = CommentImageViewer.images
+    if (images.isEmpty()) return
+    val pager = androidx.compose.foundation.pager.rememberPagerState(
+        initialPage = CommentImageViewer.index.coerceIn(0, images.lastIndex),
+    ) { images.size }
+    androidx.activity.compose.BackHandler { CommentImageViewer.close() }
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = { CommentImageViewer.close() },
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+        ) {
+            androidx.compose.foundation.pager.HorizontalPager(
+                state = pager,
+                modifier = Modifier.fillMaxSize(),
+            ) { page ->
+                var scale by androidx.compose.runtime.remember {
+                    androidx.compose.runtime.mutableFloatStateOf(1f)
+                }
+                var pan by androidx.compose.runtime.remember {
+                    androidx.compose.runtime.mutableStateOf(androidx.compose.ui.geometry.Offset.Zero)
+                }
+                AsyncImage(
+                    model = rememberImageRequest(images[page]),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectTransformGestures { _, delta, zoom, _ ->
+                                scale = (scale * zoom).coerceIn(1f, 4f)
+                                pan = if (scale > 1f) {
+                                    pan + delta
+                                } else {
+                                    androidx.compose.ui.geometry.Offset.Zero
+                                }
+                            }
+                        }
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                            translationX = pan.x
+                            translationY = pan.y
+                        },
+                )
+            }
+            Text(
+                text = "${pager.currentPage + 1}/${images.size}",
+                color = Color.White,
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 28.dp),
+            )
+        }
+    }
+}
+
+@Composable
 private fun ReplyBlock(
     item: CommentItem,
     onOpen: () -> Unit,
@@ -861,12 +998,22 @@ private fun ReplyBlock(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            // 更淡、更接近页面背景的灰
-            .background(colors.onBackground.copy(alpha = 0.045f))
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .then(
+                if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) {
+                    Modifier
+                } else {
+                    Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        // 更淡、更接近页面背景的灰
+                        .background(colors.onBackground.copy(alpha = 0.045f))
+                },
+            )
+            .padding(
+                horizontal = if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) 2.dp else 10.dp,
+                vertical = 8.dp,
+            ),
     ) {
-        preview.forEach { reply ->
+        preview.forEachIndexed { replyIndex, reply ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -886,12 +1033,23 @@ private fun ReplyBlock(
                     text = reply.message,
                     prefix = reply.uname,
                     color = colors.onBackground,
-                    prefixColor = colors.onBackgroundVariant,
-                    fontSize = (12.5f * scale).sp,
-                    lineHeight = (17.5f * scale).sp,
+                    // 折叠回复：普通用户用淡一点的主题色；大会员用完整主题色。
+                    prefixColor = if (reply.isVip) {
+                        colors.primary
+                    } else {
+                        colors.primary.copy(alpha = 0.72f)
+                    },
+                    prefixBadge = if (reply.isUp) {
+                        { UpBadge() }
+                    } else {
+                        null
+                    },
+                    fontSize = 13.5.sp,
+                    lineHeight = 20.sp,
                     modifier = Modifier.weight(1f),
                     extraEmotes = reply.emotes,
-                    trailingWidth = if (likeCount > 0) 54.sp else 24.sp,
+                    fontWeight = FontWeight.Normal,
+                    trailingWidth = if (likeCount > 0) 56.sp else 26.sp,
                     trailingContent = {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -902,6 +1060,7 @@ private fun ReplyBlock(
                                     indication = null,
                                 ) { onPreviewLike(reply) },
                         ) {
+                            Spacer(Modifier.width(2.dp))
                             Image(
                                 painter = androidx.compose.ui.res.painterResource(
                                     if (liked) TeakIcon.CommentLikeFilled else TeakIcon.CommentLike,
@@ -919,11 +1078,16 @@ private fun ReplyBlock(
                                     color = if (liked) BrandPink else colors.onBackgroundVariant,
                                     fontSize = 10.sp,
                                     maxLines = 1,
+                                    modifier = Modifier.offset(y = (-2).dp),
                                 )
                             }
                         }
                     },
                 )
+            }
+            // 折叠回复之间多留 2dp，避免两条挤在一起。
+            if (replyIndex != preview.lastIndex) {
+                Spacer(Modifier.height(2.dp))
             }
         }
 
@@ -940,7 +1104,7 @@ private fun ReplyBlock(
                 text = "共${item.replyCount}条回复",
                 color = colors.onBackgroundVariant,
                 fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Normal,
             )
             Spacer(Modifier.width(2.dp))
             Text(text = "＞", color = colors.onBackgroundVariant, fontSize = 11.sp)
@@ -1169,7 +1333,7 @@ private fun ReplySheet(
                         text = "共 ${comment.replyCount + extra.size} 条回复",
                         color = colors.onBackground,
                         fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.Bold,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         maxLines = 1,
                         modifier = Modifier
@@ -1204,9 +1368,9 @@ private fun ReplySheet(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = comment.uname,
-                                    color = colors.onBackgroundVariant,
+                                    color = if (comment.isVip) colors.primary else colors.onBackgroundVariant,
                                     fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
+                                    fontWeight = FontWeight.Normal,
                                     modifier = Modifier.clickable(
                                         interactionSource = null,
                                         indication = null,
@@ -1219,6 +1383,10 @@ private fun ReplySheet(
                                         }
                                     },
                                 )
+                                if (comment.isUp) {
+                                    Spacer(Modifier.width(4.dp))
+                                    UpBadge()
+                                }
                                 Spacer(Modifier.width(4.dp))
                                 Image(
                                     painter = androidx.compose.ui.res.painterResource(
@@ -1239,10 +1407,10 @@ private fun ReplySheet(
                             EmoteText(
                                 text = comment.message,
                                 color = colors.onBackground,
-                                // 和外面评论区一样固定 110% 字号
-                                fontSize = (13.5f * COMMENT_FONT_SCALE).sp,
-                                lineHeight = (19.5f * COMMENT_FONT_SCALE).sp,
+                                fontSize = 13.5.sp,
+                                lineHeight = 18.sp,
                                 extraEmotes = comment.emotes,
+                                fontWeight = FontWeight.Normal,
                             )
                         }
                     }
@@ -1302,9 +1470,9 @@ private fun ReplySheet(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
                                             text = reply.uname,
-                                            color = colors.onBackgroundVariant,
+                                            color = if (reply.isVip) colors.primary else colors.onBackgroundVariant,
                                             fontSize = 12.sp,
-                                            fontWeight = FontWeight.Medium,
+                                            fontWeight = FontWeight.Normal,
                                             modifier = Modifier.clickable(
                                                 interactionSource = null,
                                                 indication = null,
@@ -1317,6 +1485,10 @@ private fun ReplySheet(
                                                 }
                                             },
                                         )
+                                        if (reply.isUp) {
+                                            Spacer(Modifier.width(4.dp))
+                                            UpBadge()
+                                        }
                                         Spacer(Modifier.width(4.dp))
                                         Image(
                                             painter = androidx.compose.ui.res.painterResource(
@@ -1337,10 +1509,10 @@ private fun ReplySheet(
                                     EmoteText(
                                         text = reply.message,
                                         color = colors.onBackground,
-                                        // 展开面板内的回复与层主同字号
-                                        fontSize = (13.5f * COMMENT_FONT_SCALE).sp,
-                                        lineHeight = (19.5f * COMMENT_FONT_SCALE).sp,
+                                        fontSize = 14.85.sp,
+                                        lineHeight = 21.8.sp,
                                         extraEmotes = reply.emotes,
+                                        fontWeight = FontWeight.Normal,
                                     )
                                     Spacer(Modifier.height(6.dp))
                                     // 与评论页完全相同的操作行：时间 / 回复 / 赞 / 踩 / ⋮
@@ -1636,6 +1808,6 @@ private fun Badge(text: String, color: Color) {
             .background(color.copy(alpha = 0.14f))
             .padding(horizontal = 5.dp, vertical = 1.dp),
     ) {
-        Text(text = text, color = color, fontSize = 9.sp, fontWeight = FontWeight.Medium)
+        Text(text = text, color = color, fontSize = 9.sp, fontWeight = FontWeight.Normal)
     }
 }

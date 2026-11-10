@@ -201,7 +201,7 @@ fun DanmakuSettingsContent(
                         text = "添加",
                         color = DmPink,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = FontWeight.Normal,
                         modifier = Modifier.clickable(
                             interactionSource = null,
                             indication = null,
@@ -299,7 +299,7 @@ private fun DmGroup(
             text = title,
             color = Color.White.copy(alpha = 0.92f),
             fontSize = 15.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
         )
         Column(

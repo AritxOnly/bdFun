@@ -67,6 +67,10 @@ fun TeakGlassPanel(
     solid: Boolean = false,
     solidColor: Color = Color(0xFF1A1B20),
     tintAlpha: Float = 1f,
+    /** 玻璃下面那层近白底的透明度；1 = 原来的不透明底，0 = 只保留玻璃材质。 */
+    baseAlpha: Float = 1f,
+    /** 玻璃材质自身的透明度；用于整块菜单淡入淡出，不影响外部容器。 */
+    materialAlpha: Float = 1f,
     backdropImage: ImageBitmap? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
@@ -88,6 +92,8 @@ fun TeakGlassPanel(
             shape = shape,
             recipe = recipe,
             backdrop = backdrop,
+            baseAlpha = baseAlpha,
+            materialAlpha = materialAlpha,
             contentAlignment = androidx.compose.ui.Alignment.TopStart,
         ) {
             Box(modifier = Modifier.matchParentSize().background(tint))

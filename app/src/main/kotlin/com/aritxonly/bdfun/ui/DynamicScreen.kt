@@ -30,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -39,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -47,7 +49,11 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -230,7 +236,9 @@ fun DynamicScreen(
                 if (scrolling) return@collect
                 // 列表第 0 项是头像卡片
                 val itemIndex = (index ?: -1) - 1
-                autoPlayId = visible.getOrNull(itemIndex)?.takeIf { it.video != null }?.id
+                autoPlayId = visible.getOrNull(itemIndex)
+                    ?.takeIf { it.video != null || it.orig?.video != null }
+                    ?.id
             }
         }
 
@@ -615,11 +623,16 @@ internal fun DynamicCard(
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
     val shape = ContinuousCornerShape(16.dp)
+    // 整张动态卡片当"起飞点"：点卡片里的视频时，从整卡放大到视频页
+    val oneTake = rememberOneTakeAnchor()
+    val cardRadiusPx = with(LocalDensity.current) { 16.dp.toPx() }
     // 点图片只看大图，不进详情页；点卡片其他区域仍然是进详情
     var viewerUrl by remember { mutableStateOf<String?>(null) }
+    var viewerOrigin by remember { mutableStateOf<Rect?>(null) }
 
     Column(
         modifier = modifier
+            .then(oneTake.modifier)
             .fillMaxWidth()
             .clip(shape)
             .background(colors.surface)
@@ -647,7 +660,7 @@ internal fun DynamicCard(
                     text = item.name,
                     color = if (item.authorVip) colors.primary else colors.onBackground,
                     fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Normal,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
@@ -674,7 +687,7 @@ internal fun DynamicCard(
                 color = colors.onBackground,
                 fontSize = 15.5.sp,
                 lineHeight = 22.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Medium,
                 maxLines = if (expanded) Int.MAX_VALUE else 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -693,30 +706,13 @@ internal fun DynamicCard(
 
         if (item.images.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
-            val rows = item.images.take(9).chunked(3)
-            rows.forEach { row ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    row.forEach { url ->
-                        AsyncImage(
-                            model = rememberImageRequest(url),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .weight(1f)
-                                .aspectRatio(1f)
-                                .clip(ContinuousCornerShape(10.dp))
-                                .background(colors.surfaceContainerHigh)
-                                .clickable(interactionSource = null, indication = null) {
-                                    viewerUrl = url
-                                },
-                        )
-                    }
-                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
-                }
-            }
+            DynamicImageGrid(
+                images = item.images,
+                onOpen = { url, rect ->
+                    viewerUrl = url
+                    viewerOrigin = rect
+                },
+            )
         }
 
         if (item.pgcCover.isNotBlank()) {
@@ -750,7 +746,7 @@ internal fun DynamicCard(
                         color = Color.White,
                         fontSize = 9.sp,
                         lineHeight = 10.sp,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = FontWeight.Normal,
                     )
                 }
             }
@@ -760,7 +756,7 @@ internal fun DynamicCard(
                     color = colors.onBackground,
                     fontSize = 14.sp,
                     lineHeight = 19.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Normal,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 8.dp),
@@ -770,122 +766,13 @@ internal fun DynamicCard(
 
         item.video?.let { video ->
             Spacer(Modifier.height(10.dp))
-            // 视频本身单独一块；标题在视频下方，不共用视频的底
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
-                    .clip(ContinuousCornerShape(12.dp))
-                    .background(colors.surfaceContainerHigh)
-                    .clickable(interactionSource = null, indication = null) { onOpenVideo(video) },
-            ) {
-                AsyncImage(
-                    model = rememberImageRequest(video.cover),
-                    contentDescription = video.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                if (autoPlay) {
-                    InlineVideoPlayer(
-                        video = video,
-                        muted = muted,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-                if (item.isCollection) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 8.dp, end = 8.dp)
-                            .width(42.dp)
-                            .clip(Capsule())
-                            .background(colors.primary.copy(alpha = 0.92f))
-                            .padding(horizontal = 7.dp, vertical = 2.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "合集",
-                            color = Color.White,
-                            fontSize = 9.sp,
-                            lineHeight = 10.sp,
-                            fontWeight = FontWeight.Medium,
-                        )
-                    }
-                }
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(46.dp)
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(Color.Transparent, Color(0x66000000)),
-                            ),
-                        ),
-                )
-                // 左下固定：时长 / 播放量 / 弹幕数；右下静音键；同一行垂直居中对齐
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(start = 14.dp, end = 8.dp, bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = formatDuration(video.duration),
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        lineHeight = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    MetricGlyph(play = true, size = 13.dp)
-                    Spacer(Modifier.width(3.dp))
-                    Text(
-                        text = formatCount(video.play),
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        lineHeight = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    MetricGlyph(play = false, size = 13.dp)
-                    Spacer(Modifier.width(3.dp))
-                    Text(
-                        text = formatCount(video.danmaku),
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        lineHeight = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                    )
-                    Spacer(Modifier.weight(1f))
-                    // 静音图标无背景
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clickable(interactionSource = null, indication = null) {
-                                onToggleMute()
-                            },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = if (muted) MiuixIcons.VolumeOff else MiuixIcons.VolumeUp,
-                            contentDescription = if (muted) "静音" else "声音",
-                            tint = Color.White,
-                            modifier = Modifier.size(19.dp),
-                        )
-                    }
-                }
-            }
-            Text(
-                text = video.title,
-                color = colors.onBackground,
-                fontSize = 14.sp,
-                lineHeight = 19.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 8.dp),
+            DynamicVideoCard(
+                video = video,
+                isCollection = item.isCollection,
+                autoPlay = autoPlay,
+                muted = muted,
+                onOpenVideo = { v -> oneTake.open(context, v, cardRadiusPx) { onOpenVideo(v) } },
+                onToggleMute = onToggleMute,
             )
         }
 
@@ -894,7 +781,10 @@ internal fun DynamicCard(
             ForwardedDynamicBlock(
                 item = orig,
                 onOpen = { onOpenForwarded(orig) },
-                onOpenVideo = onOpenVideo,
+                onOpenVideo = { v -> oneTake.open(context, v, cardRadiusPx) { onOpenVideo(v) } },
+                autoPlay = autoPlay,
+                muted = muted,
+                onToggleMute = onToggleMute,
             )
         }
 
@@ -954,54 +844,399 @@ internal fun DynamicCard(
     }
 
     viewerUrl?.let { url ->
-        DynamicImageViewer(url = url, onDismiss = { viewerUrl = null })
+        DynamicImageViewer(
+            item = item,
+            url = url,
+            origin = viewerOrigin,
+            liked = liked,
+            onDismiss = { viewerUrl = null },
+            onLike = onLike,
+            onComment = onComment,
+            onRepost = onRepost,
+        )
     }
 }
 
-/** 动态图片的大图预览：黑底、点任意处关闭。 */
+/** 一张图用大图（和视频卡同宽），多张图保持三列小图。 */
 @Composable
-private fun DynamicImageViewer(url: String, onDismiss: () -> Unit) {
+private fun DynamicImageGrid(
+    images: List<String>,
+    onOpen: (String, Rect) -> Unit,
+) {
+    if (images.isEmpty()) return
+    val colors = MiuixTheme.colorScheme
+    val bounds = remember { mutableStateMapOf<String, Rect>() }
+    if (images.size == 1) {
+        val url = images.first()
+        AsyncImage(
+            model = rememberImageRequest(url),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .clip(ContinuousCornerShape(12.dp))
+                .background(colors.surfaceContainerHigh)
+                .onGloballyPositioned { bounds[url] = it.boundsInRoot() }
+                .clickable(interactionSource = null, indication = null) {
+                    onOpen(url, bounds[url] ?: Rect.Zero)
+                },
+        )
+        return
+    }
+    images.take(9).chunked(3).forEach { row ->
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            row.forEach { url ->
+                AsyncImage(
+                    model = rememberImageRequest(url),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .weight(1f)
+                        .aspectRatio(1f)
+                        .clip(ContinuousCornerShape(10.dp))
+                        .background(colors.surfaceContainerHigh)
+                        .onGloballyPositioned { bounds[url] = it.boundsInRoot() }
+                        .clickable(interactionSource = null, indication = null) {
+                            onOpen(url, bounds[url] ?: Rect.Zero)
+                        },
+                )
+            }
+            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+        }
+    }
+}
+
+/** 主动态和转发动态共用同一套大卡视频布局。 */
+@Composable
+private fun DynamicVideoCard(
+    video: VideoItem,
+    isCollection: Boolean,
+    autoPlay: Boolean,
+    muted: Boolean,
+    onOpenVideo: (VideoItem) -> Unit,
+    onToggleMute: () -> Unit,
+) {
+    val colors = MiuixTheme.colorScheme
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(16f / 9f)
+            .clip(ContinuousCornerShape(12.dp))
+            .background(colors.surfaceContainerHigh)
+            .clickable(interactionSource = null, indication = null) { onOpenVideo(video) },
+    ) {
+        AsyncImage(
+            model = rememberImageRequest(video.cover),
+            contentDescription = video.title,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+        if (autoPlay) {
+            InlineVideoPlayer(
+                video = video,
+                muted = muted,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        if (isCollection) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 8.dp, end = 8.dp)
+                    .width(42.dp)
+                    .clip(Capsule())
+                    .background(colors.primary.copy(alpha = 0.92f))
+                    .padding(horizontal = 7.dp, vertical = 2.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "合集",
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    lineHeight = 10.sp,
+                    fontWeight = FontWeight.Normal,
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(46.dp)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color.Transparent, Color(0x66000000)),
+                    ),
+                ),
+        )
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(start = 14.dp, end = 8.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = formatDuration(video.duration),
+                color = Color.White,
+                fontSize = 12.sp,
+                lineHeight = 13.sp,
+                fontWeight = FontWeight.Normal,
+            )
+            Spacer(Modifier.width(10.dp))
+            MetricGlyph(play = true, size = 13.dp)
+            Spacer(Modifier.width(3.dp))
+            Text(
+                text = formatCount(video.play),
+                color = Color.White,
+                fontSize = 11.sp,
+                lineHeight = 12.sp,
+                fontWeight = FontWeight.Normal,
+            )
+            Spacer(Modifier.width(10.dp))
+            MetricGlyph(play = false, size = 13.dp)
+            Spacer(Modifier.width(3.dp))
+            Text(
+                text = formatCount(video.danmaku),
+                color = Color.White,
+                fontSize = 11.sp,
+                lineHeight = 12.sp,
+                fontWeight = FontWeight.Normal,
+            )
+            Spacer(Modifier.weight(1f))
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clickable(interactionSource = null, indication = null) {
+                        onToggleMute()
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = if (muted) MiuixIcons.VolumeOff else MiuixIcons.VolumeUp,
+                    contentDescription = if (muted) "静音" else "声音",
+                    tint = Color.White,
+                    modifier = Modifier.size(19.dp),
+                )
+            }
+        }
+    }
+    Text(
+        text = video.title,
+        color = colors.onBackground,
+        fontSize = 14.sp,
+        lineHeight = 19.sp,
+        fontWeight = FontWeight.Normal,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.padding(top = 8.dp),
+    )
+}
+
+/** 动态图片的大图预览：黑底、顶部关闭/更多、底部作者信息和三个操作。 */
+@Composable
+private fun DynamicImageViewer(
+    item: DynamicItem,
+    url: String,
+    origin: Rect?,
+    liked: Boolean,
+    onDismiss: () -> Unit,
+    onLike: () -> Unit,
+    onComment: () -> Unit,
+    onRepost: () -> Unit,
+) {
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { shown = true }
-    val scale by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (shown) 1f else 0.92f,
+    val scope = rememberCoroutineScope()
+    val dismissAnimated: () -> Unit = {
+        if (shown) {
+            shown = false
+            scope.launch {
+                delay(200)
+                onDismiss()
+            }
+        } else {
+            onDismiss()
+        }
+        Unit
+    }
+    val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
+    val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+    val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
+    val startScaleX = (origin?.width?.div(screenWidthPx) ?: 0.9f).coerceIn(0.2f, 1f)
+    val startScaleY = (origin?.height?.div(screenHeightPx) ?: 0.9f).coerceIn(0.2f, 1f)
+    val originCenter = origin?.center ?: Offset(screenWidthPx / 2f, screenHeightPx / 2f)
+    val progress by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (shown) 1f else 0f,
         animationSpec = androidx.compose.animation.core.tween(
-            durationMillis = 180,
+            durationMillis = 220,
             easing = androidx.compose.animation.core.FastOutSlowInEasing,
         ),
         label = "dynamic-image-zoom",
     )
     val alpha by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (shown) 1f else 0f,
-        animationSpec = androidx.compose.animation.core.tween(durationMillis = 150),
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 180),
         label = "dynamic-image-alpha",
     )
+    val images = remember(item.images, url) {
+        item.images.ifEmpty { listOf(url) }
+    }
+    val imagePager = androidx.compose.foundation.pager.rememberPagerState(
+        initialPage = images.indexOf(url).coerceAtLeast(0).coerceAtMost(images.lastIndex),
+        pageCount = { images.size },
+    )
     androidx.compose.ui.window.Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = dismissAnimated,
         properties = androidx.compose.ui.window.DialogProperties(
             usePlatformDefaultWidth = false,
             decorFitsSystemWindows = false,
         ),
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.94f * alpha))
-                .clickable(interactionSource = null, indication = null) { onDismiss() },
-            contentAlignment = Alignment.Center,
+                .background(Color.Black.copy(alpha = alpha)),
         ) {
-            AsyncImage(
-                model = rememberImageRequest(url),
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp)
-                    .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                    },
-            )
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "✕",
+                    color = Color.White,
+                    fontSize = 26.sp,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable(interactionSource = null, indication = null, onClick = dismissAnimated)
+                        .padding(6.dp),
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = "⋮",
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    modifier = Modifier.padding(6.dp),
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.compose.foundation.pager.HorizontalPager(
+                    state = imagePager,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            scaleX = startScaleX + (1f - startScaleX) * progress
+                            scaleY = startScaleY + (1f - startScaleY) * progress
+                            translationX = (originCenter.x - screenWidthPx / 2f) * (1f - progress)
+                            translationY = (originCenter.y - screenHeightPx / 2f) * (1f - progress)
+                            this.alpha = alpha
+                        },
+                ) { page ->
+                    AsyncImage(
+                        model = rememberImageRequest(images[page]),
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 10.dp),
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 26.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    AsyncImage(
+                        model = rememberImageRequest(item.face),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.12f)),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = item.name,
+                            color = Color.White,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Normal,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(text = item.time, color = Color.White.copy(alpha = 0.55f), fontSize = 11.sp)
+                    }
+                    Text(
+                        text = "⌄",
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 24.sp,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable(interactionSource = null, indication = null, onClick = dismissAnimated)
+                            .padding(horizontal = 8.dp),
+                    )
+                }
+                if (item.text.isNotBlank()) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = item.text,
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        lineHeight = 21.sp,
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    DynamicAction(
+                        modifier = Modifier.weight(1f),
+                        icon = {
+                            ResourceGlyph(TeakIcon.Share, Color.White, size = 20.dp)
+                        },
+                        count = item.forward,
+                        tint = Color.White,
+                        onClick = onRepost,
+                    )
+                    DynamicAction(
+                        modifier = Modifier.weight(1f),
+                        icon = {
+                            ResourceGlyph(TeakIcon.CommentBubble, Color.White, size = 20.dp)
+                        },
+                        count = item.comment,
+                        tint = Color.White,
+                        onClick = onComment,
+                    )
+                    DynamicAction(
+                        modifier = Modifier.weight(1f),
+                        icon = {
+                            ResourceGlyph(
+                                if (liked) TeakIcon.CommentLikeFilled else TeakIcon.CommentLike,
+                                if (liked) BrandPink else Color.White,
+                                size = 20.dp,
+                            )
+                        },
+                        count = item.like,
+                        tint = if (liked) BrandPink else Color.White,
+                        onClick = onLike,
+                    )
+                }
+            }
         }
     }
 }
@@ -1012,9 +1247,14 @@ private fun ForwardedDynamicBlock(
     item: DynamicItem,
     onOpen: () -> Unit,
     onOpenVideo: (VideoItem) -> Unit,
+    autoPlay: Boolean,
+    muted: Boolean,
+    onToggleMute: () -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
+    var viewerUrl by remember { mutableStateOf<String?>(null) }
+    var viewerOrigin by remember { mutableStateOf<Rect?>(null) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1043,7 +1283,7 @@ private fun ForwardedDynamicBlock(
                 text = item.name,
                 color = if (item.authorVip) colors.primary else colors.onBackground,
                 fontSize = 11.5.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.clickable(
@@ -1065,7 +1305,7 @@ private fun ForwardedDynamicBlock(
                 color = colors.onBackground,
                 fontSize = 13.sp,
                 lineHeight = 18.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Medium,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1080,86 +1320,39 @@ private fun ForwardedDynamicBlock(
                 maxLines = 4,
             )
         }
-        item.images.firstOrNull()?.let { url ->
+        if (item.images.isNotEmpty()) {
             Spacer(Modifier.height(6.dp))
-            AsyncImage(
-                model = rememberImageRequest(url),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(132.dp)
-                    .clip(ContinuousCornerShape(9.dp))
-                    .background(colors.surfaceContainerHighest),
+            DynamicImageGrid(
+                images = item.images,
+                onOpen = { url, rect ->
+                    viewerUrl = url
+                    viewerOrigin = rect
+                },
             )
         }
         item.video?.let { video ->
-            Spacer(Modifier.height(6.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(ContinuousCornerShape(9.dp))
-                    .clickable(interactionSource = null, indication = null) {
-                        onOpenVideo(video)
-                    }
-                    .padding(vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(118.dp)
-                        .aspectRatio(16f / 9f)
-                        .clip(ContinuousCornerShape(8.dp))
-                        .background(colors.surfaceContainerHighest),
-                ) {
-                    AsyncImage(
-                        model = rememberImageRequest(video.cover),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                    if (video.duration > 0) {
-                        Text(
-                            text = formatDuration(video.duration),
-                            color = Color.White,
-                            fontSize = 9.sp,
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(4.dp)
-                                .clip(ContinuousCornerShape(4.dp))
-                                .background(Color.Black.copy(alpha = 0.55f))
-                                .padding(horizontal = 4.dp, vertical = 1.dp),
-                        )
-                    }
-                }
-                Spacer(Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = video.title,
-                        color = colors.onBackground,
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = video.ownerName,
-                        color = colors.onBackgroundVariant,
-                        fontSize = 10.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = "${formatCount(video.play)} 播放",
-                        color = colors.onBackgroundVariant,
-                        fontSize = 10.sp,
-                    )
-                }
-            }
+            Spacer(Modifier.height(8.dp))
+            DynamicVideoCard(
+                video = video,
+                isCollection = item.isCollection,
+                autoPlay = autoPlay,
+                muted = muted,
+                onOpenVideo = onOpenVideo,
+                onToggleMute = onToggleMute,
+            )
         }
+    }
+    viewerUrl?.let { url ->
+        DynamicImageViewer(
+            item = item,
+            url = url,
+            origin = viewerOrigin,
+            liked = item.liked,
+            onDismiss = { viewerUrl = null },
+            onLike = {},
+            onComment = onOpen,
+            onRepost = onOpen,
+        )
     }
 }
 
@@ -1250,7 +1443,7 @@ private fun EmptyHint(
             text = title,
             color = colors.onBackground,
             fontSize = 22.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Medium,
         )
         Spacer(Modifier.height(8.dp))
         Text(text = subtitle, color = colors.onBackgroundVariant, fontSize = 13.sp)
@@ -1262,7 +1455,7 @@ private fun EmptyHint(
                 .clickable { onAction() }
                 .padding(horizontal = 26.dp, vertical = 11.dp),
         ) {
-            Text(text = action, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(text = action, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Normal)
         }
     }
 }

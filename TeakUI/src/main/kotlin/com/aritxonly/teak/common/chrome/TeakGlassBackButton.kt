@@ -1,6 +1,7 @@
 package com.aritxonly.teak.common.chrome
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -49,16 +50,28 @@ fun TeakGlassBackButton(
 
     Box(modifier = modifier.size(size)) {
         if (reveal > 0.01f) {
-            Box(modifier = Modifier.matchParentSize().graphicsLayer { alpha = reveal }) {
-                TeakGlassIconButton(
-                    onClick = onClick,
-                    size = size,
-                    recipe = recipe,
-                    backdrop = LocalTeakBackdrop.current,
-                ) {}
+            val classic = com.aritxonly.teak.common.theme.TeakUiStyle.isClassic
+            if (classic) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .graphicsLayer { alpha = reveal }
+                        .clip(CircleShape)
+                        .background(top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainerHigh)
+                        .clickable(interactionSource = null, indication = null, onClick = onClick),
+                )
+            } else {
+                Box(modifier = Modifier.matchParentSize().graphicsLayer { alpha = reveal }) {
+                    TeakGlassIconButton(
+                        onClick = onClick,
+                        size = size,
+                        recipe = recipe,
+                        backdrop = LocalTeakBackdrop.current,
+                    ) {}
+                }
             }
         }
-        Canvas(modifier = Modifier.size(size * 0.46f).align(Alignment.Center)) {
+        Canvas(modifier = Modifier.size(size * 0.50f).align(Alignment.Center)) {
             val w = this.size.width
             val h = this.size.height
             val chevron = Path().apply {
@@ -66,7 +79,7 @@ fun TeakGlassBackButton(
                 lineTo(w * 0.30f, h * 0.5f)
                 lineTo(w * 0.66f, h * 0.88f)
             }
-            val stroke = w * 0.14f
+            val stroke = w * 0.10f
             if (!light) {
                 // 没有背景时给一点点投影，保证压在白底上也看得清。
                 drawPath(

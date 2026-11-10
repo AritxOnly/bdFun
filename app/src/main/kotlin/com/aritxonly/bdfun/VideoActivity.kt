@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
@@ -60,6 +61,7 @@ import com.aritxonly.bdfun.ui.TeakGlassChip
 import com.aritxonly.teak.common.navigation.TeakPagerTabs
 import com.aritxonly.bdfun.ui.UiSwapDurationMs
 import com.aritxonly.bdfun.ui.VideoPageBus
+import com.aritxonly.bdfun.ui.VideoOrientationLock
 import com.aritxonly.bdfun.ui.VideoScreen
 import com.aritxonly.bdfun.ui.blockTouches
 import com.aritxonly.bdfun.ui.rememberManualProgress
@@ -107,7 +109,7 @@ class VideoActivity : ComponentActivity() {
             override fun onOrientationChanged(orientation: Int) {
                 if (orientation == ORIENTATION_UNKNOWN) return
                 // 每次方向变化都重新读：用户可能中途打开 / 关闭了方向锁定
-                if (!autoRotateAllowed()) return
+                if (!autoRotateAllowed() || VideoOrientationLock.locked) return
                 // 判定：横屏要转到离水平 12° 以内（比上一版 18° 更严格）
                 val landscape = orientation in 78..102 || orientation in 258..282
                 val portrait =
@@ -279,6 +281,24 @@ class VideoActivity : ComponentActivity() {
                 return@setContent
             }
             val loadedVideo = video ?: return@setContent
+            LaunchedEffect(loadedVideo.bvid) {
+                if (!com.aritxonly.bdfun.data.VideoPlayQueue.contains(loadedVideo.bvid)) {
+                    com.aritxonly.bdfun.data.VideoPlayQueue.clear()
+                }
+            }
+            var consumedAutoNext by androidx.compose.runtime.remember {
+                androidx.compose.runtime.mutableIntStateOf(com.aritxonly.bdfun.ui.VideoPageBus.autoNextRequest)
+            }
+            LaunchedEffect(com.aritxonly.bdfun.ui.VideoPageBus.autoNextRequest) {
+                val tick = com.aritxonly.bdfun.ui.VideoPageBus.autoNextRequest
+                if (tick == consumedAutoNext) return@LaunchedEffect
+                consumedAutoNext = tick
+                val next = com.aritxonly.bdfun.data.VideoPlayQueue.next() ?: return@LaunchedEffect
+                com.aritxonly.bdfun.TeakNavigator.openVideo(this@VideoActivity, next)
+                finish()
+            }
+            val pageFullscreen = PlayerUiState.fullscreen
+            val pageOverlayAlpha = rememberManualProgress(if (pageFullscreen) 0f else 1f, 200f)
             var comments by remember { mutableStateOf<VideoDetail?>(null) }
             val pager = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 2 })
             val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -308,16 +328,15 @@ class VideoActivity : ComponentActivity() {
                 // 返回键改由 overlay 自己画：半屏时和播放器控件一起显隐（平滑淡入淡出）
                 showBackButton = false,
                 overlay = {
-                    val fs = PlayerUiState.fullscreen
+                    val fs = pageFullscreen
                     LaunchedEffect(fs) {
                         if (fs) {
                             VideoPageBus.dismissReply++
                             danmakuInputOpen = false
                         }
                     }
-                    val overlayAlpha = rememberManualProgress(if (fs) 0f else 1f, 200f)
+                    val overlayAlpha = pageOverlayAlpha
                     if (overlayAlpha > 0.01f) {
-
                         Row(
                             modifier = Modifier
                                 .align(Alignment.TopStart)
@@ -472,6 +491,41 @@ class VideoActivity : ComponentActivity() {
                         pager = pager,
                         autoRotate = settings.autoRotate,
                         immersiveStatusBar = settings.videoImmersiveStatusBar,
+                    )
+                    // 视频底边的白色渐变放进页面录制层，Tab 玻璃采样时会把它和下方内容
+                    // 当成同一张底片一起模糊，避免 Tab 内外一亮一白。
+                    val fadeColor = MaterialTheme.colorScheme.background
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .fillMaxWidth()
+                            .padding(top = playerTopInset + playerHeightDp)
+                            .height(54.dp)
+                            .graphicsLayer { alpha = pageOverlayAlpha }
+                            .background(
+                                Brush.verticalGradient(
+                                    0f to fadeColor,
+                                    0.5f to fadeColor.copy(alpha = 0.94f),
+                                    0.8f to fadeColor.copy(alpha = 0.48f),
+                                    1f to fadeColor.copy(alpha = 0f),
+                                ),
+                            ),
+                    )
+                    // 页面底部反向渐变：顶部透明，越往下越接近页面底色。
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(54.dp)
+                            .graphicsLayer { alpha = pageOverlayAlpha }
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(
+                                        MaterialTheme.colorScheme.background.copy(alpha = 0f),
+                                        MaterialTheme.colorScheme.background,
+                                    ),
+                                ),
+                            ),
                     )
                     val c = comments
                     if (c != null) {

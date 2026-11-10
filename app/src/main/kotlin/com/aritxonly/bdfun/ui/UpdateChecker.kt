@@ -181,7 +181,7 @@ private fun VersionUpdatedDialog(onDismiss: () -> Unit, onViewChangelog: () -> U
                         text = "版本更新",
                         color = colors.onBackground,
                         fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Medium,
                     )
                     Spacer(Modifier.height(10.dp))
                     Text(
@@ -242,7 +242,7 @@ private fun UpdateDialog(info: UpdateInfo, onDismiss: () -> Unit) {
                         text = "发现新版本",
                         color = colors.onBackground,
                         fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Medium,
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
@@ -322,7 +322,7 @@ private fun UpdateButton(
             text = text,
             color = if (primary) Color.White else colors.onBackground,
             fontSize = 14.sp,
-            fontWeight = if (primary) FontWeight.Medium else FontWeight.Normal,
+            fontWeight = if (primary) FontWeight.Normal else FontWeight.Normal,
         )
     }
 }

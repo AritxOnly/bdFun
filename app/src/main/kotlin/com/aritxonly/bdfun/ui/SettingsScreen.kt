@@ -35,8 +35,6 @@ import com.aritxonly.bdfun.BuildConfig
 import com.aritxonly.bdfun.data.CdnAutoSelector
 import com.aritxonly.bdfun.data.CdnServices
 import com.aritxonly.bdfun.data.SettingsStore
-import com.aritxonly.teak.common.chrome.TeakPageScrollState
-import com.aritxonly.teak.common.chrome.rememberTeakPageScrollState
 import com.aritxonly.teak.common.settings.TeakSettingsActionRow
 import com.aritxonly.teak.common.settings.TeakSettingsCard
 import com.aritxonly.teak.common.settings.TeakSettingsDropdownRow
@@ -57,7 +55,6 @@ fun SettingsScreen(
     val context = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var cdnSpeeds by remember { mutableStateOf(CdnAutoSelector.speedsSnapshot()) }
-    // 进设置页时顺带测一次，选项后面才能显示各节点速度。
     LaunchedEffect(Unit) {
         if (!CdnAutoSelector.isFresh() || cdnSpeeds.isEmpty()) {
             CdnAutoSelector.refresh(
@@ -91,22 +88,19 @@ fun SettingsScreen(
         title = "设置",
     ) {
         item(key = "appearance") {
-            // 行内文字立刻跟着选中项变，真正的主题切换仍然延迟到退场动画之后
-            var pendingDark by remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
-            var pendingColor by remember { androidx.compose.runtime.mutableStateOf<Int?>(null) }
-            androidx.compose.runtime.LaunchedEffect(settings.darkMode) { pendingDark = null }
-            androidx.compose.runtime.LaunchedEffect(settings.colorStyle) { pendingColor = null }
-            TeakSettingsCard(title = "外观") {
+            var pendingDark by remember { mutableStateOf<Int?>(null) }
+            var pendingColor by remember { mutableStateOf<Int?>(null) }
+            LaunchedEffect(settings.darkMode) { pendingDark = null }
+            LaunchedEffect(settings.colorStyle) { pendingColor = null }
+            TeakSettingsCard(title = "外观与显示") {
                 TeakSettingsDropdownRow(
                     title = "主题",
                     options = listOf("跟随系统", "浅色", "深色"),
                     selected = pendingDark ?: settings.darkMode,
-                    // 切换主题会让整棵树重组（100ms+）。等下拉的退场动画跑完再落状态，
-                    // 否则动画第一帧就被重组卡住，看起来像"跳一下/播错"。
                     onSelected = { index ->
                         pendingDark = index
                         scope.launch {
-                            kotlinx.coroutines.delay(260)
+                            delay(260)
                             settings.darkMode = index
                         }
                     },
@@ -118,11 +112,19 @@ fun SettingsScreen(
                     onSelected = { index ->
                         pendingColor = index
                         scope.launch {
-                            kotlinx.coroutines.delay(260)
+                            delay(260)
                             settings.colorStyle = index
-                            // 立即切全局主色；不用等 Activity 重建
                             com.aritxonly.bdfun.ThemePalette.style = index
                         }
+                    },
+                )
+                TeakSettingsDropdownRow(
+                    title = "界面风格",
+                    options = listOf("官方", "经典"),
+                    selected = settings.interfaceStyle.coerceIn(0, 1),
+                    onSelected = {
+                        settings.interfaceStyle = it
+                        com.aritxonly.teak.common.theme.TeakUiStyle.style = it
                     },
                 )
                 TeakSettingsSwitchRow(
@@ -130,16 +132,44 @@ fun SettingsScreen(
                     checked = settings.blurEnabled,
                     onCheckedChange = { settings.blurEnabled = it },
                 )
+                TeakSettingsSwitchRow(
+                    title = "减弱动态效果",
+                    checked = !settings.animationsEnabled,
+                    onCheckedChange = { settings.animationsEnabled = !it },
+                )
+                TeakSettingsSwitchRow(
+                    title = "智能刷新率",
+                    description = "根据画面状态自动调整屏幕刷新率",
+                    checked = settings.smartRefresh,
+                    onCheckedChange = { settings.smartRefresh = it },
+                )
+                TeakSettingsSwitchRow(
+                    title = "抬高底栏",
+                    description = "解决未开启安卓导航条时底栏位置过低的问题",
+                    checked = settings.bottomBarRaise,
+                    onCheckedChange = { settings.bottomBarRaise = it },
+                )
+                TeakSettingsActionRow(
+                    title = "设置开屏壁纸",
+                    trailing = if (settings.splashWallpaper.isBlank()) "未设置" else "已设置",
+                ) {
+                    wallpaperPicker.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                    )
+                }
+                TeakSettingsActionRow(title = "清除开屏壁纸") {
+                    settings.splashWallpaper = ""
+                    context.showToast("已清除开屏壁纸")
+                }
+                GlobalFontScaleRow(
+                    value = settings.fontScale,
+                    onValueChange = { settings.fontScale = it },
+                )
             }
         }
 
-        item(key = "playback") {
-            TeakSettingsCard(title = "播放") {
-                TeakSettingsSwitchRow(
-                    title = "首页使用 Web 端推荐",
-                    checked = settings.recommendWeb,
-                    onCheckedChange = { settings.recommendWeb = it },
-                )
+        item(key = "player") {
+            TeakSettingsCard(title = "播放器") {
                 TeakSettingsSwitchRow(
                     title = "显示正在观看人数",
                     checked = settings.showViewerCount,
@@ -173,6 +203,14 @@ fun SettingsScreen(
                         .coerceAtLeast(0),
                     onSelected = { settings.boostDefaultSpeed = BOOST_SPEED_VALUES[it] },
                 )
+                TeakSettingsDropdownRow(
+                    title = "默认播放倍速",
+                    options = PLAYBACK_SPEED_LABELS,
+                    selected = PLAYBACK_SPEED_VALUES
+                        .indexOfFirst { kotlin.math.abs(it - settings.defaultPlaybackSpeed) < 0.01f }
+                        .coerceAtLeast(0),
+                    onSelected = { settings.defaultPlaybackSpeed = PLAYBACK_SPEED_VALUES[it] },
+                )
                 TeakSettingsSwitchRow(
                     title = "全屏显示时间",
                     checked = settings.showFullscreenTime,
@@ -182,6 +220,12 @@ fun SettingsScreen(
                     title = "全屏显示互动按钮",
                     checked = settings.showFullscreenActions,
                     onCheckedChange = { settings.showFullscreenActions = it },
+                )
+                TeakSettingsDropdownRow(
+                    title = "进度条常显",
+                    options = listOf("关闭", "仅半屏时常显", "仅全屏时常显", "永久显示"),
+                    selected = settings.progressBarMode,
+                    onSelected = { settings.progressBarMode = it },
                 )
                 TeakSettingsSwitchRow(
                     title = "响度均衡",
@@ -215,7 +259,9 @@ fun SettingsScreen(
                 )
                 TeakSettingsDropdownRow(
                     title = "CDN 设置",
+                    description = "如发现播放问题，请选择原地址",
                     options = cdnOptions,
+                    closedValue = CdnServices[cdnSelectedIndex(settings.cdnService)].label,
                     selected = cdnSelectedIndex(settings.cdnService),
                     panelWidth = 300.dp,
                     onSelected = { index ->
@@ -231,21 +277,6 @@ fun SettingsScreen(
                     title = "进入视频自动播放",
                     checked = settings.autoPlay,
                     onCheckedChange = { settings.autoPlay = it },
-                )
-                TeakSettingsSwitchRow(
-                    title = "动态视频自动播放",
-                    checked = settings.dynamicAutoPlay,
-                    onCheckedChange = { settings.dynamicAutoPlay = it },
-                )
-                TeakSettingsDropdownRow(
-                    title = "动态视频清晰度",
-                    options = listOf("1080P", "720P", "480P"),
-                    selected = listOf(80, 64, 32)
-                        .indexOf(settings.dynamicAutoPlayQuality)
-                        .coerceAtLeast(0),
-                    onSelected = {
-                        settings.dynamicAutoPlayQuality = listOf(80, 64, 32)[it]
-                    },
                 )
                 TeakSettingsSwitchRow(
                     title = "蓝牙耳机延迟补偿",
@@ -265,56 +296,89 @@ fun SettingsScreen(
             }
         }
 
-        item(key = "display") {
-            TeakSettingsCard(title = "显示") {
-                TeakSettingsSwitchRow(
-                    title = "显示热搜",
-                    checked = settings.showHotSearch,
-                    onCheckedChange = { settings.showHotSearch = it },
+        item(key = "home") {
+            TeakSettingsCard(title = "首页") {
+                TeakSettingsDropdownRow(
+                    title = "卡片样式",
+                    options = listOf("双排", "大卡"),
+                    selected = settings.homeCardStyle.coerceIn(0, 1),
+                    onSelected = { settings.homeCardStyle = it },
                 )
+                TeakSettingsSwitchRow(
+                    title = "首页使用 Web 端推荐",
+                    checked = settings.recommendWeb,
+                    onCheckedChange = { settings.recommendWeb = it },
+                )
+            }
+        }
+
+        item(key = "video_detail") {
+            TeakSettingsCard(title = "视频详情页") {
                 TeakSettingsSwitchRow(
                     title = "沉浸状态栏",
                     checked = settings.videoImmersiveStatusBar,
                     onCheckedChange = { settings.videoImmersiveStatusBar = it },
                 )
                 TeakSettingsSwitchRow(
-                    title = "减弱动态效果",
-                    checked = !settings.animationsEnabled,
-                    onCheckedChange = { settings.animationsEnabled = !it },
-                )
-                TeakSettingsSwitchRow(
-                    title = "智能刷新率",
-                    description = "根据画面状态自动调整屏幕刷新率",
-                    checked = settings.smartRefresh,
-                    onCheckedChange = { settings.smartRefresh = it },
-                )
-                TeakSettingsSwitchRow(
-                    title = "抬高底栏",
-                    description = "解决未开启安卓导航条时底栏位置过低的问题",
-                    checked = settings.bottomBarRaise,
-                    onCheckedChange = { settings.bottomBarRaise = it },
-                )
-                TeakSettingsSwitchRow(
                     title = "显示评论 IP 属地",
                     checked = settings.showIpLocation,
                     onCheckedChange = { settings.showIpLocation = it },
                 )
-                TeakSettingsActionRow(
-                    title = "设置开屏壁纸",
-                    trailing = if (settings.splashWallpaper.isBlank()) "未设置" else "已设置",
-                ) {
-                    wallpaperPicker.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                    )
-                }
-                TeakSettingsActionRow(title = "清除开屏壁纸") {
-                    settings.splashWallpaper = ""
-                    context.showToast("已清除开屏壁纸")
-                }
-                GlobalFontScaleRow(
-                    value = settings.fontScale,
-                    onValueChange = { settings.fontScale = it },
+            }
+        }
+
+        item(key = "danmaku") {
+            TeakSettingsCard(title = "弹幕") {
+                TeakSettingsSwitchRow(
+                    title = "空降助手",
+                    checked = settings.sponsorSkipEnabled,
+                    onCheckedChange = { settings.sponsorSkipEnabled = it },
                 )
+                TeakSettingsSwitchRow(
+                    title = "弹幕计数",
+                    checked = settings.hotDanmakuEnabled,
+                    onCheckedChange = { settings.hotDanmakuEnabled = it },
+                )
+                TeakSettingsSwitchRow(
+                    title = "降低弹幕刷新率",
+                    checked = settings.danmakuLowRefresh,
+                    onCheckedChange = { settings.danmakuLowRefresh = it },
+                )
+            }
+        }
+
+        item(key = "dynamics") {
+            TeakSettingsCard(title = "动态页") {
+                TeakSettingsSwitchRow(
+                    title = "动态视频自动播放",
+                    checked = settings.dynamicAutoPlay,
+                    onCheckedChange = { settings.dynamicAutoPlay = it },
+                )
+                TeakSettingsDropdownRow(
+                    title = "动态视频清晰度",
+                    options = listOf("1080P", "720P", "480P"),
+                    selected = listOf(80, 64, 32)
+                        .indexOf(settings.dynamicAutoPlayQuality)
+                        .coerceAtLeast(0),
+                    onSelected = {
+                        settings.dynamicAutoPlayQuality = listOf(80, 64, 32)[it]
+                    },
+                )
+            }
+        }
+
+        item(key = "search") {
+            TeakSettingsCard(title = "搜索页") {
+                TeakSettingsSwitchRow(
+                    title = "显示热搜",
+                    checked = settings.showHotSearch,
+                    onCheckedChange = { settings.showHotSearch = it },
+                )
+            }
+        }
+
+        item(key = "mine") {
+            TeakSettingsCard(title = "我的页") {
                 TeakSettingsSwitchRow(
                     title = "显示「我的评论与弹幕」入口",
                     checked = settings.sentHistoryEntry,
@@ -324,49 +388,39 @@ fun SettingsScreen(
         }
 
         item(key = "about") {
-            val context = androidx.compose.ui.platform.LocalContext.current
+            val aboutContext = LocalContext.current
             TeakSettingsCard(title = "关于") {
                 TeakSettingsValueRow(
                     title = "版本",
                     value = BuildConfig.VERSION_NAME,
                 )
                 TeakSettingsActionRow(title = "加入讨论组", trailing = "QQ 群 $QQ_GROUP") {
-                    openQqGroup(context)
+                    openQqGroup(aboutContext)
                 }
                 TeakSettingsActionRow(title = "更新日志") {
-                    com.aritxonly.bdfun.TeakNavigator.openChangelog(context)
+                    com.aritxonly.bdfun.TeakNavigator.openChangelog(aboutContext)
                 }
                 TeakSettingsActionRow(title = "捐赠") {
-                    com.aritxonly.bdfun.TeakNavigator.openDonation(context)
+                    com.aritxonly.bdfun.TeakNavigator.openDonation(aboutContext)
                 }
                 TeakSettingsActionRow(title = "引用") {
-                    com.aritxonly.bdfun.TeakNavigator.openCredits(context)
+                    com.aritxonly.bdfun.TeakNavigator.openCredits(aboutContext)
                 }
                 TeakSettingsActionRow(title = "项目地址") {
                     runCatching {
-                        context.startActivity(
+                        aboutContext.startActivity(
                             android.content.Intent(
                                 android.content.Intent.ACTION_VIEW,
                                 android.net.Uri.parse("https://github.com/QxTeak/bdFun"),
                             ),
                         )
-                    }.onFailure { context.showToast("无法打开链接") }
+                    }.onFailure { aboutContext.showToast("无法打开链接") }
                 }
-                TeakSettingsActionRow(title = "检查更新") {
-                    scope.launch {
-                        val info = UpdateChecker.check()
-                        if (info != null) {
-                            UpdatePromptState.show(info)
-                        } else {
-                            context.showToast("已是最新版本")
-                        }
+                if (BuildConfig.DEBUG) {
+                    TeakSettingsActionRow(title = "日志抓取", trailing = "调试") {
+                        com.aritxonly.bdfun.TeakNavigator.openLogs(aboutContext)
                     }
                 }
-                TeakSettingsSwitchRow(
-                    title = "自动提示更新",
-                    checked = settings.autoCheckUpdate,
-                    onCheckedChange = { settings.autoCheckUpdate = it },
-                )
             }
         }
 
@@ -382,18 +436,21 @@ fun SettingsScreen(
             }
         }
     }
-
 }
 
 private val QUALITY_LABELS = listOf("自动", "HDR", "4K", "1080P+", "1080P", "720P", "480P")
 private val QUALITY_VALUES = listOf(0, 125, 120, 112, 80, 64, 32)
 private val LATENCY_VALUES = listOf(50, 100, 150, 200, 250, 300)
+private val PLAYBACK_SPEED_VALUES = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f, 2.5f, 3f)
+private val PLAYBACK_SPEED_LABELS = PLAYBACK_SPEED_VALUES.map {
+    if (it % 1f == 0f) "${it.toInt()}×" else "${it}×"
+}
 private val BOOST_SPEED_VALUES = listOf(1.5f, 2f, 2.5f, 3f, 4f, 5f)
 private val BOOST_SPEED_LABELS = BOOST_SPEED_VALUES.map {
     if (it % 1f == 0f) "${it.toInt()}×" else "${it}×"
 }
 private val DECODER_LABELS = listOf(
-    "自动（推荐）",
+    "自动",
     "硬件解码",
     "软件解码",
     "硬件解码（禁回退）",
@@ -402,7 +459,14 @@ private val DECODER_LABELS = listOf(
 /** 选项文本 = 节点名 + 最近一次测速成绩。 */
 private fun cdnMenuLabels(speeds: Map<String, Double>): List<String> {
     return buildList {
-        CdnServices.forEach { add(withSpeed(it.label, speeds[it.id])) }
+        CdnServices.forEach { service ->
+            val speed = if (service.auto) {
+                CdnAutoSelector.currentService()?.id?.let(speeds::get)
+            } else {
+                speeds[service.id]
+            }
+            add(withSpeed(service.label, speed))
+        }
     }
 }
 
@@ -450,10 +514,8 @@ private fun openQqGroup(context: android.content.Context) {
 @Composable
 private fun GlobalFontScaleRow(value: Float, onValueChange: (Float) -> Unit) {
     val colors = MiuixTheme.colorScheme
-    // 100% 固定落在滑轨正中
     val min = 0.8f
     val max = 1.2f
-    // 拖动时只改本地字号，松手再应用全局 density，避免手势被打断
     var sliderValue by remember(value) { mutableFloatStateOf(value) }
     val fraction = ((sliderValue - min) / (max - min)).coerceIn(0f, 1f)
 
@@ -476,7 +538,6 @@ private fun GlobalFontScaleRow(value: Float, onValueChange: (Float) -> Unit) {
             Slider(
                 value = sliderValue,
                 onValueChange = {
-                    // 靠近 100% 时吸附到 100%
                     sliderValue = if (kotlin.math.abs(it - 1f) < 0.025f) 1f else it
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -487,7 +548,6 @@ private fun GlobalFontScaleRow(value: Float, onValueChange: (Float) -> Unit) {
                 keyPoints = listOf(1f),
                 magnetThreshold = 0.035f,
             )
-            // 100% 位置的小圆点：滑块正好在 100% 时被圆钮盖住，不重叠
             if (kotlin.math.abs(fraction - 0.5f) > 0.02f) {
                 Box(
                     modifier = Modifier

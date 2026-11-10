@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -52,10 +54,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -93,10 +99,14 @@ private val TitleBlockHeight = 36.dp
 fun HomeScreen(
     state: HomeFeedState,
     onOpenVideo: (VideoItem) -> Unit,
+    /** 0 = 双排小卡，1 = 大卡（动态页视频卡片同款）。 */
+    cardStyle: Int = 0,
 ) {
+    val largeCards = cardStyle == 1
     val colors = MiuixTheme.colorScheme
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
+    val context = LocalContext.current
     val thresholdPx = with(density) { RefreshThreshold.toPx() }
     val maxPullPx = with(density) { MaxPull.toPx() }
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -186,13 +196,6 @@ fun HomeScreen(
 
     val refreshConnection = remember(state) {
         object : NestedScrollConnection {
-            /**
-             * 到顶后继续下拉：在 **preScroll** 就吃掉。
-             *
-             * 之前放在 onPostScroll，LazyGrid 的 overscroll(EdgeEffect) 已经先把这段位移"拉伸"了一遍，
-             * 松手时它自己还要再弹回去一次 —— 表现就是卡片回到原位后又跳动一下。
-             * 在 preScroll 消费掉，滚动容器根本看不到这段位移，就不会有第二次回弹。
-             */
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (source != NestedScrollSource.UserInput) return Offset.Zero
                 if (available.y < 0f && pullOffset > 0f) {
@@ -202,13 +205,14 @@ fun HomeScreen(
                     return Offset(0f, consumed)
                 }
                 if (available.y > 0f && !state.gridState.canScrollBackward) {
-                    applyPull(pullOffset + available.y * 0.55f)
-                    return Offset(0f, available.y)
+                    val next = (pullOffset + available.y * 0.6f).coerceAtMost(maxPullPx)
+                    val consumed = next - pullOffset
+                    applyPull(next)
+                    return Offset(0f, consumed)
                 }
                 return Offset.Zero
             }
 
-            /** 松手：够阈值就进入刷新并保持位移；不够就单调缓动回弹（不越过 0 点）。 */
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
                 val shouldRefresh = pullOffset >= thresholdPx &&
                     !state.refreshing && !state.loading
@@ -216,6 +220,7 @@ fun HomeScreen(
                     animatePullTo(thresholdPx, 140f)
                     state.pullFraction = 1f
                     state.refresh()
+                    // 回落交给 LaunchedEffect(state.refreshing)，这里保持阈值位置。
                 } else {
                     animatePullTo(0f, 220f)
                     state.pullFraction = 0f
@@ -229,7 +234,7 @@ fun HomeScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
+            columns = GridCells.Fixed(if (largeCards) 1 else 2),
             state = state.gridState,
             modifier = Modifier
                 .fillMaxSize()
@@ -246,7 +251,22 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(items = state.videos, key = { it.bvid }) { video ->
-                VideoGridCard(video = video, onClick = { onOpenVideo(video) })
+                val oneTake = rememberOneTakeAnchor()
+                val radiusPx = with(density) { (if (largeCards) 14.dp else 16.dp).toPx() }
+                val bgArgb = colors.background.toArgb()
+                val openCard = {
+                    oneTake.open(
+                        context = context,
+                        video = video,
+                        radiusPx = radiusPx,
+                        backgroundColor = bgArgb,
+                    ) { onOpenVideo(video) }
+                }
+                if (largeCards) {
+                    VideoLargeCard(video = video, modifier = oneTake.modifier, onClick = openCard)
+                } else {
+                    VideoGridCard(video = video, modifier = oneTake.modifier, onClick = openCard)
+                }
             }
 
             if (state.videos.isNotEmpty()) {
@@ -321,14 +341,20 @@ fun HomeScreen(
 internal fun VideoGridCard(
     video: VideoItem,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     /** 已看进度 0..1（历史记录用），默认不显示 */
     progress: Float = 0f,
+    /** 批量管理：显示右上角勾选圈，点击仍交给 onClick 处理 */
+    selectionEnabled: Boolean = false,
+    selected: Boolean = false,
+    /** 历史页：统计行先占位，避免补数据时整行突然出现 */
+    reserveMeta: Boolean = false,
 ) {
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .clip(FeedCardShape)
             .background(colors.surface)
             .clickable(interactionSource = null, indication = null, onClick = onClick),
@@ -364,28 +390,28 @@ internal fun VideoGridCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // 历史记录等没有播放/弹幕数据的来源就不显示这两个 0
-                if (video.play > 0 || video.danmaku > 0) {
+                if (reserveMeta || video.play > 0 || video.danmaku > 0) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         MetricGlyph(play = true)
                         Spacer(Modifier.width(3.dp))
                         Text(
-                            text = formatCount(video.play),
+                            text = if (reserveMeta && video.play <= 0) "—" else formatCount(video.play),
                             color = Color.White,
                             fontSize = 10.sp,
                             lineHeight = 11.sp,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.Normal,
                         )
                         Spacer(Modifier.width(6.dp))
                         MetricGlyph(play = false)
                         Spacer(Modifier.width(3.dp))
                         Text(
-                            text = formatCount(video.danmaku),
+                            text = if (reserveMeta && video.danmaku <= 0) "—" else formatCount(video.danmaku),
                             color = Color.White,
                             fontSize = 10.sp,
                             lineHeight = 11.sp,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.Normal,
                         )
                     }
                 }
@@ -410,6 +436,31 @@ internal fun VideoGridCard(
                         .background(MiuixTheme.colorScheme.primary),
                 )
             }
+
+            // 批量管理：右上角勾选圈
+            if (selectionEnabled) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (selected) MiuixTheme.colorScheme.primary else Color(0x66000000),
+                        )
+                        .border(1.5.dp, Color.White.copy(alpha = 0.9f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (selected) {
+                        Text(
+                            text = "✓",
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
         }
 
         Column(modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 7.dp, bottom = 8.dp)) {
@@ -421,7 +472,7 @@ internal fun VideoGridCard(
                 style = TextStyle(
                     fontSize = 13.5.sp,
                     lineHeight = 18.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Normal,
                 ),
                 modifier = Modifier.heightIn(min = TitleBlockHeight),
             )
@@ -446,6 +497,10 @@ internal fun VideoGridCard(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     UpBadge()
+                    if (video.isFollowed) {
+                        Spacer(Modifier.width(4.dp))
+                        FollowedBadge()
+                    }
                     Spacer(Modifier.width(5.dp))
                     Text(
                         text = video.ownerName,
@@ -455,6 +510,125 @@ internal fun VideoGridCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * 首页大卡：和动态页视频卡片同一套排版 —— 整行 16:9 封面，底部一条渐变信息带，
+ * 标题和作者放在封面下方。双排模式完全不会用到它。
+ */
+@Composable
+internal fun VideoLargeCard(
+    video: VideoItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    progress: Float = 0f,
+) {
+    val colors = MiuixTheme.colorScheme
+    val context = LocalContext.current
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(ContinuousCornerShape(14.dp))
+            .background(colors.surface)
+            .clickable(interactionSource = null, indication = null, onClick = onClick),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .background(colors.surfaceContainerHigh),
+        ) {
+            AsyncImage(
+                model = rememberImageRequest(video.cover),
+                contentDescription = video.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .background(
+                        Brush.verticalGradient(listOf(Color.Transparent, Color(0x66000000))),
+                    ),
+            )
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .padding(start = 10.dp, end = 10.dp, bottom = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (video.duration > 0) {
+                    Text(
+                        text = formatDuration(video.duration),
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        lineHeight = 12.sp,
+                    )
+                    Spacer(Modifier.width(9.dp))
+                }
+                if (video.play > 0 || video.danmaku > 0) {
+                    MetricGlyph(play = true, size = 13.dp)
+                    Spacer(Modifier.width(3.dp))
+                    Text(
+                        text = formatCount(video.play),
+                        color = Color.White,
+                        fontSize = 10.sp,
+                    )
+                    Spacer(Modifier.width(9.dp))
+                    MetricGlyph(play = false, size = 13.dp)
+                    Spacer(Modifier.width(3.dp))
+                    Text(
+                        text = formatCount(video.danmaku),
+                        color = Color.White,
+                        fontSize = 10.sp,
+                    )
+                }
+            }
+            if (progress > 0f) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth(progress.coerceIn(0f, 1f))
+                        .height(2.dp)
+                        .background(colors.primary),
+                )
+            }
+        }
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)) {
+            Text(
+                text = video.title,
+                color = colors.onBackground,
+                fontSize = 14.sp,
+                lineHeight = 19.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(5.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                UpBadge()
+                if (video.isFollowed) {
+                    Spacer(Modifier.width(4.dp))
+                    FollowedBadge()
+                }
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = video.ownerName,
+                    color = colors.onBackgroundVariant,
+                    fontSize = 11.5.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(interactionSource = null, indication = null) {
+                            com.aritxonly.bdfun.TeakNavigator.openSpace(context, video.ownerMid)
+                        },
+                )
             }
         }
     }

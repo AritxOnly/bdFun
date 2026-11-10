@@ -16,7 +16,17 @@ import com.aritxonly.bdfun.data.VideoItem
  * 首页推荐流的状态。
  * 关键点：它由 App 层持有（[rememberHomeFeedState]），所以进视频详情、进搜索/设置再返回时，
  * 首页不会重新拉取、也不会丢滚动位置。首屏只在第一次 [ensureLoaded] 时请求。
+ *
+ * 另外放进进程级单例：从视频页回来时，即使承载首页的 Activity 被系统回收重建，
+ * 只要进程还在，列表和滚动位置仍会保留，不需要重新请求。
  */
+object HomeFeedMemory {
+    private var state: HomeFeedState? = null
+
+    fun get(api: BiliApi): HomeFeedState =
+        state ?: HomeFeedState(api).also { state = it }
+}
+
 @Stable
 class HomeFeedState internal constructor(
     private val api: BiliApi,
@@ -130,5 +140,6 @@ class HomeFeedState internal constructor(
 }
 
 @Composable
-fun rememberHomeFeedState(api: BiliApi): HomeFeedState = remember(api) { HomeFeedState(api) }
+fun rememberHomeFeedState(api: BiliApi): HomeFeedState =
+    remember(api) { HomeFeedMemory.get(api) }
 

@@ -160,12 +160,15 @@ fun TeakTopBar(
     barHeight: Dp = TeakChromeDefaults.TopBarHeight,
     titleThreshold: Float = TeakChromeDefaults.SmallTitleThreshold,
     revealDurationMs: Float = TeakChromeDefaults.SmallTitleRevealDurationMs,
+    /** 没有大标题的页面（如私信）强制常显小标题。 */
+    titleAlwaysVisible: Boolean = false,
 ) {
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val shown = rememberManualProgress(
+    val animatedShown = rememberManualProgress(
         target = if (collapse > titleThreshold) 1f else 0f,
         durationMs = revealDurationMs,
     )
+    val shown = if (titleAlwaysVisible) 1f else animatedShown
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -181,7 +184,7 @@ fun TeakTopBar(
                 text = title,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = TeakChromeDefaults.SmallTitleFontSize,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Medium,
                 modifier = Modifier
                     .align(Alignment.Center)
                     .padding(top = statusBarTop)
@@ -222,7 +225,7 @@ fun TeakLargeTitle(
             modifier = Modifier.padding(start = TeakChromeDefaults.LargeTitleStartPadding),
             color = colors.onBackground,
             fontSize = TeakChromeDefaults.LargeTitleFontSize,
-            fontWeight = FontWeight.Medium,
+            fontWeight = FontWeight.Normal,
         )
         if (!subtitle.isNullOrBlank()) {
             Spacer(Modifier.height(TeakChromeDefaults.TitleSubtitleGap))
@@ -259,6 +262,9 @@ fun TeakPageScaffold(
     topBarCenter: @Composable BoxScope.() -> Unit = {},
     topBarActions: @Composable RowScope.() -> Unit = {},
     overlay: @Composable BoxScope.() -> Unit = {},
+    /** 画在顶栏按钮之上的浮层，给需要盖住顶栏的玻璃菜单用。 */
+    menuOverlay: @Composable BoxScope.() -> Unit = {},
+    titleAlwaysVisible: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     LaunchedEffect(pageState) { pageState.reset() }
@@ -285,6 +291,7 @@ fun TeakPageScaffold(
                     title = title,
                     collapse = pageState.collapse,
                     modifier = Modifier.align(Alignment.TopCenter),
+                    titleAlwaysVisible = titleAlwaysVisible,
                 )
             }
             Box(modifier = Modifier.fillMaxSize()) {
@@ -298,6 +305,9 @@ fun TeakPageScaffold(
                 center = topBarCenter,
                 trailing = topBarActions,
             )
+            Box(modifier = Modifier.fillMaxSize()) {
+                menuOverlay()
+            }
         }
     }
 }

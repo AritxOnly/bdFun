@@ -189,7 +189,7 @@ private fun DynamicDetailScreen(dynamic: DynamicItem, onBack: () -> Unit) {
                     text = "评论",
                     color = colors.onBackground,
                     fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 2.dp),
                 )
             }
@@ -215,7 +215,7 @@ private fun BigTitleHeader() {
             text = "动态详情",
             color = colors.onBackground,
             fontSize = 30.sp,
-            fontWeight = FontWeight.Medium,
+            fontWeight = FontWeight.Normal,
             modifier = Modifier.padding(start = 14.dp),
         )
         Spacer(Modifier.height(14.dp))

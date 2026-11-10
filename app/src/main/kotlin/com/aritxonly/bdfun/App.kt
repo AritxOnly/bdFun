@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -48,9 +49,21 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import com.aritxonly.teak.common.navigation.TeakFloatingTabBar
 import com.aritxonly.teak.common.navigation.TeakFloatingTabItem
 import com.aritxonly.teak.common.navigation.TeakFloatingTabLayout
+import com.aritxonly.teak.common.theme.TeakUiStyle
+import com.aritxonly.bdfun.ui.rememberStricterSwipeConfiguration
 import com.aritxonly.teak.common.material.LocalTeakBackdrop
 import com.aritxonly.teak.common.theme.TeakTheme
 import com.aritxonly.bdfun.data.BiliApi
@@ -242,6 +255,11 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
     val dynamicFeed = rememberDynamicFeedState(api)
     // 参考 HyperIsland 的做法：整屏一块 backdrop，录制时先铺一层 surface 再画内容
     val backdrop = rememberLayerBackdrop { drawRect(materialColors.background); drawContent() }
+    // 搜索页自己一块：首页顶栏的渐变模糊和筛选菜单都采样它，复用同一套页面结构。
+    val searchBackdrop = rememberLayerBackdrop {
+        drawRect(materialColors.background)
+        drawContent()
+    }
     val tabItems = destinations.map { destination ->
         TeakFloatingTabItem(
             key = destination.key,
@@ -251,6 +269,9 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
             iconScale = if (destination.key == "home") 0.95f else 1f,
         )
     }
+
+    // 界面风格是全局对象：设置页改完后这里同步一次，所有 TeakUI 组件立即响应。
+    SideEffect { TeakUiStyle.style = settings.interfaceStyle }
 
     TeakTheme(
         dark = dark,
@@ -289,6 +310,10 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                             .layerBackdrop(backdrop),
                     ) {
                         // 三个 tab：横向相连的 pager（可拖拽，切换是同一套非线性动画）
+                        // 外面包一层更大的触摸阈值，手指轻抖不会误翻页。
+                        CompositionLocalProvider(
+                            LocalViewConfiguration provides rememberStricterSwipeConfiguration(),
+                        ) {
                         HorizontalPager(
                             state = tabPagerState,
                             modifier = Modifier.fillMaxSize(),
@@ -300,6 +325,7 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                                 0 -> HomeScreen(
                                     state = homeFeed,
                                     onOpenVideo = { TeakNavigator.openVideo(context, it) },
+                                    cardStyle = settings.homeCardStyle,
                                 )
 
                                 1 -> DynamicScreen(
@@ -329,6 +355,7 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                                 )
                             }
                         }
+                        }
 
                     }
 
@@ -337,31 +364,39 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
 
                     // 搜索页：搜索框保持不动，下面整块换成纯白页（搜索记录 + 热搜 / 结果）
                     if (showSearch || searchReveal > 0.01f) {
-                        SearchOverlay(
-                            api = api,
-                            settings = settings,
-                            submitted = searchSubmitted,
-                            reveal = searchReveal,
-                            onPickKeyword = { word ->
-                                searchQuery = word
-                                settings.addSearchHistory(word)
-                                searchSubmitted = word
-                            },
-                            onOpenVideo = { TeakNavigator.openVideo(context, it) },
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                    if (showSearch && searchSubmitted != null) {
-                        UnfinishedNoticeOnce()
+                        // 搜索页复刻首页结构：内容先录进 searchBackdrop，
+                        // 顶栏的渐变模糊和筛选菜单都采样同一块。
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .layerBackdrop(searchBackdrop),
+                        ) {
+                            CompositionLocalProvider(LocalTeakBackdrop provides searchBackdrop) {
+                                SearchOverlay(
+                                    api = api,
+                                    settings = settings,
+                                    submitted = searchSubmitted,
+                                    reveal = searchReveal,
+                                    onPickKeyword = { word ->
+                                        searchQuery = word
+                                        settings.addSearchHistory(word)
+                                        searchSubmitted = word
+                                    },
+                                    onOpenVideo = { TeakNavigator.openVideo(context, it) },
+                                    onOpenUser = { TeakNavigator.openSpace(context, it.mid) },
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
+                        }
                     }
                     // 首页顶栏：挂在采集层之外，所以能直接用底栏同款玻璃（真模糊）+ 渐变式模糊
                     // 顶栏跟首页一起走：位置随 pager 偏移平移，透明度同步降低
                     if (pageFloat < 0.99f) {
-                        // 搜索页的白底是"覆盖层"，不在 backdrop 采集范围内，
-                        // 玻璃若继续采样会把白底后面的首页/视频透出来 → 搜索态禁用 backdrop，退化为纯色玻璃。
+                        // 搜索态顶栏改采样搜索页自己的 backdrop：
+                        // 结果列表从下面滚过时，顶部就是首页同款渐进式模糊。
                         CompositionLocalProvider(
                             LocalTeakBackdrop provides if (showSearch) {
-                                null
+                                searchBackdrop
                             } else {
                                 LocalTeakBackdrop.current
                             },
@@ -444,57 +479,137 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                         if (tabBarCovered) 0f else 1f,
                         UiSwapDurationMs,
                     )
-                    if (tabBarAlpha > 0.01f) Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .graphicsLayer { alpha = tabBarAlpha }
-                            .blockTouches(tabBarCovered)
-                            .navigationBarsPadding()
-                            .padding(
-                                start = 16.dp,
-                                top = 12.dp,
-                                end = 16.dp,
-                                bottom = if (settings.bottomBarRaise) {
-                                    4.dp + TeakChromeDefaults.RaisedBottomBarExtra
-                                } else {
-                                    4.dp
-                                },
-                            ),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        TeakFloatingTabBar(
-                            items = tabItems,
-                            selectedKey = destinations[selected].key,
-                            onItemSelected = { item ->
-                                val index = destinations
-                                    .indexOfFirst { it.key == item.key }
-                                    .coerceAtLeast(0)
-                                if (index == selected) {
-                                    // 再次点击当前页 → 刷新
-                                    when (index) {
-                                        0 -> homeFeed.requestRefresh()
-                                        1 -> dynamicRefreshTick++
-                                    }
-                                } else {
-                                    appScope.launch { tabPagerState.animateScrollToPage(index) }
-                                }
-                            },
-                            layout = TeakFloatingTabLayout.Stacked,
-                            // Hyper 蓝模式下底栏选中态保持「默认黑」，不跟着主题变蓝
-                            selectedContentColor = if (settings.colorStyle == 1) {
-                                if (dark) Color.White else Color(0xFF1B1C1F)
-                            } else {
-                                BrandPink
-                            },
-                        )
+                    val onBarItem: (TeakFloatingTabItem) -> Unit = { item ->
+                        val index = destinations
+                            .indexOfFirst { it.key == item.key }
+                            .coerceAtLeast(0)
+                        if (index == selected) {
+                            // 再次点击当前页 → 刷新
+                            when (index) {
+                                0 -> homeFeed.requestRefresh()
+                                1 -> dynamicRefreshTick++
+                            }
+                        } else {
+                            appScope.launch { tabPagerState.animateScrollToPage(index) }
+                        }
+                    }
+                    val barSelectedColor = if (settings.colorStyle == 1) {
+                        if (dark) Color.White else Color(0xFF1B1C1F)
+                    } else {
+                        BrandPink
+                    }
+
+                    if (tabBarAlpha > 0.01f) {
+                        if (TeakUiStyle.isClassic) {
+                            // 经典样式：底栏贴着屏幕底边，上方一条分割线，不做悬浮胶囊。
+                            ClassicTabBar(
+                                items = tabItems,
+                                selectedKey = destinations[selected].key,
+                                onItemSelected = onBarItem,
+                                selectedContentColor = barSelectedColor,
+                                showDivider = true,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .graphicsLayer { alpha = tabBarAlpha }
+                                    .blockTouches(tabBarCovered)
+                                    .navigationBarsPadding(),
+                            )
+                        } else {
+                            Column(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .graphicsLayer { alpha = tabBarAlpha }
+                                    .blockTouches(tabBarCovered)
+                                    .navigationBarsPadding()
+                                    .padding(
+                                        start = 16.dp,
+                                        top = 12.dp,
+                                        end = 16.dp,
+                                        bottom = if (settings.bottomBarRaise) {
+                                            4.dp + TeakChromeDefaults.RaisedBottomBarExtra
+                                        } else {
+                                            4.dp
+                                        },
+                                    ),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                TeakFloatingTabBar(
+                                    items = tabItems,
+                                    selectedKey = destinations[selected].key,
+                                    onItemSelected = onBarItem,
+                                    layout = TeakFloatingTabLayout.Stacked,
+                                    selectedContentColor = barSelectedColor,
+                                )
+                            }
+                        }
                     }
 
                     // 换页时返回键回到"纯箭头"状态（pageKey / pageEnter 在上面声明）
 
                 }
+        }
+    }
+}
+
+/**
+ * 经典界面风格的底栏：没有悬浮胶囊、没有玻璃，整条贴着屏幕底边，
+ * 顶部一条分割线把它和内容分开。默认的官方风格完全不会走到这里。
+ */
+@Composable
+private fun ClassicTabBar(
+    items: List<TeakFloatingTabItem>,
+    selectedKey: String,
+    onItemSelected: (TeakFloatingTabItem) -> Unit,
+    selectedContentColor: Color,
+    modifier: Modifier = Modifier,
+    showDivider: Boolean = true,
+) {
+    val colors = top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme
+    Row(
+        modifier = modifier
+            .height(58.dp)
+            .background(colors.surface)
+            .drawBehind {
+                if (showDivider) {
+                    drawLine(
+                        color = colors.onBackground.copy(alpha = 0.12f),
+                        start = Offset(0f, 0f),
+                        end = Offset(size.width, 0f),
+                        strokeWidth = 1.dp.toPx(),
+                    )
+                }
+            },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        items.forEach { item ->
+            val selected = item.key == selectedKey
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(58.dp)
+                    .clickable(interactionSource = null, indication = null) {
+                        onItemSelected(item)
+                    },
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+            ) {
+                Icon(
+                    painter = if (selected) item.selectedIcon else item.unselectedIcon,
+                    contentDescription = item.label,
+                    tint = if (selected) selectedContentColor else colors.onBackgroundVariant,
+                    modifier = Modifier.size(24.dp),
+                )
+                androidx.compose.foundation.layout.Spacer(Modifier.height(2.dp))
+                Text(
+                    text = item.label,
+                    color = if (selected) selectedContentColor else colors.onBackgroundVariant,
+                    fontSize = 10.sp,
+                    fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+                )
             }
         }
     }
-
+}
 

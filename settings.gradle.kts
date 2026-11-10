@@ -18,3 +18,4 @@ dependencyResolutionManagement {
 rootProject.name = "bdFun"
 include(":app")
 include(":TeakUI")
+include(":danmaku-engine")
