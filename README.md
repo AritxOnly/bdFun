@@ -93,6 +93,7 @@ bdFun 使用了 / 参考了以下项目，感谢作者和社区的工作：
 - HyperOS 4：一镜到底动效
 - AndroidX / Jetpack Compose、Media3 / ExoPlayer、OkHttp、Coil、Kotlin / kotlinx.coroutines、ZXing
 - [FodFluidRipple](https://github.com/Leaf-lsgtky)（[@Leaf-lsgtky](https://github.com/Leaf-lsgtky)）：水波纹动画
+- [Guiyuan](https://github.com/CHS-Haple/Guiyuan)（[@CHS-Haple](https://github.com/CHS-Haple)）：开始页移植
 
 感谢所有上游项目作者与贡献者。
 
