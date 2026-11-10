@@ -89,7 +89,7 @@ bdFun 使用了 / 参考了以下项目，感谢作者和社区的工作：
 - [PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus)（[@bggRGjQaUbCoE](https://github.com/bggRGjQaUbCoE)）：功能与交互参考
 - [Miuix](https://github.com/compose-miuix-ui/miuix)（[@compose-miuix-ui](https://github.com/compose-miuix-ui)）：Compose UI / 玻璃 blur 依赖
 - [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)（[@SocialSisterYi](https://github.com/SocialSisterYi)）：哔哩哔哩接口资料
-- [BiliPai](https://github.com/jay3-yy/BiliPai) / [bytedance DanmakuRenderEngine](https://github.com/bytedance/DanmakuRenderEngine)：弹幕渲染模块、弹幕空降助手、弹幕计数实现移植，并使用其水滴动画效果（Apache-2.0）
+- [BiliPai](https://github.com/jay3-yy/BiliPai) / [bytedance DanmakuRenderEngine](https://github.com/bytedance/DanmakuRenderEngine)：弹幕渲染模块、弹幕空降助手、弹幕计数实现移植，水滴动画
 - HyperOS 4：一镜到底动效
 - AndroidX / Jetpack Compose、Media3 / ExoPlayer、OkHttp、Coil、Kotlin / kotlinx.coroutines、ZXing
 - [FodFluidRipple](https://github.com/Leaf-lsgtky)（[@Leaf-lsgtky](https://github.com/Leaf-lsgtky)）：水波纹动画
