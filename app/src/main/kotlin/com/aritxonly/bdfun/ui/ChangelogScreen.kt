@@ -257,11 +257,11 @@ fun ChangelogScreen(onBack: () -> Unit) {
                                 verticalAlignment = Alignment.Top,
                             ) {
                                 Text(
-                                    text = "${index + 1}.",
+                                    text = "•",
                                     color = BrandPink,
                                     fontSize = 14.sp,
                                     lineHeight = 21.sp,
-                                    modifier = Modifier.width(22.dp),
+                                    modifier = Modifier.width(18.dp),
                                 )
                                 Text(
                                     text = line,
