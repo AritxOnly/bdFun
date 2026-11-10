@@ -61,3 +61,9 @@ bdFun 包含或参考了以下第三方项目的代码、材质和参数。分�
 bdFun 根目录已包含 GPL-3.0 的 `LICENSE`。由于直接包含 GPL-3.0 的 Hyper-PiliPlus 代码，bdFun 按 GPL-3.0 分发；对外分发修改版时需要保留本文件、`TeakUI/docs/PROVENANCE.md`，并按 GPL-3.0 提供完整对应源码。具体法律问题请以各项目 LICENSE 原文为准。
 
 详细逐文件来源：`TeakUI/docs/PROVENANCE.md`
+
+## Deadliner glass and layout sync (2026-11-10)
+
+- Deadliner: https://github.com/AritxOnly/Deadliner — MIT, Copyright (c) 2024 Aritx Zhou. License: `TeakUI/third_party/deadliner/LICENSE`.
+- MIUIX glass: supplied by preview-5.0's existing pinned Miuix dependency; no second copy of its package is vendored.
+- Scope, source hashes and explicit bdFun material overrides: `docs/DEADLINER_GLASS_SYNC.md`.

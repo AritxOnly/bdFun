@@ -12,6 +12,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import com.aritxonly.bdfun.ui.resolveVideoPaneLayout
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -178,7 +185,8 @@ class VideoActivity : ComponentActivity() {
             val alreadyLandscape =
                 current == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE ||
                     current == ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE ||
-                    current == ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
+                    current == ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE ||
+                    resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
             if (!alreadyLandscape) {
                 requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             }
@@ -369,6 +377,15 @@ class VideoActivity : ComponentActivity() {
             var danmakuInputOpen by remember { mutableStateOf(false) }
             BackHandler(enabled = comments != null) { comments = null }
             BackHandler(enabled = danmakuInputOpen) { danmakuInputOpen = false }
+            BoxWithConstraints(
+                Modifier.fillMaxSize().then(
+                    if (pageFullscreen) Modifier else Modifier.windowInsetsPadding(
+                        WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
+                    ),
+                ),
+            ) {
+            val paneLayout = resolveVideoPaneLayout(maxWidth.value, maxHeight.value)
+            val splitPanes = paneLayout.isSplit && !pageFullscreen
             TeakActivityScaffold(
                 settings = settings,
                 onBack = { exitVideoPage() },
@@ -389,8 +406,8 @@ class VideoActivity : ComponentActivity() {
                     if (overlayAlpha > 0.01f) {
                         Row(
                             modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .fillMaxWidth()
+                                .align(if (splitPanes) Alignment.TopEnd else Alignment.TopStart)
+                                .then(if (splitPanes) Modifier.width(paneLayout.detailsWidthDp.dp) else Modifier.fillMaxWidth())
                                 .padding(
                                     start = 16.dp,
                                     end = 16.dp,
@@ -398,7 +415,7 @@ class VideoActivity : ComponentActivity() {
                                 .graphicsLayer {
                                     alpha = overlayAlpha
                                     // 直接贴在播放器真实底边下面，不再各自算一套位置。
-                                    translationY = VideoPageBus.playerBottomPx + 6.dp.toPx()
+                                    translationY = (if (splitPanes) playerTopInset.toPx() else VideoPageBus.playerBottomPx) + 6.dp.toPx()
                                 },
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -407,27 +424,22 @@ class VideoActivity : ComponentActivity() {
                                 selected = pager.currentPage,
                                 onSelect = { scope.launch { pager.animateScrollToPage(it) } },
                             )
-                            Spacer(Modifier.weight(1f))
-                            // 点我发弹幕（与「简介/评论」同一套玻璃）
-                            TeakGlassChip(
-                                label = "点我发弹幕",
-                                active = false,
-                                onClick = { danmakuInputOpen = true },
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            // 「弹」→ 开关弹幕显示：开启时粉色玻璃 + 白字，关闭时灰字白玻璃
-                            TeakGlassChip(
-                                label = "弹",
-                                active = DanmakuSettings.enabled,
-                                horizontalPadding = 15.dp,
-                                onClick = {
-                                    DanmakuSettings.enabled = !DanmakuSettings.enabled
-                                    VideoPageBus.danmakuOn = DanmakuSettings.enabled
-                                },
-                            )
+                            if (!splitPanes) VideoDanmakuActions { danmakuInputOpen = true }
                         }
 
-                        // 评论页底部回复栏：横屏时立刻移除，不等 200ms 淡出
+                        if (splitPanes) {
+                            Row(
+                                modifier = Modifier.align(Alignment.BottomStart)
+                                    .width(paneLayout.playerWidthDp.dp)
+                                    .navigationBarsPadding()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                VideoDanmakuActions { danmakuInputOpen = true }
+                            }
+                        }
+
+                        // 评论回复栏属于详情栏；只有独占全屏才隐藏。
                         if (!fs && pager.currentPage == 1) {
                             // 编辑中：铺一层全屏点击层，点空白处直接退出（同时杜绝点击穿透到播放器）
                             if (VideoPageBus.replyEditing) {
@@ -455,7 +467,8 @@ class VideoActivity : ComponentActivity() {
                             if (replyBarAlpha > 0.01f) {
                                 CommentReplyBar(
                                     modifier = Modifier
-                                        .align(Alignment.BottomCenter)
+                                        .align(if (splitPanes) Alignment.BottomEnd else Alignment.BottomCenter)
+                                        .then(if (splitPanes) Modifier.width(paneLayout.detailsWidthDp.dp) else Modifier)
                                         .graphicsLayer { alpha = replyBarAlpha }
                                         .blockTouches(replyBarAlpha < 0.99f),
                                 )
@@ -481,7 +494,8 @@ class VideoActivity : ComponentActivity() {
                             DanmakuInputBar(
                                 onDismiss = { danmakuInputOpen = false },
                                 modifier = Modifier
-                                    .align(Alignment.BottomCenter),
+                                    .align(if (splitPanes) Alignment.BottomStart else Alignment.BottomCenter)
+                                    .then(if (splitPanes) Modifier.width(paneLayout.playerWidthDp.dp) else Modifier),
                             )
                         }
                     }
@@ -520,7 +534,7 @@ class VideoActivity : ComponentActivity() {
                             backdrop = VideoPageBus.panelBackdrop,
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .padding(top = statusBarDp + 54.dp, end = 12.dp)
+                                .padding(top = statusBarDp + 54.dp, end = if (splitPanes) paneLayout.detailsWidthDp.dp + 12.dp else 12.dp)
                                 .graphicsLayer {
                                     alpha = shown
                                     scaleX = 0.82f + 0.18f * spring
@@ -538,8 +552,12 @@ class VideoActivity : ComponentActivity() {
                     VideoScreen(
                         api = api,
                         video = loadedVideo,
+                        paneLayout = paneLayout,
                         defaultQuality = settings.qualityPreference,
-                        onOpenComments = { comments = it },
+                        onOpenComments = {
+                            if (paneLayout.isSplit) scope.launch { pager.animateScrollToPage(1) }
+                            else comments = it
+                        },
                         onBack = { exitVideoPage() },
                         pager = pager,
                         autoRotate = settings.autoRotate,
@@ -552,18 +570,23 @@ class VideoActivity : ComponentActivity() {
                         initialCommentTarget = commentRequest.second,
                         initialSeekMs = commentRequest.third,
                     )
+                    if (splitPanes) {
+                        // Both panes share white status-bar icons; keep a coherent dark strip.
+                        Box(Modifier.fillMaxWidth().height(playerTopInset)
+                            .background(androidx.compose.ui.graphics.Color.Black))
+                    }
                     // 视频底边的白色渐变放进页面录制层，Tab 玻璃采样时会把它和下方内容
                     // 当成同一张底片一起模糊，避免 Tab 内外一亮一白。
                     val fadeColor = MaterialTheme.colorScheme.background
                     Box(
                         modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .fillMaxWidth()
+                            .align(if (splitPanes) Alignment.TopEnd else Alignment.TopStart)
+                            .then(if (splitPanes) Modifier.width(paneLayout.detailsWidthDp.dp) else Modifier.fillMaxWidth())
                             .height(54.dp)
                             .graphicsLayer {
                                 alpha = pageOverlayAlpha
                                 // 渐变紧贴播放器真实底边。
-                                translationY = VideoPageBus.playerBottomPx
+                                translationY = if (splitPanes) playerTopInset.toPx() else VideoPageBus.playerBottomPx
                             }
                             .background(
                                 Brush.verticalGradient(
@@ -577,8 +600,8 @@ class VideoActivity : ComponentActivity() {
                     // 页面底部反向渐变：顶部透明，越往下越接近页面底色。
                     Box(
                         modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
+                            .align(if (splitPanes) Alignment.BottomEnd else Alignment.BottomCenter)
+                            .then(if (splitPanes) Modifier.width(paneLayout.detailsWidthDp.dp) else Modifier.fillMaxWidth())
                             .height(54.dp)
                             .graphicsLayer { alpha = pageOverlayAlpha }
                             .background(
@@ -609,6 +632,29 @@ class VideoActivity : ComponentActivity() {
                     }
                 }
             }
+            }
         }
     }
+}
+
+@Composable
+private fun RowScope.VideoDanmakuActions(onOpenInput: () -> Unit) {
+    Spacer(Modifier.weight(1f))
+    // 点我发弹幕（与「简介/评论」同一套玻璃）
+    TeakGlassChip(
+        label = "点我发弹幕",
+        active = false,
+        onClick = onOpenInput,
+    )
+    Spacer(Modifier.width(8.dp))
+    // 「弹」→ 开关弹幕显示：开启时粉色玻璃 + 白字，关闭时灰字白玻璃
+    TeakGlassChip(
+        label = "弹",
+        active = DanmakuSettings.enabled,
+        horizontalPadding = 15.dp,
+        onClick = {
+            DanmakuSettings.enabled = !DanmakuSettings.enabled
+            VideoPageBus.danmakuOn = DanmakuSettings.enabled
+        },
+    )
 }

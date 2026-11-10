@@ -275,6 +275,7 @@ fun HomeTopBar(
             ) { searching ->
                 if (searching) {
                 TeakGlassIconButton(
+                    materialAlpha = com.aritxonly.teak.common.chrome.LocalTopBarButtonMaterialProgress.current,
                     onClick = onClearQuery,
                     size = 40.dp,
                     recipe = recipe,
@@ -336,6 +337,7 @@ fun HomeTopBar(
                 }
                 } else {
                 TeakGlassIconButton(
+                    materialAlpha = com.aritxonly.teak.common.chrome.LocalTopBarButtonMaterialProgress.current,
                     onClick = onOpenMessages,
                     size = 40.dp,
                     recipe = recipe,

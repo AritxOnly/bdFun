@@ -142,6 +142,8 @@ fun CommentScreen(
     focusTargetRpid: Long = 0L,
     /** 视频页播放器当前底边；直接传值，展开回复页才能和播放器同一帧移动。 */
     threadPlayerBottom: androidx.compose.ui.unit.Dp? = null,
+    threadPaneWidth: androidx.compose.ui.unit.Dp? = null,
+    playerFullscreen: Boolean = false,
 ) {
     val colors = MiuixTheme.colorScheme
     val scope = rememberCoroutineScope()
@@ -149,7 +151,9 @@ fun CommentScreen(
     val density = androidx.compose.ui.platform.LocalDensity.current
     val statusTop = rememberStatusBarTop()
     // 动态详情没有播放器：展开评论的面板顶边最多停在返回键下面，不要顶到状态栏。
-    val threadMinTopPx = if (bare) {
+    val threadMinTopPx = if (threadPaneWidth != null && threadPlayerBottom != null) {
+        with(density) { threadPlayerBottom.toPx() }
+    } else if (bare) {
         with(density) { (statusTop + 56.dp).toPx() }
     } else {
         0f
@@ -178,11 +182,9 @@ fun CommentScreen(
     var menuComment by remember { mutableStateOf<CommentItem?>(null) }
     var menuVisible by remember { mutableStateOf(false) }
     var menuAnchor by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
-    // 横屏（全屏）时把回复面板、长按菜单提前收回，不在横屏里出现
-    val landscapeNow = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
-        android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    LaunchedEffect(landscapeNow) {
-        if (landscapeNow) {
+    // Landscape comments remain interactive; only exclusive video fullscreen hides their overlays.
+    LaunchedEffect(playerFullscreen) {
+        if (playerFullscreen) {
             replySheetVisible = false
             menuVisible = false
         }
@@ -727,7 +729,7 @@ fun CommentScreen(
     }
 
     val sheetTarget = replySheetTarget
-    if (sheetTarget != null) {
+    if (sheetTarget != null && !playerFullscreen) {
         CommentThreadSheet(
             visible = replySheetVisible,
             comment = sheetTarget,
@@ -760,6 +762,7 @@ fun CommentScreen(
                 },
             minTopPx = threadMinTopPx,
             playerBottomDp = threadPlayerBottom,
+            paneWidth = threadPaneWidth,
         )
     }
 

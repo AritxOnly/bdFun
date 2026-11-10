@@ -103,7 +103,8 @@ fun TeakTopGlassButton(
     val recipe = remember(advancedMaterial) {
         TeakGlassRecipes.floatingNavigation(advancedMaterial.fineTuning)
     }
-    val reveal = rememberManualProgress(if (revealed) 1f else 0f, 300f)
+    val fallbackReveal = rememberManualProgress(if (revealed) 1f else 0f, 300f)
+    val reveal = if (LocalProgressiveTopBarMaterialHosted.current) LocalTopBarButtonMaterialProgress.current else fallbackReveal
 
     Box(modifier = modifier.size(40.dp)) {
         if (reveal > 0.01f) {
@@ -120,18 +121,13 @@ fun TeakTopGlassButton(
                         .clickable(interactionSource = null, indication = null, onClick = onClick),
                 )
             } else {
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .graphicsLayer { alpha = reveal },
-                ) {
-                    TeakGlassIconButton(
-                        onClick = onClick,
-                        size = 40.dp,
-                        recipe = recipe,
-                        backdrop = LocalTeakBackdrop.current,
-                    ) {}
-                }
+                TeakGlassIconButton(
+                    onClick = onClick,
+                    size = 40.dp,
+                    recipe = recipe,
+                    backdrop = LocalTeakBackdrop.current,
+                    materialAlpha = reveal,
+                ) {}
             }
         } else {
             Box(
