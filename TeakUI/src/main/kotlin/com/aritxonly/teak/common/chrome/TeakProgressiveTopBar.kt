@@ -45,9 +45,9 @@ val LocalProgressiveTopBarMaterialHosted = staticCompositionLocalOf { false }
 val LocalTopBarButtonMaterialProgress = staticCompositionLocalOf { 0f }
 val LocalTopBarScrollProgress = staticCompositionLocalOf<Float?> { null }
 
-internal const val ProgressiveTopBarBlurRadiusDp = 8f
-internal const val ProgressiveTopBarBlurFadeStart = 0.60f
-internal const val ProgressiveTopBarOverlayTopAlpha = 0.94f
+internal const val ProgressiveTopBarBlurRadiusDp = TeakChromeDefaults.BarBlurRadius
+internal const val ProgressiveTopBarBlurFadeStart = TeakChromeDefaults.BarBlurStartFraction
+internal const val ProgressiveTopBarOverlayTopAlpha = TeakChromeDefaults.BarTintAlpha
 internal const val ProgressiveTopBarOverlayEndFraction = 0.80f
 internal const val ProgressiveTopBarContentEndFraction = 0.75f
 internal const val ProgressiveTopBarMinimumContentHeightDp = 56f
@@ -240,5 +240,7 @@ private fun Modifier.progressiveTopBarBackdrop(
     blurRadius = ProgressiveTopBarBlurRadiusDp,
     gradient = ProgressiveBlur.Top.copy(
         startFraction = ProgressiveTopBarBlurFadeStart,
+        endFraction = TeakChromeDefaults.BarBlurEndFraction,
+        curve = TeakChromeDefaults.BarBlurCurve,
     ),
 )
