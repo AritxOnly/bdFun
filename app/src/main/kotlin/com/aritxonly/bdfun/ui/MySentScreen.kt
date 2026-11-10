@@ -143,7 +143,7 @@ fun MySentScreen(onBack: () -> Unit) {
             }
         }
 
-        items(shown.size) { index ->
+        items(shown.size, key = { shown[it].id }) { index ->
             val record = shown[index]
             SentRecordRow(
                 record = record,

@@ -53,26 +53,6 @@ data class TeakMaterialSpec(
         get() = enabled && blurEnabled
 }
 
-fun createTeakMaterialSpec(
-    enabled: Boolean,
-    blurRadius: Float,
-    fineTuning: TeakMaterialFineTuning,
-): TeakMaterialSpec {
-    val tuning = fineTuning.normalized()
-    return TeakMaterialSpec(
-        enabled = enabled,
-        blurRadius = TeakMaterialTuning.normalizeBlurRadius(blurRadius),
-        noiseCoefficient = tuning.noiseCoefficient,
-        blurBrightness = tuning.brightness,
-        blurContrast = tuning.contrast,
-        blurSaturation = TeakMaterialTuning.saturationForBlurRadius(blurRadius) *
-            tuning.saturationMultiplier,
-        navigationTintAlpha = tuning.navigationTintAlpha,
-        topBarTintAlpha = tuning.topBarTintAlpha,
-        fineTuning = tuning,
-    )
-}
-
 @Composable
 fun TeakMaterialSpec.rememberBlurColors(
     additionalBlendColors: List<BlendColorEntry> = emptyList(),

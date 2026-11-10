@@ -157,9 +157,10 @@ private val BottomGradientInline = 92.dp
 private fun buildPlayer(context: Context, decoderMode: Int): ExoPlayer {
     val renderers = DefaultRenderersFactory(context)
         .setEnableDecoderFallback(decoderMode != 3)
-        // 长按倍速时让 AudioTrack 直接改播放参数，避免 Sonic 音频缓冲导致
-        // “震动已经触发、过一两秒才听到加速”的延迟。
-        .setEnableAudioTrackPlaybackParams(true)
+        // 不要打开 AudioTrack playback params：部分机型在改倍速后音轨时间戳
+        // 恢复得比画面慢，长按加速松手会短暂音画不同步。这里用 Sonic 的常规
+        // 变速路径，换一点跟手速度，换稳定的音画同步。
+        .setEnableAudioTrackPlaybackParams(false)
     if (decoderMode in 1..3) {
         renderers.setMediaCodecSelector(TeakCodecSelector(decoderMode))
     }
@@ -266,10 +267,10 @@ internal fun VideoPlayer(
     var resumeOnReturn by remember { mutableStateOf(false) }
     val latestBvid by rememberUpdatedState(bvid)
     DisposableEffect(exo) {
-        val pauseHook: () -> Unit = {
+        val pauseHook: (Boolean) -> Unit = { allowResume ->
             // 相关推荐/个人主页跳转前会同步 pauseAll；记住原本正在播，
             // 回到旧页面（ON_RESUME）时自动续播，而不是停在暂停态。
-            resumeOnReturn = exo.playWhenReady &&
+            resumeOnReturn = allowResume && exo.playWhenReady &&
                 exo.playbackState != androidx.media3.common.Player.STATE_IDLE
             exo.pause()
         }
@@ -511,14 +512,6 @@ internal fun VideoPlayer(
     }
 
     // 官方 videoshot 精灵图（首帧预览取不到时用它）
-    var videoShot by remember { mutableStateOf<com.aritxonly.bdfun.data.VideoShot?>(null) }
-    LaunchedEffect(VideoPageBus.cid) {
-        val cid = VideoPageBus.cid
-        if (cid > 0) {
-            videoShot = runCatching { AppGraph.api.videoShot(cid) }.getOrNull()
-        }
-    }
-
     var thumbFrame by remember { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
     var thumbFrameMs by remember { mutableLongStateOf(0L) }
     var thumbFrameRatio by remember { mutableFloatStateOf(0f) }
@@ -575,6 +568,59 @@ internal fun VideoPlayer(
         }
         val index = pages.indexOfFirst { it.cid == fullscreenInfo.currentCid }
         mediaSession?.updateQueue(entries, index)
+    }
+
+    // 底栏唱片：把当前播放器接到进程级桥上。唱片在首页时直接调这里的动作。
+    val bgToken = remember { Any() }
+    val bgPages by rememberUpdatedState(fullscreenInfo.pages)
+    val bgCurrentCid by rememberUpdatedState(fullscreenInfo.currentCid)
+    val bgPageSelected by rememberUpdatedState(onPageSelected)
+    val bgSpeed by rememberUpdatedState(speed)
+    DisposableEffect(bgToken) {
+        BackgroundPlayback.attach(
+            bgToken,
+            object : BackgroundPlayback.Actions {
+                override fun next() {
+                    val pages = bgPages
+                    val index = pages.indexOfFirst { it.cid == bgCurrentCid }
+                    pages.getOrNull(index + 1)?.let(bgPageSelected)
+                }
+
+                override fun previous() {
+                    val pages = bgPages
+                    val index = pages.indexOfFirst { it.cid == bgCurrentCid }
+                    if (index > 0) pages.getOrNull(index - 1)?.let(bgPageSelected)
+                }
+
+                override fun togglePlayPause() {
+                    if (exo.isPlaying) exo.pause() else exo.play()
+                }
+
+                override fun boostStart() {
+                    if (!exo.isPlaying) return
+                    boostSpeed = AppGraph.settings.boostDefaultSpeed
+                    exo.setPlaybackSpeed(boostSpeed)
+                    boosting = true
+                }
+
+                override fun boostEnd() {
+                    if (!boosting) return
+                    exo.setPlaybackSpeed(bgSpeed)
+                    boosting = false
+                }
+
+                override fun seekTo(ms: Long) {
+                    exo.seekTo(ms)
+                    positionMs = ms
+                }
+
+                override fun exit() {
+                    exo.pause()
+                    (context as? Activity)?.finish()
+                }
+            },
+        )
+        onDispose { BackgroundPlayback.detach(bgToken) }
     }
 
     DisposableEffect(playing) {
@@ -663,6 +709,7 @@ internal fun VideoPlayer(
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 playing = isPlaying
+                BackgroundPlayback.updatePlaying(isPlaying)
                 if (isPlaying) ended = false
                 onPlayStateChanged(isPlaying)
             }
@@ -719,7 +766,16 @@ internal fun VideoPlayer(
                 }
             }
             exo.removeListener(listener)
-            exo.release()
+            val handOff = AppGraph.settings.showDiscAfterVideo &&
+                BackgroundPlayback.shouldHandOff() &&
+                exo.playbackState != Player.STATE_IDLE
+            if (handOff) {
+                // 页面正常关闭，但播放器继续活着：系统一镜到底退出动画照常播。
+                BackgroundPlayback.adopt(exo, context)
+            } else {
+                BackgroundPlayback.cancelHandOff()
+                exo.release()
+            }
         }
     }
 
@@ -785,6 +841,9 @@ internal fun VideoPlayer(
             positionMs = exo.currentPosition
             bufferedMs = exo.bufferedPosition.coerceAtLeast(positionMs)
             durationMs = exo.duration.coerceAtLeast(0L)
+            BackgroundPlayback.positionMs = positionMs
+            BackgroundPlayback.durationMs = durationMs
+            BackgroundPlayback.updatePlaying(playing)
             VideoPageBus.danmakuProgressMs = positionMs
             // 上报官方历史记录：首次 3 秒后，之后每 15 秒一次；播放结束时补一次
             val now = System.currentTimeMillis()
@@ -820,12 +879,9 @@ internal fun VideoPlayer(
 
     val danmakuVisible = !fsAudioOnly && DanmakuSettings.enabled && danmaku.isNotEmpty()
 
-    // 弹幕计数：按相同文本的出现次数统计，每秒挑最近 15 秒里重复最多的两条。
-    // 只在列表/开关变化时重算计数，循环本身 1 秒一次，不参与每帧绘制。
-    val danmakuTextCounts = remember(danmaku) {
-        if (danmaku.isEmpty()) emptyMap() else danmaku.groupingBy { it.text }.eachCount()
-    }
-    var hotDanmaku by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
+    // 弹幕计数：完全照 BiliPai：用分段弹幕接口里的点赞数 like，
+    // 只取最近 15 秒、点赞 ≥ 10 的弹幕，按点赞降序、id / 文字去重后显示前两条。
+    var hotDanmaku by remember { mutableStateOf<List<Pair<String, Long>>>(emptyList()) }
     LaunchedEffect(danmaku, danmakuVisible) {
         if (!danmakuVisible) {
             hotDanmaku = emptyList()
@@ -835,14 +891,15 @@ internal fun VideoPlayer(
             val now = positionMs
             val from = (now - 15_000L).coerceAtLeast(0L)
             hotDanmaku = danmaku.asSequence()
+                .filter { it.id > 0L && it.text.isNotBlank() && it.likeCount >= 10L }
                 .filter { it.timeMs in from..now }
-                .mapNotNull { item ->
-                    val count = danmakuTextCounts[item.text] ?: 0
-                    if (count >= 3) item.text to count else null
-                }
-                .distinctBy { it.first }
-                .sortedByDescending { it.second }
+                .sortedWith(
+                    compareByDescending<DanmakuItem> { it.likeCount }.thenBy { it.id },
+                )
+                .distinctBy { it.id }
+                .distinctBy { it.text }
                 .take(2)
+                .map { it.text to it.likeCount }
                 .toList()
             kotlinx.coroutines.delay(1_000L)
         }
@@ -894,13 +951,24 @@ internal fun VideoPlayer(
             }
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         } else {
-            controller?.show(WindowInsetsCompat.Type.systemBars())
+            if (immersiveStatusBar) {
+                // 沉浸模式：半屏也不显示状态栏时间等信息，把状态栏一起藏掉；
+                // 导航栏保留，手势条不受影响。
+                controller?.apply {
+                    systemBarsBehavior =
+                        WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    show(WindowInsetsCompat.Type.navigationBars())
+                    hide(WindowInsetsCompat.Type.statusBars())
+                }
+            } else {
+                controller?.show(WindowInsetsCompat.Type.systemBars())
+            }
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         }
         onDispose {
+            controller?.show(WindowInsetsCompat.Type.systemBars())
             if (fullscreen) {
                 activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                controller?.show(WindowInsetsCompat.Type.systemBars())
             }
         }
     }
@@ -1145,38 +1213,49 @@ internal fun VideoPlayer(
                 )
             }
 
-            // 弹幕计数：最近 15 秒里重复次数最多的两条，附带 ×次数。
+            // 弹幕计数：按 BiliPai 的显示样式，纯白文字 + 黑色描影，居中等距排开，不用黑色胶囊。
             if (AppGraph.settings.hotDanmakuEnabled &&
                 hotDanmaku.isNotEmpty() && !controlsVisible && !fsAudioOnly
             ) {
+                val hotShadow = androidx.compose.ui.text.TextStyle(
+                    shadow = androidx.compose.ui.graphics.Shadow(
+                        color = Color.Black,
+                        offset = androidx.compose.ui.geometry.Offset(1f, 1f),
+                        blurRadius = 3f,
+                    ),
+                )
                 Row(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
+                        .fillMaxWidth()
                         .padding(top = if (fullscreen) 44.dp else 8.dp)
-                        .padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        .padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     hotDanmaku.forEach { (text, count) ->
                         Row(
-                            modifier = Modifier
-                                .clip(Capsule())
-                                .background(Color.Black.copy(alpha = 0.50f))
-                                .padding(horizontal = 10.dp, vertical = 5.dp),
+                            modifier = Modifier.padding(1.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
                                 text = text,
                                 color = Color.White,
-                                fontSize = 13.sp,
+                                fontSize = 16.sp,
                                 maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                softWrap = false,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Clip,
+                                style = hotShadow,
                             )
-                            Spacer(Modifier.width(5.dp))
+                            Spacer(Modifier.width(4.dp))
                             Text(
                                 text = "×$count",
-                                color = BrandPink,
-                                fontSize = 12.sp,
+                                color = Color.White,
+                                fontSize = 20.sp,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                                maxLines = 1,
+                                style = hotShadow,
                             )
                         }
                     }
@@ -1610,454 +1689,6 @@ internal fun VideoPlayer(
             }
         }
 
-        if (false && !fullscreen && controlsAlpha > 0.005f) {
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .zIndex(10f)
-                    .graphicsLayer { alpha = controlsAlpha }
-                    .then(if (!controlsVisible) Modifier.blockTouches(true) else Modifier),
-            ) {
-                val topGradient = if (fullscreen) TopGradientFullscreen else TopGradientInline
-                val bottomGradient =
-                    if (fullscreen) BottomGradientFullscreen else BottomGradientInline
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .height(topGradient)
-                        .background(
-                            Brush.verticalGradient(
-                                0f to Color.Black.copy(alpha = 0.62f),
-                                0.55f to Color.Black.copy(alpha = 0.28f),
-                                1f to Color.Transparent,
-                            ),
-                        ),
-                )
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(bottomGradient)
-                        .background(
-                            Brush.verticalGradient(
-                                0f to Color.Transparent,
-                                0.45f to Color.Black.copy(alpha = 0.38f),
-                                1f to Color.Black.copy(alpha = 0.78f),
-                            ),
-                        ),
-                )
-
-                val edge = if (fullscreen) 44.dp else 12.dp
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        // 沉浸模式下状态栏是透明的，视频顶到 0，控件要让开状态栏
-                        .then(
-                            if (fullscreen || immersiveStatusBar) Modifier.statusBarsPadding()
-                            else Modifier,
-                        )
-                        .padding(horizontal = edge, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (fullscreen) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clickable(interactionSource = null, indication = null) {
-                                    touch()
-                                    onToggleFullscreen()
-                                },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Canvas(modifier = Modifier.size(22.dp)) {
-                                val path = androidx.compose.ui.graphics.Path().apply {
-                                    moveTo(size.width * 0.62f, size.height * 0.14f)
-                                    lineTo(size.width * 0.30f, size.height * 0.5f)
-                                    lineTo(size.width * 0.62f, size.height * 0.86f)
-                                }
-                                drawPath(
-                                    path = path,
-                                    color = Color.White,
-                                    style = androidx.compose.ui.graphics.drawscope.Stroke(
-                                        width = size.width * 0.12f,
-                                        cap = StrokeCap.Round,
-                                        join = androidx.compose.ui.graphics.StrokeJoin.Round,
-                                    ),
-                                )
-                            }
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Text(
-                            text = title,
-                            color = Color.White,
-                            fontSize = 13.sp,
-                            maxLines = 1,
-                            modifier = Modifier.weight(1f),
-                        )
-                    } else {
-                        Spacer(Modifier.weight(1f))
-                    }
-                    // 弹幕设置：三条横线 + 滑块（放在后台播放左边）
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .clickable(interactionSource = null, indication = null) {
-                                touch()
-                                val opening = !PlayerUiState.danmakuPanelOpen
-                                if (opening) {
-                                    VideoPageBus.panelBackdrop = grabVideoFrame()
-                                }
-                                PlayerUiState.danmakuPanelOpen = opening
-                            },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        DanmakuSettingsGlyph(tint = Color.White)
-                    }
-                    Spacer(Modifier.width(6.dp))
-                    // 后台播放开关（耳机图标）
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .clickable(interactionSource = null, indication = null) {
-                                touch()
-                                AppGraph.settings.backgroundPlay =
-                                    !AppGraph.settings.backgroundPlay
-                                context.showToast(
-                                    if (AppGraph.settings.backgroundPlay) {
-                                        "已开启后台播放"
-                                    } else {
-                                        "已关闭后台播放"
-                                    },
-                                )
-                            },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        BackgroundPlayGlyph(
-                            tint = if (AppGraph.settings.backgroundPlay) {
-                                BrandPink
-                            } else {
-                                Color.White
-                            },
-                        )
-                    }
-                }
-
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .let { if (fullscreen) it.navigationBarsPadding() else it }
-                        .padding(horizontal = edge, vertical = 6.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        PlayPauseButton(
-                            playing = playing,
-                            onClick = {
-                                touch()
-                                togglePlay(exo, playing)
-                            },
-                        )
-                        Spacer(Modifier.width(2.dp))
-                        Text(
-                            text = formatPlayTime(positionMs),
-                            color = Color.White,
-                            fontSize = 11.sp,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        TeakSeekBar(
-                            positionMs = if (seekPreviewMs >= 0L) seekPreviewMs else positionMs,
-                            durationMs = durationMs,
-                            onInteract = { touch() },
-                            onSeek = { target ->
-                                exo.seekTo(target)
-                                positionMs = target
-                            },
-                            previewFrame = thumbFrame,
-                            previewTimeMs = thumbFrameMs,
-                            previewRatio = thumbFrameRatio,
-                            onPreview = preview@{ ratio, timeMs ->
-                                thumbFrameRatio = ratio
-                                thumbFrameMs = timeMs
-                                // 正在抓帧 / 刚抓过就跳过：连续拖动时才不会把请求全取消掉
-                                if (thumbFrameJob?.isActive == true) return@preview
-                                val now = android.os.SystemClock.elapsedRealtime()
-                                if (now - thumbFrameAt < 120L) return@preview
-                                thumbFrameAt = now
-                                thumbFrameJob = frameScope.launch {
-                                    val shot = videoShot ?: runCatching {
-                                        AppGraph.api.videoShot(VideoPageBus.cid)
-                                    }.getOrNull()?.also { videoShot = it }
-                                    val bitmap = if (shot != null) {
-                                        VideoShotLoader.frame(shot, timeMs)
-                                    } else {
-                                        null
-                                    } ?: frameLoader.frame(
-                                        url = frameUrl,
-                                        headers = frameHeaders,
-                                        timeMs = timeMs,
-                                    )
-                                    if (bitmap != null) thumbFrame = bitmap
-                                }
-                            },
-                            onPreviewEnd = {
-                                thumbFrameJob?.cancel()
-                                thumbFrame = null
-                            },
-                            modifier = Modifier.weight(1f),
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = formatPlayTime(durationMs),
-                            color = Color.White,
-                            fontSize = 11.sp,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = if (autoQuality) "自动" else quality?.label ?: "画质",
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            modifier = Modifier
-                                .clickable(interactionSource = null, indication = null) {
-                                    touch()
-                                    val opening = !qualityMenu
-                                    if (opening) {
-                                        speedMenu = false
-                                        VideoPageBus.panelBackdrop = grabVideoFrame()
-                                    }
-                                    qualityMenu = opening
-                                }
-                                .padding(horizontal = 4.dp, vertical = 4.dp),
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "${speed}x",
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            modifier = Modifier
-                                .clickable(interactionSource = null, indication = null) {
-                                    touch()
-                                    val opening = !speedMenu
-                                    if (opening) {
-                                        qualityMenu = false
-                                        speedBackdrop = grabVideoFrame()
-                                    }
-                                    speedMenu = opening
-                                }
-                                .padding(horizontal = 4.dp, vertical = 4.dp),
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clickable(interactionSource = null, indication = null) {
-                                    touch()
-                                    onToggleFullscreen()
-                                },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            ResourceGlyph(
-                                res = TeakIcon.Fullscreen,
-                                tint = Color.White,
-                                size = 19.dp,
-                            )
-                        }
-                    }
-
-                }
-                // 倍速面板：半屏时从控件行往下展开（不再往上顶到状态栏），全屏仍走原来的位置
-                if (speedMenu || speedSpring > 0.01f) {
-                    TeakGlassPanel(
-                        modifier = Modifier
-                            .align(
-                                if (fullscreen) Alignment.BottomEnd else Alignment.TopEnd,
-                            )
-                            .then(
-                                if (fullscreen) {
-                                    Modifier.padding(end = edge, bottom = 56.dp)
-                                } else {
-                                    Modifier.padding(end = edge).offset(y = maxHeight - 64.dp)
-                                },
-                            )
-                            .width(132.dp)
-                            .graphicsLayer {
-                                alpha = speedSpring.coerceIn(0f, 1f)
-                                scaleX = 0.82f + 0.18f * speedSpring
-                                scaleY = 0.82f + 0.18f * speedSpring
-                                translationY = (1f - speedSpring) * 8f
-                                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
-                                    1f,
-                                    1f,
-                                )
-                            }
-                            // 和弹幕设置同款：弹出过程中由模糊变清晰
-                            .blur(((1f - speedSpring.coerceIn(0f, 1f)) * 10f).dp),
-                        shape = RoundedCornerShape(20.dp),
-                        solid = true,
-                        solidColor = Color(0xFF121318),
-                        backdropImage = speedBackdrop,
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .padding(vertical = 6.dp)
-                                // 竖屏播放器只有半屏高，面板限高后可滑动查看全部倍速
-                                .heightIn(max = 150.dp)
-                                .verticalScroll(rememberScrollState()),
-                        ) {
-                            SPEEDS.forEach { option ->
-                                val active = option == speed
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable(
-                                            interactionSource = null,
-                                            indication = null,
-                                        ) {
-                                            touch()
-                                            speed = option
-                                            exo.setPlaybackSpeed(option)
-                                            speedMenu = false
-                                        }
-                                        .padding(vertical = 8.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text(
-                                        text = "${option}x",
-                                        color = if (active) BrandPink else Color.White,
-                                        fontSize = 13.sp,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                        fontWeight = if (active) {
-                                            FontWeight.Medium
-                                        } else {
-                                            FontWeight.Normal
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                }
-                if (qualityMenu || qualitySpring > 0.01f) {
-                    TeakGlassPanel(
-                        modifier = Modifier
-                            .align(
-                                if (fullscreen) Alignment.BottomEnd else Alignment.TopEnd,
-                            )
-                            .then(
-                                if (fullscreen) {
-                                    Modifier.padding(end = edge, bottom = 56.dp)
-                                } else {
-                                    Modifier.padding(end = edge).offset(y = maxHeight - 64.dp)
-                                },
-                            )
-                            .width(168.dp)
-                            .graphicsLayer {
-                                alpha = qualitySpring.coerceIn(0f, 1f)
-                                scaleX = 0.82f + 0.18f * qualitySpring
-                                scaleY = 0.82f + 0.18f * qualitySpring
-                                translationY = (1f - qualitySpring) * 8f
-                                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 1f)
-                            }
-                            .blur(((1f - qualitySpring.coerceIn(0f, 1f)) * 10f).dp),
-                        shape = RoundedCornerShape(20.dp),
-                        solid = true,
-                        solidColor = Color(0xFF121318),
-                        backdropImage = VideoPageBus.panelBackdrop,
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .padding(horizontal = 12.dp, vertical = 10.dp)
-                                .heightIn(max = 220.dp)
-                                .verticalScroll(rememberScrollState()),
-                        ) {
-                            Text(
-                                text = "画质",
-                                color = Color.White.copy(alpha = 0.92f),
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(bottom = 2.dp),
-                            )
-                            // 自动：按当前网速挑一档，播放器里也能直接切
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(interactionSource = null, indication = null) {
-                                        touch()
-                                        qualityMenu = false
-                                        onQualitySelected(0)
-                                    }
-                                    .padding(vertical = 8.dp),
-                                contentAlignment = Alignment.CenterStart,
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = "自动",
-                                        color = if (autoQuality) BrandPink else Color.White,
-                                        fontSize = 13.sp,
-                                        fontWeight = if (autoQuality) {
-                                            FontWeight.Medium
-                                        } else {
-                                            FontWeight.Normal
-                                        },
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    if (autoQuality) {
-                                        Text("✓", color = BrandPink, fontSize = 14.sp)
-                                    }
-                                }
-                            }
-                            info?.qualities.orEmpty().forEach { item ->
-                                val active = !autoQuality && item.id == quality?.id
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable(interactionSource = null, indication = null) {
-                                            touch()
-                                            qualityMenu = false
-                                            onQualitySelected(item.id)
-                                        }
-                                        .padding(vertical = 8.dp),
-                                    contentAlignment = Alignment.CenterStart,
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = item.label,
-                                                color = if (active) BrandPink else Color.White,
-                                                fontSize = 13.sp,
-                                                fontWeight = if (active) {
-                                                    FontWeight.Medium
-                                                } else {
-                                                    FontWeight.Normal
-                                                },
-                                            )
-                                            if (item.width > 0 && item.height > 0) {
-                                                Text(
-                                                    text = "${item.width}×${item.height}",
-                                                    color = Color.White.copy(alpha = 0.4f),
-                                                    fontSize = 9.5.sp,
-                                                )
-                                            }
-                                        }
-                                        if (active) {
-                                            Text("✓", color = BrandPink, fontSize = 14.sp)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                }
-            }
-        }
 
         // 字幕层：控件自动隐藏后仍然保留当前句
         if (!fsAudioOnly && fsSubtitlesOn && fsPanel == FullscreenPanel.None &&
@@ -2281,6 +1912,21 @@ private fun InlineCompactChrome(
                     Brush.verticalGradient(
                         0f to Color.Transparent,
                         1f to Color.Black.copy(alpha = 0.65f),
+                    ),
+                ),
+        )
+
+        // 顶部遮罩：和底部一样压一条黑色渐变，否则半屏时顶部控件直接压在画面上
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(64.dp)
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Black.copy(alpha = 0.55f),
+                        0.55f to Color.Black.copy(alpha = 0.25f),
+                        1f to Color.Transparent,
                     ),
                 ),
         )
@@ -3190,7 +2836,7 @@ private fun HalfScreenMoreSheet(
     }
 }
 
-private val HALF_SPEEDS = listOf(1f, 1.25f, 1.5f, 2f, 3f)
+private val HALF_SPEEDS = listOf(3f, 2f, 1.5f, 1.25f, 1f)
 
 @Composable
 private fun HalfSpeedRow(speed: Float, onSelect: (Float) -> Unit) {

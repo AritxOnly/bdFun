@@ -19,6 +19,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.aritxonly.teak.common.material.LocalTeakBackdrop
@@ -41,6 +42,8 @@ fun TeakTopOverlay(
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
     light: Boolean = false,
+    /** 覆盖返回键箭头颜色；null 时沿用原来的主题色。 */
+    glyphColor: Color? = null,
     leading: @Composable RowScope.() -> Unit = {},
     trailing: @Composable RowScope.() -> Unit = {},
     center: @Composable BoxScope.() -> Unit = {},
@@ -66,6 +69,7 @@ fun TeakTopOverlay(
                         onClick = onBack,
                         revealed = revealed,
                         light = light,
+                        glyphColor = glyphColor,
                     )
                 }
                 leading()

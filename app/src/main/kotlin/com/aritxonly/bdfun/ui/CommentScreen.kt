@@ -2,12 +2,17 @@ package com.aritxonly.bdfun.ui
 
 import com.aritxonly.teak.common.material.TeakGlassPanel
 import com.aritxonly.teak.common.chrome.TrackTeakPageScroll
+import top.yukonga.miuix.kmp.icon.extended.More
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.clickable
@@ -33,12 +38,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -55,6 +63,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -87,7 +96,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 private const val COMMENT_FONT_SCALE = 1.1f
 
 /** 进程内记住点过赞的评论，退出重进评论区仍然保持粉色和数量。 */
-private object CommentLikeMemory {
+internal object CommentLikeMemory {
     private const val MAX_ENTRIES = 300
 
     val likedMap = androidx.compose.runtime.mutableStateMapOf<Long, Boolean>()
@@ -128,10 +137,23 @@ fun CommentScreen(
     trackBackProgress: Boolean = false,
     /** 动态详情等页面要求加载时不出现任何加载图标。 */
     showLoading: Boolean = true,
+    /** 从消息页进来时要定位的评论：根评论 / 具体回复（0 表示不定位）。 */
+    focusRootRpid: Long = 0L,
+    focusTargetRpid: Long = 0L,
+    /** 视频页播放器当前底边；直接传值，展开回复页才能和播放器同一帧移动。 */
+    threadPlayerBottom: androidx.compose.ui.unit.Dp? = null,
 ) {
     val colors = MiuixTheme.colorScheme
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val statusTop = rememberStatusBarTop()
+    // 动态详情没有播放器：展开评论的面板顶边最多停在返回键下面，不要顶到状态栏。
+    val threadMinTopPx = if (bare) {
+        with(density) { (statusTop + 56.dp).toPx() }
+    } else {
+        0f
+    }
 
     var comments by remember { mutableStateOf<List<CommentItem>>(emptyList()) }
     var total by remember { mutableIntStateOf(0) }
@@ -141,6 +163,8 @@ fun CommentScreen(
     var end by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var sortHot by remember { mutableStateOf(true) }
+    var consumedFocusKey by remember { mutableStateOf("") }
+    var highlightRpid by remember { mutableStateOf(0L) }
     // 回复面板（点「共 N 条回复」打开的大面板）。
     var replySheetTarget by remember { mutableStateOf<CommentItem?>(null) }
     var replySheetVisible by remember { mutableStateOf(false) }
@@ -148,9 +172,12 @@ fun CommentScreen(
     var replySheetLoading by remember { mutableStateOf(false) }
     var replySheetEnd by remember { mutableStateOf(true) }
     var replySheetPage by remember { mutableIntStateOf(0) }
+    var replySheetSortHot by remember { mutableStateOf(true) }
+    var replySheetFocusRpid by remember { mutableStateOf(0L) }
     val disliked = remember { mutableStateMapOf<Long, Boolean>() }
     var menuComment by remember { mutableStateOf<CommentItem?>(null) }
     var menuVisible by remember { mutableStateOf(false) }
+    var menuAnchor by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
     // 横屏（全屏）时把回复面板、长按菜单提前收回，不在横屏里出现
     val landscapeNow = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
         android.content.res.Configuration.ORIENTATION_LANDSCAPE
@@ -345,7 +372,14 @@ fun CommentScreen(
         replySheetLoading = true
         scope.launch {
             val result = runCatching {
-                api.repliesByOid(commentOid, commentType, target.rpid, next, upMid)
+                api.repliesByOid(
+                    oid = commentOid,
+                    type = commentType,
+                    root = target.rpid,
+                    page = next,
+                    upMid = upMid,
+                    sortTime = !replySheetSortHot,
+                )
             }.getOrNull()
             replySheetItems = if (next <= 1) {
                 result?.items.orEmpty()
@@ -358,13 +392,40 @@ fun CommentScreen(
         }
     }
 
-    fun openReplySheet(target: CommentItem) {
+    fun openReplySheet(target: CommentItem, focusRpid: Long = 0L) {
         replySheetTarget = target
         replySheetItems = emptyList()
         replySheetPage = 0
         replySheetEnd = false
+        replySheetSortHot = true
+        replySheetFocusRpid = focusRpid
         replySheetVisible = true
         loadReplySheetPage(target, 1)
+    }
+
+    // 消息页点「回复 / 赞」进来：等评论加载好后滚到那条评论；
+    // 如果它是楼中楼回复，就顺手展开回复面板。
+    LaunchedEffect(comments.size, focusRootRpid, focusTargetRpid, end) {
+        if (focusRootRpid <= 0L || comments.isEmpty()) return@LaunchedEffect
+        val key = "$focusRootRpid:$focusTargetRpid"
+        if (consumedFocusKey == key) return@LaunchedEffect
+        val rootIndex = comments.indexOfFirst { it.rpid == focusRootRpid }
+        if (rootIndex < 0) {
+            // 根评论还没出现在当前页：继续拉，最多自动翻 5 页，避免无限请求。
+            if (!end && !loadingMore && page < 5) loadMore()
+            return@LaunchedEffect
+        }
+        consumedFocusKey = key
+        highlightRpid = focusTargetRpid.takeIf { it > 0L } ?: focusRootRpid
+        listState.animateScrollToItem(rootIndex + 1)
+        launch {
+            delay(90)
+            highlightRpid = 0L
+        }
+        val target = focusTargetRpid
+        if (target > 0L && target != focusRootRpid) {
+            openReplySheet(comments[rootIndex])
+        }
     }
 
     Column(
@@ -401,6 +462,7 @@ fun CommentScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
                 state = listState,
+                modifier = Modifier,
                 contentPadding = PaddingValues(
                     start = if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) 2.dp else 12.dp,
                     end = if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) 2.dp else 12.dp,
@@ -449,6 +511,15 @@ fun CommentScreen(
                         bottomEnd = if (isLast) 16.dp else 0.dp,
                     )
                     val classicComment = com.aritxonly.teak.common.theme.TeakUiStyle.isClassic
+                    val flashColor by androidx.compose.animation.animateColorAsState(
+                        targetValue = if (item.rpid == highlightRpid) {
+                            colors.onBackground.copy(alpha = 0.10f)
+                        } else {
+                            colors.surface
+                        },
+                        animationSpec = androidx.compose.animation.core.tween(90),
+                        label = "comment-focus-flash",
+                    )
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -464,30 +535,33 @@ fun CommentScreen(
                                         )
                                     }
                                 } else {
-                                    Modifier.clip(shape).background(colors.surface)
+                                    Modifier.clip(shape).background(flashColor)
                                 },
                             ),
                     ) {
                         CommentRow(
-                            item = item.copy(
-                                liked = CommentLikeMemory.isLiked(item),
-                                like = CommentLikeMemory.likeCount(item),
-                            ),
+                            // 不再在这里读全局点赞表，否则点一个赞会让整屏评论行重组。
+                            // 每行自己在 CommentRow 里用 derivedStateOf 只订阅自己的值。
+                            item = item,
                             disliked = disliked[item.rpid] == true,
                             onLike = { toggleLike(item) },
                             onDislike = { disliked[item.rpid] = disliked[item.rpid] != true },
                             onReply = { startReply(item) },
-                            onLongPress = {
+                            onLongPress = { bounds ->
+                                menuAnchor = bounds
                                 menuComment = item
                                 menuVisible = true
                             },
-                            onMore = {
+                            onMore = { bounds ->
+                                menuAnchor = bounds
                                 menuComment = item
                                 menuVisible = true
                             },
                             onOpenReplies = { openReplySheet(item) },
-                            onReplyToReply = { reply -> startReply(reply) },
-                            onLongPressReply = { reply ->
+                            // 点折叠回复：不弹回复框，直接展开回复页并定位、闪灰。
+                            onReplyToReply = { reply -> openReplySheet(item, reply.rpid) },
+                            onLongPressReply = { reply, bounds ->
+                                menuAnchor = bounds
                                 menuComment = reply
                                 menuVisible = true
                             },
@@ -548,7 +622,7 @@ fun CommentScreen(
     val target = menuComment
     // 始终组合这个面板（和投币/收藏一致）：页面一进来 mounted 就是 true，
     // 长按打开时不会再晚一帧，弹出的弹簧和投币面板完全同一条曲线。
-    TeakActionSheet(
+    TeakGlassMenu(
         visible = menuVisible && target != null,
         onDismiss = {
             menuVisible = false
@@ -558,10 +632,13 @@ fun CommentScreen(
                 if (!menuVisible) menuComment = null
             }
         },
-        title = target?.uname,
+        anchorInWindow = menuAnchor,
+        minWidth = 168.dp,
+        maxWidth = 216.dp,
+        maxHeight = 420.dp,
     ) {
         if (target != null) {
-            SheetActionRow("回复", MenuGlyphKind.Reply, colors.onBackground) {
+            CommentMenuRow("回复", MenuGlyphKind.Reply, colors.onBackground) {
                 menuVisible = false
                 scope.launch {
                     delay(360)
@@ -569,7 +646,7 @@ fun CommentScreen(
                     startReply(target)
                 }
             }
-            SheetActionRow("复制", MenuGlyphKind.Copy, colors.onBackground) {
+            CommentMenuRow("复制", MenuGlyphKind.Copy, colors.onBackground) {
                 menuVisible = false
                 context.copyToClipboard("评论", target.message)
                 context.showToast("已复制")
@@ -578,7 +655,35 @@ fun CommentScreen(
                     menuComment = null
                 }
             }
-            SheetActionRow("举报", MenuGlyphKind.Report, colors.onBackground) {
+            CommentMenuRow("自由复制", MenuGlyphKind.Copy, colors.onBackground) {
+                menuVisible = false
+                context.copyToClipboard("评论", "${target.uname}：${target.message}")
+                context.showToast("已复制")
+                scope.launch {
+                    delay(360)
+                    menuComment = null
+                }
+            }
+            CommentMenuRow("分享", null, colors.onBackground) {
+                menuVisible = false
+                runCatching {
+                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(
+                            android.content.Intent.EXTRA_TEXT,
+                            "${target.uname}：${target.message}\nhttps://www.bilibili.com/video/${bvid}",
+                        )
+                    }
+                    context.startActivity(
+                        android.content.Intent.createChooser(intent, "分享评论"),
+                    )
+                }
+                scope.launch {
+                    delay(360)
+                    menuComment = null
+                }
+            }
+            CommentMenuRow("举报", MenuGlyphKind.Report, Color(0xFFE5484D)) {
                 menuVisible = false
                 scope.launch {
                     val ok = runCatching {
@@ -589,7 +694,7 @@ fun CommentScreen(
                     menuComment = null
                 }
             }
-            SheetActionRow("加入黑名单", MenuGlyphKind.Block, colors.onBackground) {
+            CommentMenuRow("加入黑名单", MenuGlyphKind.Block, Color(0xFFE5484D)) {
                 menuVisible = false
                 scope.launch {
                     val ok = if (target.mid <= 0) false
@@ -600,7 +705,7 @@ fun CommentScreen(
                 }
             }
             if (myMid > 0 && target.mid == myMid) {
-                SheetActionRow("删除", MenuGlyphKind.Delete, Color(0xFFE5484D), danger = true) {
+                CommentMenuRow("删除", MenuGlyphKind.Delete, Color(0xFFE5484D), danger = true) {
                     menuVisible = false
                     scope.launch {
                         val ok = runCatching {
@@ -623,7 +728,7 @@ fun CommentScreen(
 
     val sheetTarget = replySheetTarget
     if (sheetTarget != null) {
-        ReplySheet(
+        CommentThreadSheet(
             visible = replySheetVisible,
             comment = sheetTarget,
             replies = replySheetItems,
@@ -631,14 +736,30 @@ fun CommentScreen(
             end = replySheetEnd,
             commentOid = commentOid,
             commentType = commentType,
-            api = api,
             bvid = bvid,
             videoTitle = title,
+            sortHot = replySheetSortHot,
+            onToggleSort = {
+                replySheetSortHot = !replySheetSortHot
+                replySheetItems = emptyList()
+                replySheetPage = 0
+                replySheetEnd = false
+                loadReplySheetPage(sheetTarget, 1)
+            },
             onLoadMore = { loadReplySheetPage(sheetTarget, replySheetPage + 1) },
             onDismiss = {
                 // 只把 visible 置否，先保留 target，让面板把退场弹簧跑完再被回收
                 replySheetVisible = false
+                replySheetFocusRpid = 0L
             },
+            focusRpid = replySheetFocusRpid.takeIf { it > 0L }
+                ?: if (consumedFocusKey == "$focusRootRpid:$focusTargetRpid") {
+                    focusTargetRpid
+                } else {
+                    0L
+                },
+            minTopPx = threadMinTopPx,
+            playerBottomDp = threadPlayerBottom,
         )
     }
 
@@ -647,30 +768,43 @@ fun CommentScreen(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun CommentRow(
+internal fun CommentRow(
     item: CommentItem,
     disliked: Boolean,
     onLike: () -> Unit,
     onDislike: () -> Unit,
     onReply: () -> Unit,
-    onLongPress: () -> Unit,
-    onMore: () -> Unit,
+    onLongPress: (androidx.compose.ui.geometry.Rect) -> Unit,
+    onMore: (androidx.compose.ui.geometry.Rect) -> Unit,
     onOpenReplies: () -> Unit,
     onReplyToReply: (CommentItem) -> Unit,
-    onLongPressReply: (CommentItem) -> Unit,
+    onLongPressReply: (CommentItem, androidx.compose.ui.geometry.Rect) -> Unit,
     onPreviewLike: (CommentItem) -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
     val scale = COMMENT_FONT_SCALE
+    var rowBounds by remember {
+        mutableStateOf(androidx.compose.ui.geometry.Rect.Zero)
+    }
+    // 只订阅这条评论自己的点赞状态；别的行被点赞时这里不会失效。
+    val liked by remember(item.rpid, item.liked) {
+        derivedStateOf { CommentLikeMemory.likedMap[item.rpid] ?: item.liked }
+    }
+    val like by remember(item.rpid, item.like) {
+        derivedStateOf { CommentLikeMemory.countMap[item.rpid] ?: item.like }
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .onGloballyPositioned {
+                rowBounds = it.boundsInWindow()
+            }
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onReply,
-                onLongClick = onLongPress,
+                onLongClick = { onLongPress(rowBounds) },
             )
             .padding(
                 horizontal = if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) 6.dp else 12.dp,
@@ -737,6 +871,16 @@ private fun CommentRow(
                     lineHeight = 21.8.sp,
                     extraEmotes = item.emotes,
                     fontWeight = FontWeight.Normal,
+                    // 正文里 @ 到的人，和折叠回复的人名同色，点名字进对方主页。
+                    mentions = remember(item.mentions) {
+                        item.mentions.associate { it.name to it.mid }
+                    },
+                    mentionColor = colors.primary.copy(alpha = 0.72f),
+                    onMentionClick = { mid ->
+                        if (mid > 0L) {
+                            com.aritxonly.bdfun.TeakNavigator.openSpace(context, mid)
+                        }
+                    },
                 )
                 if (item.pictures.isNotEmpty()) {
                     Spacer(Modifier.height(8.dp))
@@ -788,19 +932,19 @@ private fun CommentRow(
                     ) {
                         Image(
                             painter = androidx.compose.ui.res.painterResource(
-                                if (item.liked) TeakIcon.CommentLikeFilled else TeakIcon.CommentLike,
+                                if (liked) TeakIcon.CommentLikeFilled else TeakIcon.CommentLike,
                             ),
                             contentDescription = "点赞",
                             colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(
-                                if (item.liked) BrandPink else colors.onBackgroundVariant,
+                                if (liked) BrandPink else colors.onBackgroundVariant,
                             ),
                             modifier = Modifier.size(16.dp),
                         )
-                        if (item.like > 0) {
+                        if (like > 0) {
                             Spacer(Modifier.width(3.dp))
                             Text(
-                                text = formatCount(item.like.toLong()),
-                                color = if (item.liked) BrandPink else colors.onBackgroundVariant,
+                                text = formatCount(like.toLong()),
+                                color = if (liked) BrandPink else colors.onBackgroundVariant,
                                 fontSize = 11.sp,
                                 modifier = Modifier.offset(y = 1.dp),
                             )
@@ -830,34 +974,24 @@ private fun CommentRow(
                         )
                     }
                     Spacer(Modifier.width(10.dp))
-                    // 竖向三点省略号（圆点）：与长按评论打开同一个面板
+                    // 省略号：直接使用 Miuix 的 More 图标，尺寸和返回键箭头一致。
                     Box(
                         modifier = Modifier
-                            .size(20.dp)
+                            .size(24.dp)
                             .clip(CircleShape)
                             .clickable(
                                 interactionSource = null,
                                 indication = null,
-                                onClick = onMore,
+                                onClick = { onMore(rowBounds) },
                             ),
                         contentAlignment = Alignment.Center,
                     ) {
-                        androidx.compose.foundation.Canvas(
-                            modifier = Modifier.size(width = 10.dp, height = 15.dp),
-                        ) {
-                            val radius = 1.36.dp.toPx()
-                            val cx = size.width / 2f
-                            listOf(0.16f, 0.5f, 0.84f).forEach { ratio ->
-                                drawCircle(
-                                    color = colors.onBackgroundVariant,
-                                    radius = radius,
-                                    center = androidx.compose.ui.geometry.Offset(
-                                        x = cx,
-                                        y = size.height * ratio,
-                                    ),
-                                )
-                            }
-                        }
+                        top.yukonga.miuix.kmp.basic.Icon(
+                            imageVector = top.yukonga.miuix.kmp.icon.MiuixIcons.More,
+                            contentDescription = "更多",
+                            tint = colors.onBackgroundVariant,
+                            modifier = Modifier.size(17.5.dp),
+                        )
                     }
                 }
 
@@ -952,12 +1086,41 @@ private fun CommentImageDialog() {
                     modifier = Modifier
                         .fillMaxSize()
                         .pointerInput(Unit) {
-                            detectTransformGestures { _, delta, zoom, _ ->
-                                scale = (scale * zoom).coerceIn(1f, 4f)
-                                pan = if (scale > 1f) {
-                                    pan + delta
-                                } else {
-                                    androidx.compose.ui.geometry.Offset.Zero
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                var moved = false
+                                var last = down.position
+                                var maxPressed = 1
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val pressedCount = event.changes.count { it.pressed }
+                                    maxPressed = maxOf(maxPressed, pressedCount)
+                                    val change = event.changes.firstOrNull()
+                                    if (change != null) {
+                                        if ((change.position - last).getDistance() > 12f) moved = true
+                                        last = change.position
+                                    }
+                                    val zoomChange = event.calculateZoom()
+                                    val panChange = event.calculatePan()
+                                    if (pressedCount >= 2) {
+                                        // 双指缩放/拖动：始终由图片处理。
+                                        scale = (scale * zoomChange).coerceIn(1f, 4f)
+                                        pan = if (scale > 1f) pan + panChange else
+                                            androidx.compose.ui.geometry.Offset.Zero
+                                        event.changes.forEach { it.consume() }
+                                    } else if (scale > 1.01f) {
+                                        // 放大后单指移动图片。
+                                        pan += panChange
+                                        event.changes.forEach { it.consume() }
+                                    } else {
+                                        // 原始比例：单指横向拖动不消费，交给外层 Pager 翻页。
+                                        pan = androidx.compose.ui.geometry.Offset.Zero
+                                    }
+                                    if (event.changes.none { it.pressed }) break
+                                }
+                                // 没放大时点一下空白：关闭大图。
+                                if (maxPressed <= 1 && !moved && scale <= 1.01f) {
+                                    CommentImageViewer.close()
                                 }
                             }
                         }
@@ -982,15 +1145,33 @@ private fun CommentImageDialog() {
 }
 
 @Composable
+private fun CommentMenuRow(
+    label: String,
+    glyph: MenuGlyphKind?,
+    tint: Color,
+    danger: Boolean = false,
+    onClick: () -> Unit,
+) {
+    // 直接用设置页二级菜单同一套 Miuix 玻璃行：同样的高度、内边距、按压反馈和文字排版。
+    top.yukonga.miuix.kmp.glass.GlassPopupItem(
+        text = label,
+        onClick = onClick,
+        contentColor = tint,
+        selected = false,
+    )
+}
+
+@Composable
 private fun ReplyBlock(
     item: CommentItem,
     onOpen: () -> Unit,
     onReplyToReply: (CommentItem) -> Unit,
-    onLongPressReply: (CommentItem) -> Unit,
+    onLongPressReply: (CommentItem, androidx.compose.ui.geometry.Rect) -> Unit,
     onPreviewLike: (CommentItem) -> Unit,
 ) {
     if (item.replyCount <= 0) return
     val colors = MiuixTheme.colorScheme
+    val context = LocalContext.current
     val scale = COMMENT_FONT_SCALE
     val preview = item.previewReplies.take(2)
 
@@ -1014,21 +1195,30 @@ private fun ReplyBlock(
             ),
     ) {
         preview.forEachIndexed { replyIndex, reply ->
+            var replyBounds by remember(reply.rpid) {
+                mutableStateOf(androidx.compose.ui.geometry.Rect.Zero)
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .onGloballyPositioned { replyBounds = it.boundsInWindow() }
                     .clip(RoundedCornerShape(8.dp))
                     .combinedClickable(
                         interactionSource = null,
                         indication = null,
                         onClick = { onReplyToReply(reply) },
-                        onLongClick = { onLongPressReply(reply) },
+                        onLongClick = { onLongPressReply(reply, replyBounds) },
                     )
                     .padding(vertical = 3.dp),
                 verticalAlignment = Alignment.Top,
             ) {
-                val liked = CommentLikeMemory.isLiked(reply)
-                val likeCount = CommentLikeMemory.likeCount(reply)
+                // 同样只订阅这条折叠回复自己的值。
+                val liked by remember(reply.rpid, reply.liked) {
+                    derivedStateOf { CommentLikeMemory.likedMap[reply.rpid] ?: reply.liked }
+                }
+                val likeCount by remember(reply.rpid, reply.like) {
+                    derivedStateOf { CommentLikeMemory.countMap[reply.rpid] ?: reply.like }
+                }
                 EmoteText(
                     text = reply.message,
                     prefix = reply.uname,
@@ -1049,6 +1239,19 @@ private fun ReplyBlock(
                     modifier = Modifier.weight(1f),
                     extraEmotes = reply.emotes,
                     fontWeight = FontWeight.Normal,
+                    mentions = remember(reply.mentions) {
+                        reply.mentions.associate { it.name to it.mid }
+                    },
+                    mentionColor = if (reply.isVip) {
+                        colors.primary
+                    } else {
+                        colors.primary.copy(alpha = 0.72f)
+                    },
+                    onMentionClick = { mid ->
+                        if (mid > 0L) {
+                            com.aritxonly.bdfun.TeakNavigator.openSpace(context, mid)
+                        }
+                    },
                     trailingWidth = if (likeCount > 0) 56.sp else 26.sp,
                     trailingContent = {
                         Row(
@@ -1108,694 +1311,6 @@ private fun ReplyBlock(
             )
             Spacer(Modifier.width(2.dp))
             Text(text = "＞", color = colors.onBackgroundVariant, fontSize = 11.sp)
-        }
-    }
-}
-
-@OptIn(
-    androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
-    ExperimentalFoundationApi::class,
-)
-@Composable
-private fun ReplySheet(
-    visible: Boolean,
-    comment: CommentItem,
-    replies: List<CommentItem>,
-    loading: Boolean,
-    end: Boolean,
-    commentOid: String,
-    commentType: Int,
-    api: BiliApi,
-    bvid: String,
-    videoTitle: String,
-    onLoadMore: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val colors = MiuixTheme.colorScheme
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    // Dialog 里的 navigationBarsPadding 偶发读到 0，用系统资源兜底；键盘弹出时交给 imePadding
-    val navBottom = rememberNavigationBarBottom()
-    val imeVisible = WindowInsets.isImeVisible
-    // 与投币面板完全同一套：首次组合先以 0 为起点，否则会直接瞬移到终点（没有动画）
-    var mounted by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { mounted = true }
-    // 打开后的头 260ms 不响应“点外面关闭”，避免打开面板的那次抬手把它立刻关掉
-    var dismissArmed by remember { mutableStateOf(false) }
-    LaunchedEffect(visible) {
-        if (visible) {
-            dismissArmed = false
-            kotlinx.coroutines.delay(260)
-            dismissArmed = true
-        } else {
-            dismissArmed = false
-        }
-    }
-    val p = rememberSpringFloat(
-        target = if (visible && mounted) 1f else 0f,
-        stiffness = 420f,
-        damping = 28f,
-    )
-    if (!visible && p <= 0.005f) return
-
-    val listState = rememberLazyListState()
-    var replyTarget by remember { mutableStateOf<CommentItem?>(null) }
-    var draft by remember { mutableStateOf("") }
-    var sending by remember { mutableStateOf(false) }
-    var extra by remember { mutableStateOf<List<CommentItem>>(emptyList()) }
-    val likedIds = remember { mutableStateMapOf<Long, Boolean>() }
-    val dislikedIds = remember { mutableStateMapOf<Long, Boolean>() }
-    var deletedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
-    var menuReply by remember { mutableStateOf<CommentItem?>(null) }
-    var menuVisible by remember { mutableStateOf(false) }
-    val myMid = AppGraph.session.value?.mid ?: 0L
-    val focusRequester = remember { FocusRequester() }
-    val keyboard = LocalSoftwareKeyboardController.current
-    val allReplies = (extra + replies)
-        .distinctBy { it.rpid }
-        .filterNot { it.rpid in deletedIds }
-
-    LaunchedEffect(listState, allReplies.size, end, loading) {
-        snapshotFlow {
-            val info = listState.layoutInfo
-            (info.visibleItemsInfo.lastOrNull()?.index ?: -1) to info.totalItemsCount
-        }.collect { (last, count) ->
-            if (!end && !loading && allReplies.isNotEmpty() && last >= count - 1) {
-                onLoadMore()
-            }
-        }
-    }
-
-    // 点某条回复-> 输入框在面板内渐显
-    LaunchedEffect(replyTarget) {
-        if (replyTarget != null) {
-            kotlinx.coroutines.delay(60)
-            runCatching { focusRequester.requestFocus() }
-        }
-    }
-
-    fun send() {
-        val target = replyTarget ?: return
-        val text = draft.trim()
-        if (text.isEmpty() || sending) return
-        sending = true
-        scope.launch {
-            val result = runCatching {
-                api.addCommentByOid(
-                    oid = commentOid,
-                    type = commentType,
-                    message = text,
-                    root = comment.rpid,
-                    parent = target.rpid,
-                )
-            }.getOrNull()
-            sending = false
-            if (result != null) {
-                AppGraph.sentHistory.record("comment", text, bvid, videoTitle)
-                val me = AppGraph.session.value
-                extra = listOf(
-                    CommentItem(
-                        rpid = if (result > 0) result else System.currentTimeMillis(),
-                        uname = me?.name ?: "我",
-                        avatar = me?.face.orEmpty(),
-                        message = text,
-                        like = 0,
-                        ctime = System.currentTimeMillis() / 1000,
-                        level = me?.level ?: 0,
-                        replyCount = 0,
-                        isUp = false,
-                        isTop = false,
-                    ),
-                ) + extra
-                draft = ""
-                replyTarget = null
-                keyboard?.hide()
-                context.showToast("回复成功")
-            } else {
-                context.showToast("发送失败，请确认已登录")
-            }
-        }
-    }
-
-    fun toggleLike(item: CommentItem) {
-        val current = likedIds[item.rpid] ?: CommentLikeMemory.isLiked(item)
-        val next = !current
-        val oldCount = CommentLikeMemory.likeCount(item)
-        val newCount = (oldCount + if (next) 1 else -1).coerceAtLeast(0)
-        likedIds[item.rpid] = next
-        CommentLikeMemory.put(item.rpid, next, newCount)
-        scope.launch {
-            val ok = runCatching {
-                api.likeCommentByOid(commentOid, commentType, item.rpid, next)
-            }.isSuccess
-            if (!ok) {
-                likedIds[item.rpid] = !next
-                CommentLikeMemory.put(item.rpid, !next, oldCount)
-                context.showToast("点赞失败")
-            } else {
-                context.showToast(if (next) "点赞成功" else "已取消点赞")
-            }
-        }
-    }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false,
-            // 关闭只走自己的点击层，避免打开面板的那次抬手把它立刻关掉
-            dismissOnClickOutside = false,
-        ),
-    ) {
-        // 关掉 Dialog 自带的背景压暗
-        val view = androidx.compose.ui.platform.LocalView.current
-        val dialogWindow = (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
-        androidx.compose.runtime.SideEffect {
-            dialogWindow?.setDimAmount(0f)
-            // 让导航栏保持透明，面板铺到底时小白条仍是沉浸的
-            if (android.os.Build.VERSION.SDK_INT >= 29) {
-                dialogWindow?.isNavigationBarContrastEnforced = false
-            }
-            @Suppress("DEPRECATION")
-            dialogWindow?.navigationBarColor = android.graphics.Color.TRANSPARENT
-        }
-        Box(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    // 不压暗背景，只做点击层
-                    .background(Color.Transparent)
-                    .clickable(interactionSource = null, indication = null) {
-                        if (dismissArmed) {
-                            // 回复框打开时，点空白只收起回复框，不退出整个折叠评论页
-                            if (replyTarget != null) {
-                                replyTarget = null
-                            } else {
-                                onDismiss()
-                            }
-                        }
-                    },
-            )
-            TeakGlassPanel(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    // 高度收在“视频与内容交界”以下，不再顶到播放器上
-                    .fillMaxHeight(0.66f)
-                    .graphicsLayer {
-                        val progress = p.coerceAtLeast(0f)
-                        // 和投币面板一致：渐显 + 从底部整块滑上来，退出沿同一条弹簧回去
-                        alpha = progress.coerceIn(0f, 1f)
-                        translationY = (1f - progress) * size.height
-                    }
-                    .dropShadow(
-                        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-                        shadow = Shadow(
-                            radius = 8.dp,
-                            color = Color.Black,
-                            alpha = 0.10f,
-                        ),
-                    ),
-                // 贴住屏幕底：只圆上面两角，下面不会被看成“被切了一刀”
-                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-                // 和设置二级菜单/投币面板同一套底灰
-                tintAlpha = 0.3f,
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        // 导航栏内边距放在内容里，面板本身铺到底，导航栏保持沉浸；
-                        // 键盘弹出时只留 imePadding，避免底部多出一段空白
-                        .padding(bottom = if (imeVisible) 0.dp else navBottom)
-                        .imePadding(),
-                ) {
-                    Text(
-                        text = "共 ${comment.replyCount + extra.size} 条回复",
-                        color = colors.onBackground,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        maxLines = 1,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 8.dp),
-                    )
-                    // 原评论
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
-                    ) {
-                        AsyncImage(
-                            model = rememberImageRequest(comment.avatar),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(colors.surfaceContainerHigh)
-                                .clickable(interactionSource = null, indication = null) {
-                                    if (comment.mid > 0L) {
-                                        com.aritxonly.bdfun.TeakNavigator.openSpace(
-                                            context,
-                                            comment.mid,
-                                        )
-                                    }
-                                },
-                        )
-                        Spacer(Modifier.width(9.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = comment.uname,
-                                    color = if (comment.isVip) colors.primary else colors.onBackgroundVariant,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    modifier = Modifier.clickable(
-                                        interactionSource = null,
-                                        indication = null,
-                                    ) {
-                                        if (comment.mid > 0L) {
-                                            com.aritxonly.bdfun.TeakNavigator.openSpace(
-                                                context,
-                                                comment.mid,
-                                            )
-                                        }
-                                    },
-                                )
-                                if (comment.isUp) {
-                                    Spacer(Modifier.width(4.dp))
-                                    UpBadge()
-                                }
-                                Spacer(Modifier.width(4.dp))
-                                Image(
-                                    painter = androidx.compose.ui.res.painterResource(
-                                        id = when (comment.level.coerceIn(1, 6)) {
-                                            1 -> com.aritxonly.bdfun.R.drawable.bili_lv1
-                                            2 -> com.aritxonly.bdfun.R.drawable.bili_lv2
-                                            3 -> com.aritxonly.bdfun.R.drawable.bili_lv3
-                                            4 -> com.aritxonly.bdfun.R.drawable.bili_lv4
-                                            5 -> com.aritxonly.bdfun.R.drawable.bili_lv5
-                                            else -> com.aritxonly.bdfun.R.drawable.bili_lv6
-                                        },
-                                    ),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(width = 22.dp, height = 10.dp),
-                                )
-                            }
-                            Spacer(Modifier.height(3.dp))
-                            EmoteText(
-                                text = comment.message,
-                                color = colors.onBackground,
-                                fontSize = 13.5.sp,
-                                lineHeight = 18.sp,
-                                extraEmotes = comment.emotes,
-                                fontWeight = FontWeight.Normal,
-                            )
-                        }
-                    }
-                    // 层主与第一条回复拉开距离，并加一条分割线
-                    Spacer(Modifier.height(10.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .height(0.8.dp)
-                            .background(colors.onBackground.copy(alpha = 0.10f)),
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.weight(1f).fillMaxWidth(),
-                        contentPadding = PaddingValues(bottom = 12.dp),
-                    ) {
-                        itemsIndexed(allReplies, key = { _, r -> r.rpid }) { index, reply ->
-                            val liked = likedIds[reply.rpid]
-                                ?: CommentLikeMemory.isLiked(reply)
-                            val likeCount = CommentLikeMemory.likeCount(reply)
-                            val disliked = dislikedIds[reply.rpid] == true
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .combinedClickable(
-                                        interactionSource = null,
-                                        indication = null,
-                                        onClick = { replyTarget = reply },
-                                        onLongClick = {
-                                            menuReply = reply
-                                            menuVisible = true
-                                        },
-                                    )
-                                    .padding(horizontal = 16.dp, vertical = 9.dp),
-                            ) {
-                                AsyncImage(
-                                    model = rememberImageRequest(reply.avatar),
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(CircleShape)
-                                        .background(colors.surfaceContainerHigh)
-                                        .clickable(interactionSource = null, indication = null) {
-                                            if (reply.mid > 0L) {
-                                                com.aritxonly.bdfun.TeakNavigator.openSpace(
-                                                    context,
-                                                    reply.mid,
-                                                )
-                                            }
-                                        },
-                                )
-                                Spacer(Modifier.width(9.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = reply.uname,
-                                            color = if (reply.isVip) colors.primary else colors.onBackgroundVariant,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Normal,
-                                            modifier = Modifier.clickable(
-                                                interactionSource = null,
-                                                indication = null,
-                                            ) {
-                                                if (reply.mid > 0L) {
-                                                    com.aritxonly.bdfun.TeakNavigator.openSpace(
-                                                        context,
-                                                        reply.mid,
-                                                    )
-                                                }
-                                            },
-                                        )
-                                        if (reply.isUp) {
-                                            Spacer(Modifier.width(4.dp))
-                                            UpBadge()
-                                        }
-                                        Spacer(Modifier.width(4.dp))
-                                        Image(
-                                            painter = androidx.compose.ui.res.painterResource(
-                                                id = when (reply.level.coerceIn(1, 6)) {
-                                                    1 -> com.aritxonly.bdfun.R.drawable.bili_lv1
-                                                    2 -> com.aritxonly.bdfun.R.drawable.bili_lv2
-                                                    3 -> com.aritxonly.bdfun.R.drawable.bili_lv3
-                                                    4 -> com.aritxonly.bdfun.R.drawable.bili_lv4
-                                                    5 -> com.aritxonly.bdfun.R.drawable.bili_lv5
-                                                    else -> com.aritxonly.bdfun.R.drawable.bili_lv6
-                                                },
-                                            ),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(width = 22.dp, height = 10.dp),
-                                        )
-                                    }
-                                    Spacer(Modifier.height(3.dp))
-                                    EmoteText(
-                                        text = reply.message,
-                                        color = colors.onBackground,
-                                        fontSize = 14.85.sp,
-                                        lineHeight = 21.8.sp,
-                                        extraEmotes = reply.emotes,
-                                        fontWeight = FontWeight.Normal,
-                                    )
-                                    Spacer(Modifier.height(6.dp))
-                                    // 与评论页完全相同的操作行：时间 / 回复 / 赞 / 踩 / ⋮
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = formatDate(reply.ctime),
-                                            color = colors.onBackgroundVariant,
-                                            fontSize = 11.sp,
-                                        )
-                                        if (reply.ipLocation.isNotBlank() && AppGraph.settings.showIpLocation) {
-                                            Spacer(Modifier.width(6.dp))
-                                            Text(
-                                                text = reply.ipLocation,
-                                                color = colors.onBackgroundVariant,
-                                                fontSize = 11.sp,
-                                            )
-                                        }
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(
-                                            text = "回复",
-                                            color = colors.onBackgroundVariant,
-                                            fontSize = 11.sp,
-                                            modifier = Modifier
-                                                .clip(Capsule())
-                                                .clickable(
-                                                    interactionSource = null,
-                                                    indication = null,
-                                                ) { replyTarget = reply }
-                                                .padding(horizontal = 4.dp, vertical = 2.dp),
-                                        )
-                                        Spacer(Modifier.weight(1f))
-                                        Spacer(Modifier.width(10.dp))
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier
-                                                .offset(y = (-1).dp)
-                                                .clickable(
-                                                    interactionSource = null,
-                                                    indication = null,
-                                                ) { toggleLike(reply) },
-                                        ) {
-                                            Image(
-                                                painter = androidx.compose.ui.res.painterResource(
-                                                    if (liked) TeakIcon.CommentLikeFilled else TeakIcon.CommentLike,
-                                                ),
-                                                contentDescription = "点赞",
-                                                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(
-                                                    if (liked) BrandPink else colors.onBackgroundVariant,
-                                                ),
-                                                modifier = Modifier.size(16.dp),
-                                            )
-                                            if (likeCount > 0) {
-                                                Spacer(Modifier.width(3.dp))
-                                                Text(
-                                                    text = formatCount(likeCount.toLong()),
-                                                    color = if (liked) BrandPink else colors.onBackgroundVariant,
-                                                    fontSize = 11.sp,
-                                                    modifier = Modifier.offset(y = 1.dp),
-                                                )
-                                            }
-                                        }
-                                        Spacer(Modifier.width(10.dp))
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier
-                                                .offset(y = 1.5.dp)
-                                                .clickable(
-                                                    interactionSource = null,
-                                                    indication = null,
-                                                ) {
-                                                    dislikedIds[reply.rpid] =
-                                                        dislikedIds[reply.rpid] != true
-                                                },
-                                        ) {
-                                            Image(
-                                                painter = androidx.compose.ui.res.painterResource(
-                                                    if (disliked) TeakIcon.CommentDislikeFilled else TeakIcon.CommentDislike,
-                                                ),
-                                                contentDescription = "点踩",
-                                                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(
-                                                    if (disliked) BrandPink else colors.onBackgroundVariant,
-                                                ),
-                                                modifier = Modifier.size(16.dp),
-                                            )
-                                        }
-                                        Spacer(Modifier.width(10.dp))
-                                        Box(
-                                            modifier = Modifier
-                                                .size(20.dp)
-                                                .clip(CircleShape)
-                                                .clickable(
-                                                    interactionSource = null,
-                                                    indication = null,
-                                                ) {
-                                                    menuReply = reply
-                                                    menuVisible = true
-                                                },
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            androidx.compose.foundation.Canvas(
-                                                modifier = Modifier.size(width = 10.dp, height = 15.dp),
-                                            ) {
-                                                val radius = 1.36.dp.toPx()
-                                                val cx = size.width / 2f
-                                                listOf(0.16f, 0.5f, 0.84f).forEach { r ->
-                                                    drawCircle(
-                                                        color = colors.onBackgroundVariant,
-                                                        radius = radius,
-                                                        center = androidx.compose.ui.geometry.Offset(
-                                                            x = cx,
-                                                            y = size.height * r,
-                                                        ),
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if (loading) {
-                            item(key = "sheet-loading") {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 36.dp, bottom = 16.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    TeakLoading(size = 34.dp)
-                                }
-                            }
-                        }
-                    }
-
-                    // 面板内的回复输入框：点某条回复后渐显
-                    val target = replyTarget
-                    if (target != null) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            TeakGlassSurface(
-                                modifier = Modifier.weight(1f).height(44.dp),
-                                shape = Capsule(),
-                                recipe = TeakGlassRecipes.floatingNavigation(
-                                    LocalTeakMaterialSpec.current.fineTuning,
-                                ),
-                                backdrop = LocalTeakBackdrop.current,
-                                contentAlignment = Alignment.CenterStart,
-                            ) {
-                                Box(modifier = Modifier.fillMaxSize()) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(start = 16.dp, end = 44.dp),
-                                        contentAlignment = Alignment.CenterStart,
-                                    ) {
-                                        BasicTextField(
-                                            value = draft,
-                                            onValueChange = { draft = it },
-                                            singleLine = true,
-                                            textStyle = ComposerTextStyle.copy(
-                                                color = colors.onBackground,
-                                            ),
-                                            cursorBrush = androidx.compose.ui.graphics.SolidColor(
-                                                BrandPink,
-                                            ),
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .focusRequester(focusRequester),
-                                            decorationBox = { inner ->
-                                                Box(contentAlignment = Alignment.CenterStart) {
-                                                    if (draft.isEmpty()) {
-                                                        Text(
-                                                            text = "回复 @${target.uname}：",
-                                                            color = colors.outline,
-                                                            fontSize = 13.sp,
-                                                        )
-                                                    }
-                                                    inner()
-                                                }
-                                            },
-                                        )
-                                    }
-                                    Box(
-                                        modifier = Modifier
-                                            .align(Alignment.CenterEnd)
-                                            .padding(end = 8.dp),
-                                    ) {
-                                        ComposerIconButton(
-                                            kind = ComposerIcon.Send,
-                                            tint = if (draft.isNotBlank()) {
-                                                BrandPink
-                                            } else {
-                                                colors.outline
-                                            },
-                                            onClick = { send() },
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // 展开页里的长按菜单：与评论页同一个面板
-    val menuTarget = menuReply
-    TeakActionSheet(
-        visible = menuVisible && menuTarget != null,
-        onDismiss = {
-            menuVisible = false
-            scope.launch {
-                delay(360)
-                if (!menuVisible) menuReply = null
-            }
-        },
-        title = menuTarget?.uname,
-    ) {
-        if (menuTarget != null) {
-            SheetActionRow("回复", MenuGlyphKind.Reply, colors.onBackground) {
-                menuVisible = false
-                scope.launch {
-                    delay(360)
-                    menuReply = null
-                    replyTarget = menuTarget
-                }
-            }
-            SheetActionRow("复制", MenuGlyphKind.Copy, colors.onBackground) {
-                menuVisible = false
-                context.copyToClipboard("评论", menuTarget.message)
-                context.showToast("已复制")
-                scope.launch {
-                    delay(360)
-                    menuReply = null
-                }
-            }
-            SheetActionRow("举报", MenuGlyphKind.Report, colors.onBackground) {
-                menuVisible = false
-                scope.launch {
-                    val ok = runCatching {
-                        api.reportCommentByOid(commentOid, commentType, menuTarget.rpid)
-                    }.isSuccess
-                    context.showToast(if (ok) "已举报" else "举报失败")
-                    delay(360)
-                    menuReply = null
-                }
-            }
-            SheetActionRow("加入黑名单", MenuGlyphKind.Block, colors.onBackground) {
-                menuVisible = false
-                scope.launch {
-                    val ok = if (menuTarget.mid <= 0) {
-                        false
-                    } else {
-                        runCatching { api.blockUser(menuTarget.mid) }.isSuccess
-                    }
-                    context.showToast(if (ok) "已加入黑名单" else "操作失败")
-                    delay(360)
-                    menuReply = null
-                }
-            }
-            if (myMid > 0 && menuTarget.mid == myMid) {
-                SheetActionRow("删除", MenuGlyphKind.Delete, Color(0xFFE5484D), danger = true) {
-                    menuVisible = false
-                    scope.launch {
-                        val ok = runCatching {
-                        api.deleteCommentByOid(commentOid, commentType, menuTarget.rpid)
-                    }.isSuccess
-                        if (ok) {
-                            deletedIds = deletedIds + menuTarget.rpid
-                            context.showToast("已删除")
-                        } else {
-                            context.showToast("删除失败")
-                        }
-                        delay(360)
-                        menuReply = null
-                    }
-                }
-            }
         }
     }
 }

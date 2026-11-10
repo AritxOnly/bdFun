@@ -122,6 +122,38 @@ private fun LogScreen() {
             }
         }
 
+        item(key = "freeze") {
+            TeakSettingsCard {
+                TeakSettingsActionRow(
+                    title = "复制卡住日志",
+                    trailing = "${com.aritxonly.bdfun.data.FreezeWatchdog.size(context) / 1024} KB",
+                ) {
+                    val text = com.aritxonly.bdfun.data.FreezeWatchdog.readTail(context, 20000)
+                    if (text.isBlank()) {
+                        context.showToast("还没有卡住日志")
+                    } else {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE)
+                            as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(
+                            android.content.ClipData.newPlainText("bdFun freeze log", text),
+                        )
+                        context.showToast("已复制卡住日志")
+                    }
+                }
+                TeakSettingsActionRow(title = "导出卡住日志并分享") {
+                    runCatching {
+                        shareLog(context, exportFreezeLog(context))
+                    }.onFailure {
+                        context.showToast("导出失败：${it.message}")
+                    }
+                }
+                TeakSettingsActionRow(title = "清空卡住日志") {
+                    com.aritxonly.bdfun.data.FreezeWatchdog.clear(context)
+                    context.showToast("卡住日志已清空")
+                }
+            }
+        }
+
         item(key = "export") {
             Box(
                 modifier = Modifier
@@ -179,6 +211,13 @@ private fun LogScreen() {
 
         item(key = "bottom") { Spacer(Modifier.height(24.dp)) }
     }
+}
+
+private fun exportFreezeLog(context: Context): java.io.File {
+    val dir = java.io.File(context.cacheDir, "bdFun-logs").apply { mkdirs() }
+    val out = java.io.File(dir, "freeze-log.txt")
+    out.writeText(com.aritxonly.bdfun.data.FreezeWatchdog.readTail(context, 20000))
+    return out
 }
 
 private fun shareLog(context: Context, file: java.io.File) {

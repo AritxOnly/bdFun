@@ -1,6 +1,5 @@
 package com.aritxonly.teak.common.chrome
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -22,6 +21,9 @@ import com.aritxonly.teak.common.material.LocalTeakBackdrop
 import com.aritxonly.teak.common.material.LocalTeakMaterialSpec
 import com.aritxonly.teak.common.material.TeakGlassIconButton
 import com.aritxonly.teak.common.material.TeakGlassRecipes
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.ChevronBackward
 
 /**
  * 页面级返回键：progress = 0 时只有箭头（无背景），滚出顶部后逐渐露出玻璃底。
@@ -41,10 +43,12 @@ fun TeakGlassBackButton(
     size: Dp = TeakChromeDefaults.BackButtonSize,
     revealed: Boolean = true,
     light: Boolean = false,
+    /** 自定义箭头颜色（个人主页压在头图上时做黑白渐变用）。 */
+    glyphColor: Color? = null,
 ) {
     val advancedMaterial = LocalTeakMaterialSpec.current
     val recipe = TeakGlassRecipes.floatingNavigation(advancedMaterial.fineTuning)
-    val glyph = if (light) Color.White else teakGlassGlyphColor()
+    val glyph = glyphColor ?: if (light) Color.White else teakGlassGlyphColor()
     // 固定速率淡入/淡出（300ms），与页面滚动速度无关。
     val reveal = rememberManualProgress(if (revealed) 1f else 0f, 300f)
 
@@ -71,33 +75,15 @@ fun TeakGlassBackButton(
                 }
             }
         }
-        Canvas(modifier = Modifier.size(size * 0.50f).align(Alignment.Center)) {
-            val w = this.size.width
-            val h = this.size.height
-            val chevron = Path().apply {
-                moveTo(w * 0.66f, h * 0.12f)
-                lineTo(w * 0.30f, h * 0.5f)
-                lineTo(w * 0.66f, h * 0.88f)
-            }
-            val stroke = w * 0.10f
-            if (!light) {
-                // 没有背景时给一点点投影，保证压在白底上也看得清。
-                drawPath(
-                    path = chevron,
-                    color = Color.Black.copy(alpha = 0.12f * (1f - reveal)),
-                    style = Stroke(
-                        width = stroke + 1.2.dp.toPx(),
-                        cap = StrokeCap.Round,
-                        join = StrokeJoin.Round,
-                    ),
-                )
-            }
-            drawPath(
-                path = chevron,
-                color = glyph,
-                style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round),
-            )
-        }
+        // 统一使用 Miuix 的 ChevronBackward 图标，替代原来手画的折线。
+        Icon(
+            imageVector = MiuixIcons.ChevronBackward,
+            contentDescription = "返回",
+            tint = glyph,
+            modifier = Modifier
+                .size(size * 0.552f)
+                .align(Alignment.Center),
+        )
         // 透明热区：没有背景时也能点。
         if (reveal <= 0.01f) {
             Box(

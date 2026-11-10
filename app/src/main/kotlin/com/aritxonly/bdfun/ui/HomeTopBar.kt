@@ -88,6 +88,9 @@ fun HomeTopBar(
     onCancelSearch: () -> Unit = {},
     onClearQuery: () -> Unit = {},
     searchReveal: Float = 0f,
+    /** 搜索结果页：点搜索框重新进入搜索页（历史/联想），而不是直接改当前关键词。 */
+    searchResultsVisible: Boolean = false,
+    onOpenSearchPage: () -> Unit = {},
 ) {
     val advancedMaterial = LocalTeakMaterialSpec.current
     val recipe = TeakGlassRecipes.floatingNavigation(advancedMaterial.fineTuning)
@@ -177,14 +180,14 @@ fun HomeTopBar(
                         },
                     )
                     .then(
-                        if (searchActive) {
-                            Modifier
-                        } else {
-                            Modifier.clickable(
+                        when {
+                            !searchActive -> Modifier.clickable(
                                 interactionSource = searchInteraction,
                                 indication = null,
                                 onClick = onSearch,
                             )
+                            searchResultsVisible -> Modifier
+                            else -> Modifier
                         },
                     ),
                 shape = Capsule(),
@@ -205,7 +208,19 @@ fun HomeTopBar(
                     Spacer(Modifier.width(8.dp))
                     if (searchActive) {
                         val focusRequester = remember { FocusRequester() }
-                        LaunchedEffect(Unit) { runCatching { focusRequester.requestFocus() } }
+                        val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+                        val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+                        LaunchedEffect(searchResultsVisible) {
+                            if (searchResultsVisible) {
+                                // 提交搜索后进入结果页：主动退出输入框并收起输入法。
+                                focusManager.clearFocus()
+                                keyboard?.hide()
+                            } else {
+                                // 从结果页回到搜索页时，自动聚焦并弹出输入法。
+                                runCatching { focusRequester.requestFocus() }
+                                keyboard?.show()
+                            }
+                        }
                         BasicTextField(
                             value = searchQuery,
                             onValueChange = onQueryChange,
@@ -237,6 +252,17 @@ fun HomeTopBar(
                             maxLines = 1,
                         )
                     }
+                }
+                if (searchActive && searchResultsVisible) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable(
+                                interactionSource = searchInteraction,
+                                indication = null,
+                                onClick = onOpenSearchPage,
+                            ),
+                    )
                 }
             }
 

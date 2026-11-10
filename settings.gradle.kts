@@ -9,6 +9,7 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
+        mavenLocal()
         google()
         mavenCentral()
         maven("https://maven.aliyun.com/repository/public")
@@ -19,3 +20,36 @@ rootProject.name = "bdFun"
 include(":app")
 include(":TeakUI")
 include(":danmaku-engine")
+
+// Miuix 使用本地源码构建（Apache-2.0）。
+// 仓库不包含该源码；请把 Miuix 源码放在项目旁边的 miuix-src/ 目录，
+// 或通过环境变量 MIUIX_SOURCE=/path/to/miuix 指定。
+// 找不到源码时，会使用 dependencyResolutionManagement 里的 Maven 依赖。
+val miuixSource = file(
+    System.getenv("MIUIX_SOURCE")
+        ?: gradle.startParameter.projectProperties["miuixSource"]
+        ?: "../miuix-src/miuix-45645854cd46c32275c5666e3aafa9980d8f104e",
+)
+if (miuixSource.resolve("settings.gradle.kts").isFile) {
+    includeBuild(miuixSource) {
+        dependencySubstitution {
+            listOf(
+                "miuix-core" to ":miuix-core",
+                "miuix-shader" to ":miuix-shader",
+                "miuix-squircle" to ":miuix-squircle",
+                "miuix-ui" to ":miuix-ui",
+                "miuix-blur" to ":miuix-blur",
+                "miuix-preference" to ":miuix-preference",
+                "miuix-icons" to ":miuix-icons",
+                "miuix-glass" to ":miuix-glass",
+                "miuix-glass-icons" to ":miuix-glass-icons",
+                "miuix-nav" to ":miuix-nav",
+            ).forEach { (artifact, projectPath) ->
+                substitute(module("top.yukonga.miuix.kmp:$artifact"))
+                    .using(project(projectPath))
+                substitute(module("top.yukonga.miuix.kmp:${artifact}-android"))
+                    .using(project(projectPath))
+            }
+        }
+    }
+}

@@ -26,6 +26,14 @@ bdFun 包含或参考了以下第三方项目的代码、材质和参数。分�
 - 使用方式：第三方依赖，未复制源码。提供 `miuix-ui`、`miuix-blur`、`miuix-icons`、`MiuixTheme`、`LayerBackdrop`、`textureBlur`、`progressiveTextureBlur` 等。
 - 分发时按 Apache-2.0 保留 NOTICE / 许可证信息（如上游提供）。
 
+## Guiyuan / 归元
+
+- 仓库：https://github.com/CHS-Haple/Guiyuan
+- 许可证：GNU General Public License v3.0（GPL-3.0）
+- 使用方式：参考并移植开始页 / 引导页的视觉效果与背景动效，相关源码位于
+  `app/src/main/kotlin/top/yukonga/miuix/kmp/effect/bg/`（Guiyuan 上游同路径来源）。
+- 分发时保留 GPL-3.0 版权与许可声明。
+
 ## BiliPai / bytedance DanmakuRenderEngine
 
 - 仓库：https://github.com/jay3-yy/BiliPai

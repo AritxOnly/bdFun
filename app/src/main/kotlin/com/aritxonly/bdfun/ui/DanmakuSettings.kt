@@ -64,10 +64,11 @@ object DanmakuSettings {
         }
 
     /** 人像防挡：弹幕避开画面中间的人像区域。 */
+    /** 人像防挡已移除：固定关闭，不再读设置。 */
     var portraitGuard: Boolean
-        get() = store.danmakuPortraitGuard
+        get() = false
         set(value) {
-            store.danmakuPortraitGuard = value
+            store.danmakuPortraitGuard = false
         }
 
     /** 相同文本只保留第一条。 */

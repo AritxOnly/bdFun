@@ -45,27 +45,39 @@ class BiliApi(context: Context) {
     private val appContext: Context = context.applicationContext
     val cookieJar = BiliCookieJar(context)
 
-    private val client = OkHttpClient.Builder()
+    private val client = HttpClients.base.newBuilder()
         .cookieJar(cookieJar)
-        // execute() 会绕过 OkHttp 的并发队列；改成 enqueue/await 后由 Dispatcher 统一排队和限流。
-        .dispatcher(
-            Dispatcher().apply {
-                maxRequests = 32
-                maxRequestsPerHost = 8
-            },
-        )
-        .connectTimeout(8, TimeUnit.SECONDS)
-        .readTimeout(12, TimeUnit.SECONDS)
-        .writeTimeout(12, TimeUnit.SECONDS)
-        .callTimeout(18, TimeUnit.SECONDS)
-        .retryOnConnectionFailure(true)
         .build()
 
     private val buvidMutex = Mutex()
     private val wbiMutex = Mutex()
-    /** 历史记录补播放量/弹幕数的缓存：bvid -> (play, danmaku) */
-    private val videoStatCache =
-        java.util.concurrent.ConcurrentHashMap<String, Pair<Long, Long>>()
+    /** 消息会话昵称/头像后台补全：不阻塞首屏列表。 */
+    private val backgroundScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + Dispatchers.IO,
+    )
+    /** 历史记录补播放量/弹幕数的缓存：bvid -> (play, danmaku)，最多 300 条。 */
+    private val videoStatCache = object : LinkedHashMap<String, Pair<Long, Long>>(300, 0.75f, true) {
+        override fun removeEldestEntry(
+            eldest: MutableMap.MutableEntry<String, Pair<Long, Long>>?,
+        ): Boolean = size > 300
+    }
+
+    private fun cachedVideoStat(bvid: String): Pair<Long, Long>? =
+        synchronized(videoStatCache) { videoStatCache[bvid] }
+
+    private fun putVideoStat(bvid: String, stat: Pair<Long, Long>) {
+        synchronized(videoStatCache) { videoStatCache[bvid] = stat }
+    }
+
+    /** 消息卡片补封面 / UP 主用的小缓存：bvid -> (封面, UP 主 mid)。 */
+    private data class MessageVideoBrief(val cover: String, val ownerMid: Long)
+
+    private val messageVideoCache =
+        object : LinkedHashMap<String, MessageVideoBrief>(64, 0.75f, true) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<String, MessageVideoBrief>?,
+            ): Boolean = size > 64
+        }
 
     @Volatile
     private var wbiKeys: WbiKeys? = null
@@ -103,33 +115,74 @@ class BiliApi(context: Context) {
         )
     }
 
+    /**
+     * App / TV 端扫码登录：比网页扫码多拿一个 access_key。
+     * access_key 存在 cookieJar 里，`signAppParams` 会自动带上，
+     * `/x/v2/space` 这类 App 接口才能返回 IP 属地等字段。
+     */
     suspend fun qrGenerate(): QrLogin = withContext(Dispatchers.IO) {
-        val data = dataRequest(
-            path = "/x/passport-login/web/qrcode/generate",
-            params = mapOf("source" to "main-fe-header"),
-            base = PASSPORT,
+        val params = mutableMapOf(
+            "local_id" to "0",
+            "mobi_app" to "android",
+            "platform" to "android",
         )
-        QrLogin(url = data.s("url"), key = data.s("qrcode_key"))
+        signAppParams(params, TV_APP_KEY, TV_APP_SEC, includeAccessKey = false)
+        val data = dataRequest(
+            path = "/x/passport-tv-login/qrcode/auth_code",
+            params = params,
+            base = PASSPORT,
+            method = "POST",
+        )
+        QrLogin(url = data.s("url"), key = data.s("auth_code"))
     }
 
     suspend fun qrPoll(key: String): QrPoll = withContext(Dispatchers.IO) {
-        val data = dataRequest(
-            path = "/x/passport-login/web/qrcode/poll",
-            params = mapOf("qrcode_key" to key, "source" to "main-fe-header"),
-            base = PASSPORT,
+        val params = mutableMapOf(
+            "auth_code" to key,
+            "local_id" to "0",
+            "mobi_app" to "android",
+            "platform" to "android",
         )
-        when (data.optInt("code", -1)) {
+        signAppParams(params, TV_APP_KEY, TV_APP_SEC, includeAccessKey = false)
+        val root = rawRequest(
+            path = "/x/passport-tv-login/qrcode/poll",
+            params = params,
+            base = PASSPORT,
+            method = "POST",
+        )
+        when (root.optInt("code", -1)) {
             0 -> {
-                val url = data.s("url")
-                saveLoginCookies(url)
+                val data = root.optJSONObject("data") ?: return@withContext QrPoll(
+                    QrState.Error,
+                    "登录失败：没有返回登录信息",
+                )
+                saveTvLogin(data)
                 val profile = nav()
                 QrPoll(QrState.Success, "登录成功", profile)
             }
-            86101 -> QrPoll(QrState.Waiting, "等待扫码")
+            86039, 86101 -> QrPoll(QrState.Waiting, "等待扫码")
             86090 -> QrPoll(QrState.Scanned, "已扫码，请在手机上确认")
             86038 -> QrPoll(QrState.Expired, "二维码已失效")
-            else -> QrPoll(QrState.Error, data.s("message").ifBlank { "登录失败" })
+            else -> QrPoll(
+                QrState.Error,
+                root.optString("message").ifBlank { "登录失败" },
+            )
         }
+    }
+
+    private fun saveTvLogin(data: JSONObject) {
+        val cookies = data.optJSONObject("cookie_info")
+            ?.optJSONArray("cookies")
+            .objects()
+        cookies.forEach { cookie ->
+            val name = cookie.s("name")
+            val value = cookie.s("value")
+            if (name.isNotBlank() && value.isNotBlank()) cookieJar.put(name, value)
+        }
+        // access_key 也存进同一个 cookie 容器，App 签名和退出登录都走它。
+        val accessKey = data.s("access_token")
+            .ifBlank { data.optJSONObject("token_info")?.s("access_token").orEmpty() }
+        if (accessKey.isNotBlank()) cookieJar.put("access_key", accessKey)
     }
 
     fun logout() {
@@ -298,6 +351,18 @@ class BiliApi(context: Context) {
         parseVideoDetail(data)
     }
 
+    /**
+     * 按 aid 查视频。
+     *
+     * 2026 年起 B 站开始使用 64 位的新 av 号（例如 117535471047131），
+     * 老的四则运算 av→BV 公式只适用于 32 位旧号，新号算出来是错的 BV。
+     * 消息中心这类只给 aid 的地方必须走这个接口让服务器换 BV。
+     */
+    suspend fun viewByAid(aid: Long): VideoDetail = withContext(Dispatchers.IO) {
+        val data = dataRequest("/x/web-interface/view", mapOf("aid" to aid.toString()))
+        parseVideoDetail(data)
+    }
+
     suspend fun playInfo(
         detail: VideoDetail,
         preferredQuality: Int,
@@ -393,7 +458,73 @@ class BiliApi(context: Context) {
         root.optJSONArray("data").objects().mapNotNull(::parseFeedVideo)
     }
 
-    suspend fun danmaku(cid: Long): List<DanmakuItem> = withContext(Dispatchers.IO) {
+    /**
+     * 拉弹幕：与 BiliPai 一致走 protobuf 分段接口 seg.so，拿到 like / count 字段，
+     * 这样热门弹幕条才能按「点赞数」显示 ×N，而不是本地统计相同文字。
+     * 分段弹幕失败时退回旧的 XML 接口，保证至少还有弹幕可看。
+     */
+    suspend fun danmaku(cid: Long, durationSec: Int = 0): List<DanmakuItem> = withContext(Dispatchers.IO) {
+        val segItems = runCatching { danmakuSegments(cid, durationSec) }.getOrDefault(emptyList())
+        if (segItems.isNotEmpty()) return@withContext segItems
+        danmakuXml(cid)
+    }
+
+    private suspend fun danmakuSegments(cid: Long, durationSec: Int): List<DanmakuItem> {
+        if (cid <= 0L) return emptyList()
+        // 每段 6 分钟；拿不到时长时先只取第一段。
+        val segments = if (durationSec > 0) {
+            ((durationSec + 359) / 360).coerceIn(1, 40)
+        } else {
+            1
+        }
+        val parsed = kotlinx.coroutines.coroutineScope {
+            (1..segments).map { index ->
+                async {
+                    runCatching { fetchDanmakuSegment(cid, index) }.getOrNull()
+                }
+            }.awaitAll()
+        }.filterNotNull()
+        val result = ArrayList<DanmakuItem>(1024)
+        for (bytes in parsed) {
+            val elems = runCatching {
+                com.android.purebilibili.danmaku.parser.DanmakuProto.parse(bytes)
+            }.getOrDefault(emptyList())
+            for (elem in elems) {
+                val text = elem.content.trim()
+                if (text.isBlank() || text.length > 90) continue
+                if (elem.mode !in intArrayOf(1, 2, 3, 4, 5, 6, 7, 8)) continue
+                result += DanmakuItem(
+                    timeMs = elem.progress.toLong(),
+                    mode = elem.mode,
+                    color = elem.color,
+                    size = if (elem.fontsize > 0) elem.fontsize.toFloat() else 25f,
+                    text = text,
+                    id = elem.id,
+                    likeCount = elem.like,
+                    count = elem.count,
+                )
+            }
+        }
+        return result.sortedBy { it.timeMs }
+    }
+
+    private suspend fun fetchDanmakuSegment(cid: Long, index: Int): ByteArray? {
+        val request = Request.Builder()
+            .url(
+                "https://api.bilibili.com/x/v2/dm/web/seg.so" +
+                    "?type=1&oid=$cid&segment_index=$index",
+            )
+            .header("User-Agent", UA)
+            .header("Referer", "https://www.bilibili.com/")
+            .get()
+            .build()
+        return client.newCall(request).awaitResponse().use { response ->
+            if (!response.isSuccessful) return null
+            response.body?.bytes()?.takeIf { it.isNotEmpty() }
+        }
+    }
+
+    private suspend fun danmakuXml(cid: Long): List<DanmakuItem> = withContext(Dispatchers.IO) {
         val request = Request.Builder()
             .url("$API/x/v1/dm/list.so?oid=$cid")
             .header("User-Agent", UA)
@@ -500,6 +631,7 @@ class BiliApi(context: Context) {
         root: Long,
         page: Int = 1,
         upMid: Long = 0,
+        sortTime: Boolean = false,
     ): CommentPage = withContext(Dispatchers.IO) {
         val data = dataRequest(
             "/x/v2/reply/reply",
@@ -509,6 +641,7 @@ class BiliApi(context: Context) {
                 "root" to root.toString(),
                 "pn" to page.toString(),
                 "ps" to "20",
+                "nohot" to if (sortTime) "1" else "0",
             ),
         )
         val list = data.optJSONArray("replies").objects().map { parseComment(it, upMid, false) }
@@ -921,7 +1054,7 @@ class BiliApi(context: Context) {
                 "max" to maxCursor.toString(),
                 "view_at" to viewAtCursor.toString(),
                 "business" to businessCursor,
-                "ps" to "30",
+                "ps" to "20",
             ),
         )
         val items = data.optJSONArray("list").objects().mapNotNull { item ->
@@ -1025,7 +1158,7 @@ class BiliApi(context: Context) {
      */
     suspend fun enrichHistoryStats(items: List<HistoryItem>): List<HistoryItem> {
         if (items.isEmpty()) return items
-        val missing = items.map { it.bvid }.distinct().filter { videoStatCache[it] == null }
+        val missing = items.map { it.bvid }.distinct().filter { cachedVideoStat(it) == null }
         if (missing.isNotEmpty()) {
             val limiter = Semaphore(6)
             kotlinx.coroutines.coroutineScope {
@@ -1039,7 +1172,7 @@ class BiliApi(context: Context) {
                                 )
                                 val stat = root.optJSONObject("data")?.optJSONObject("stat")
                                 if (stat != null) {
-                                    videoStatCache[bvid] = stat.l("view") to stat.l("danmaku")
+                                    putVideoStat(bvid, stat.l("view") to stat.l("danmaku"))
                                 }
                             }
                         }
@@ -1048,7 +1181,7 @@ class BiliApi(context: Context) {
             }
         }
         return items.map { item ->
-            val cached = videoStatCache[item.bvid]
+            val cached = cachedVideoStat(item.bvid)
             if (cached == null) {
                 item
             } else {
@@ -1104,7 +1237,7 @@ class BiliApi(context: Context) {
                 mapOf(
                     "media_id" to folderId.toString(),
                     "pn" to page.toString(),
-                    "ps" to "40",
+                    "ps" to "20",
                     "order" to "mtime",
                     "type" to "0",
                     "tid" to "0",
@@ -1134,20 +1267,25 @@ class BiliApi(context: Context) {
             videos to data.optBoolean("has_more", medias.size >= 40)
         }
 
-    suspend fun userDynamics(mid: Long): List<DynamicItem> = withContext(Dispatchers.IO) {
-        val data = dataRequest(
-            "/x/polymer/web-dynamic/v1/feed/space",
-            mapOf(
-                "host_mid" to mid.toString(),
-                "offset" to "",
-                "page" to "1",
-                "web_location" to "333.999",
-                "features" to "itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote",
-            ),
-            referer = "https://space.bilibili.com/$mid/dynamic",
-        )
-        data.optJSONArray("items").objects().mapNotNull { parseDynamicItem(it) }
-    }
+    suspend fun userDynamics(mid: Long, offset: String = ""): DynamicPage =
+        withContext(Dispatchers.IO) {
+            val data = dataRequest(
+                "/x/polymer/web-dynamic/v1/feed/space",
+                mapOf(
+                    "host_mid" to mid.toString(),
+                    "offset" to offset,
+                    "page" to "1",
+                    "web_location" to "333.999",
+                    "features" to "itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote",
+                ),
+                referer = "https://space.bilibili.com/$mid/dynamic",
+            )
+            DynamicPage(
+                items = data.optJSONArray("items").objects().mapNotNull { parseDynamicItem(it) },
+                offset = data.s("offset"),
+                hasMore = data.optBoolean("has_more", false),
+            )
+        }
 
     /** UP 主投稿视频数。 */
     suspend fun upVideoCount(mid: Long): Long = withContext(Dispatchers.IO) {
@@ -1200,36 +1338,6 @@ class BiliApi(context: Context) {
                 sign = user.s("sign"),
             )
         }
-    }
-
-    /** 官方视频缩略图：拖动进度时的画面预览。 */
-    suspend fun videoShot(cid: Long): VideoShot? = withContext(Dispatchers.IO) {
-        runCatching {
-            val data = dataRequest(
-                "/x/player/videoshot",
-                mapOf("cid" to cid.toString(), "index" to "1"),
-            )
-            val imageArray = data.optJSONArray("image")
-            val images = buildList {
-                for (i in 0 until (imageArray?.length() ?: 0)) {
-                    val raw = imageArray?.optString(i).orEmpty()
-                    if (raw.isNotBlank()) add(if (raw.startsWith("//")) "https:$raw" else raw)
-                }
-            }
-            val indexArray = data.optJSONArray("index")
-            val times = buildList {
-                for (i in 0 until (indexArray?.length() ?: 0)) add(indexArray?.optInt(i) ?: 0)
-            }
-            if (images.isEmpty() || times.isEmpty()) return@runCatching null
-            VideoShot(
-                images = images,
-                cols = data.optInt("img_x_len", 1).coerceAtLeast(1),
-                rows = data.optInt("img_y_len", 1).coerceAtLeast(1),
-                frameWidth = data.optInt("img_x_size", 0),
-                frameHeight = data.optInt("img_y_size", 0),
-                timesSec = times,
-            )
-        }.getOrNull()
     }
 
     /** 视频字幕列表：`/x/player/v2` 的 `subtitle.subtitles`（含 AI 字幕）。 */
@@ -1483,7 +1591,9 @@ class BiliApi(context: Context) {
             }
             true
         }.onFailure {
-            android.util.Log.w("BiliApi", "likeDynamic failed id=$id like=$like", it)
+            if (BuildConfig.DEBUG) {
+                android.util.Log.w("BiliApi", "likeDynamic failed id=$id like=$like", it)
+            }
         }.getOrDefault(false)
     }
 
@@ -1529,6 +1639,67 @@ class BiliApi(context: Context) {
                 true
             }.getOrDefault(false)
         }
+
+    /**
+     * App 聚合接口 /x/v2/space。
+     * 头图、充电人数、IP 属地都在这一份返回里，避免为每个字段各发一次请求。
+     */
+    private suspend fun spaceAppPayload(mid: Long): JSONObject? = withContext(Dispatchers.IO) {
+        runCatching {
+            // app.bilibili.com 不吃网页 WBI 签名，必须按 App 规则加 appkey/ts/sign，
+            // 否则只会返回 -400「请求错误」，头图永远空白。这里和 PiliPlus 的请求一致。
+            val params = mutableMapOf(
+                "build" to "8430300",
+                "version" to "8.43.0",
+                "mobi_app" to "android",
+                "platform" to "android",
+                "channel" to "master",
+                "vmid" to mid.toString(),
+                "c_locale" to "zh_CN",
+                "s_locale" to "zh_CN",
+                "statistics" to "{\"appId\":1,\"platform\":3,\"version\":\"8.43.0\",\"abtest\":\"\"}",
+            )
+            signAppParams(params)
+            dataRequest(
+                "/x/v2/space",
+                params,
+                base = APP_API,
+                userAgent = APP_UA,
+                referer = "https://space.bilibili.com/$mid",
+                headers = APP_HEADERS,
+            )
+        }.getOrNull()
+    }
+
+    private fun spaceBannerFrom(payload: JSONObject?): String {
+        val images = payload?.optJSONObject("images") ?: return ""
+        val day = images.s("imgUrl").orEmpty()
+        val night = images.s("night_imgurl").orEmpty()
+        val collectionFirst = images
+            .optJSONObject("collection_top_simple")
+            ?.optJSONObject("top")
+            ?.optJSONArray("result")
+            ?.optJSONObject(0)
+        val collectionCover = collectionFirst
+            ?.optJSONObject("item")
+            ?.optJSONObject("image")
+            ?.s("default_image")
+            .orEmpty()
+            .ifBlank { collectionFirst?.s("cover").orEmpty() }
+        return image(collectionCover.ifBlank { day.ifBlank { night } }, 1080)
+    }
+
+    /** 空间头图：优先 App 聚合接口 /x/v2/space 的 images，失败回退网页 acc/info 的 top_photo。 */
+    private suspend fun spaceHeaderImage(mid: Long): String = spaceBannerFrom(spaceAppPayload(mid))
+
+    /** 为 TA 充电的人数：使用 PiliPlus 同款 App 聚合接口的 elec.total。 */
+    suspend fun spaceChargeCount(mid: Long): Long = withContext(Dispatchers.IO) {
+        val payload = spaceAppPayload(mid) ?: return@withContext 0L
+        val elec = payload.optJSONObject("elec")
+        elec?.l("total")?.takeIf { it > 0L }
+            ?: elec?.optJSONArray("list")?.length()?.toLong()?.takeIf { it > 0L }
+            ?: 0L
+    }
 
     suspend fun space(mid: Long): SpaceInfo = withContext(Dispatchers.IO) {
         // 资料、关系、投稿、导航数互不依赖，并行拉取；页面总耗时从“四次相加”变成“最慢的一次”。
@@ -1577,11 +1748,42 @@ class BiliApi(context: Context) {
                 dataRequest("/x/space/navnum", mapOf("mid" to mid.toString()))
             }.getOrNull()
         }
+        // 头图、充电人数、IP 属地共用这一份 App 聚合数据。
+        val appSpaceDeferred = async { spaceAppPayload(mid) }
 
         val info = infoDeferred.await()
         val stat = statDeferred.await()
         val videos = videosDeferred.await()
         val nav = navDeferred.await()
+        val appSpace = appSpaceDeferred.await()
+        val medal = info.optJSONObject("fans_medal")?.optJSONObject("medal")
+        val official = info.optJSONObject("official")
+        // 和 PiliPlus 一样只认 App 聚合接口的 card.vip。
+        // PiliPlus 的 Vip.fromJson 是 status 优先、vipStatus 兜底，type 优先、vipType 兜底。
+        val cardVip = appSpace?.optJSONObject("card")?.optJSONObject("vip")
+        val vipStatus = cardVip?.optInt("status", 0)
+            ?.takeIf { it > 0 }
+            ?: (cardVip?.optInt("vipStatus", 0) ?: 0)
+        val vipLabelObj = cardVip?.optJSONObject("label")
+        val vipTheme = vipLabelObj?.s("label_theme").orEmpty()
+        val vipType = cardVip?.optInt("type", 0)
+            ?.takeIf { it > 0 }
+            ?: (cardVip?.optInt("vipType", 0) ?: 0)
+        val vipLabel = vipLabelObj?.s("text").orEmpty().ifBlank {
+            when {
+                vipTheme.contains("hundred", ignoreCase = true) -> "百年大会员"
+                vipTheme.contains("ten_year", ignoreCase = true) -> "十年大会员"
+                vipTheme.contains("ten", ignoreCase = true) -> "十年大会员"
+                vipTheme.contains("annual", ignoreCase = true) -> "年度大会员"
+                vipType == 2 -> "年度大会员"
+                vipStatus == 1 -> "大会员"
+                else -> ""
+            }
+        }
+        val elec = appSpace?.optJSONObject("elec")
+        val charge = elec?.l("total")?.takeIf { it > 0L }
+            ?: elec?.optJSONArray("list")?.length()?.toLong()?.takeIf { it > 0L }
+            ?: 0L
         val vlist = videos?.optJSONObject("list")?.optJSONArray("vlist").objects().orEmpty()
         SpaceInfo(
             profile = UserProfile(
@@ -1591,8 +1793,8 @@ class BiliApi(context: Context) {
                 sign = info.s("sign"),
                 level = info.optInt("level", 0),
                 coins = 0.0,
-                vip = info.optJSONObject("vip")?.optInt("vipStatus") == 1,
-                vipLabel = info.optJSONObject("vip")?.optJSONObject("label")?.s("text").orEmpty(),
+                vip = vipStatus == 1,
+                vipLabel = vipLabel,
                 follower = stat?.l("follower") ?: 0,
                 following = stat?.l("following") ?: 0,
                 likes = info.optLong("likes", 0L).takeIf { it > 0L }
@@ -1600,9 +1802,21 @@ class BiliApi(context: Context) {
                         dataRequest("/x/space/upstat", mapOf("mid" to mid.toString())).l("likes")
                     }.getOrDefault(0L).takeIf { it > 0L }
                     ?: nav?.l("likes") ?: 0L,
-                banner = runCatching { image(info.s("top_photo"), 1080) }.getOrDefault(""),
-                ipLocation = info.s("ip_location"),
-                officialTitle = info.optJSONObject("official")?.s("title").orEmpty(),
+                banner = spaceBannerFrom(appSpace)
+                    .ifBlank {
+                        val card = info.optJSONObject("card")
+                        val raw = info.s("top_photo")
+                            .ifBlank { card?.s("top_photo").orEmpty() }
+                            .ifBlank { info.optJSONObject("space")?.s("top_photo").orEmpty() }
+                        runCatching { image(raw, 1080) }.getOrDefault("")
+                    },
+                officialTitle = official?.s("title").orEmpty(),
+                officialDesc = official?.s("desc").orEmpty(),
+                officialType = official?.optInt("type", 0) ?: 0,
+                fansMedalName = medal?.s("medal_name").orEmpty(),
+                fansMedalLevel = medal?.optInt("level", 0) ?: 0,
+                fansMedalColor = medal?.optInt("medal_color", 0) ?: 0,
+                chargingCount = charge,
                 levelExp = info.optLong("level_exp", 0L),
                 nextLevelExp = info.optLong("next_level_exp", 0L),
             ),
@@ -1612,7 +1826,287 @@ class BiliApi(context: Context) {
         )
     }
 
+    suspend fun spaceSeasonsSeries(mid: Long): List<SpaceSeason> = withContext(Dispatchers.IO) {
+        runCatching {
+            val data = dataRequest(
+                "/x/polymer/web-space/seasons_series_list",
+                mapOf(
+                    "mid" to mid.toString(),
+                    "page_num" to "1",
+                    "page_size" to "10",
+                    "web_location" to "333.1387",
+                ),
+                referer = "https://space.bilibili.com/$mid",
+            )
+            val lists = data.optJSONObject("items_lists")
+            val out = ArrayList<SpaceSeason>()
+            lists?.optJSONArray("seasons_list")?.objects().orEmpty().forEach { item ->
+                val meta = item.optJSONObject("meta") ?: return@forEach
+                val id = meta.l("season_id")
+                val title = meta.s("name").ifBlank { meta.s("title") }
+                val cover = image(meta.s("cover"), 480)
+                if (id <= 0L || title.isBlank() || cover.isBlank()) return@forEach
+                out += SpaceSeason(
+                    id = id,
+                    title = title,
+                    cover = cover,
+                    total = meta.optInt("total", 0),
+                    isSeries = false,
+                )
+            }
+            lists?.optJSONArray("series_list")?.objects().orEmpty().forEach { item ->
+                val meta = item.optJSONObject("meta") ?: return@forEach
+                val id = meta.l("series_id")
+                val title = meta.s("name").ifBlank { meta.s("title") }
+                val cover = image(meta.s("cover"), 480)
+                if (id <= 0L || title.isBlank() || cover.isBlank()) return@forEach
+                out += SpaceSeason(
+                    id = id,
+                    title = title,
+                    cover = cover,
+                    total = meta.optInt("total", 0),
+                    isSeries = true,
+                )
+            }
+            out
+        }.getOrDefault(emptyList())
+    }
+
+    /** 合集 / 系列的投稿列表。 */
+    suspend fun spaceCollectionArchives(
+        mid: Long,
+        collection: SpaceSeason,
+    ): List<VideoItem> = withContext(Dispatchers.IO) {
+        runCatching {
+            val data = if (collection.isSeries) {
+                dataRequest(
+                    "/x/series/archives",
+                    mapOf(
+                        "mid" to mid.toString(),
+                        "series_id" to collection.id.toString(),
+                        "only_normal" to "true",
+                        "sort" to "desc",
+                        "pn" to "1",
+                        "ps" to "30",
+                        "web_location" to "333.1387",
+                    ),
+                    referer = "https://space.bilibili.com/$mid",
+                )
+            } else {
+                dataRequest(
+                    "/x/polymer/web-space/seasons_archives_list",
+                    mapOf(
+                        "mid" to mid.toString(),
+                        "season_id" to collection.id.toString(),
+                        "page_num" to "1",
+                        "page_size" to "30",
+                        "sort_reverse" to "false",
+                        "web_location" to "333.1387",
+                    ),
+                    referer = "https://space.bilibili.com/$mid",
+                )
+            }
+            data.optJSONArray("archives").objects().mapNotNull { archive ->
+                val bvid = archive.s("bvid")
+                if (bvid.isBlank()) return@mapNotNull null
+                val stat = archive.optJSONObject("stat")
+                VideoItem(
+                    bvid = bvid,
+                    aid = archive.l("aid"),
+                    title = archive.s("title"),
+                    cover = image(archive.s("pic"), 480),
+                    ownerName = "",
+                    ownerFace = "",
+                    ownerMid = mid,
+                    play = stat?.l("view") ?: archive.l("play"),
+                    danmaku = stat?.l("danmaku") ?: 0L,
+                    duration = archive.optInt("duration", 0),
+                    pubdate = archive.l("pubdate"),
+                    cid = archive.l("cid"),
+                )
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    /** 空间投稿（按发布时间，分页）。 */
+    suspend fun spaceVideos(mid: Long, page: Int): List<VideoItem> = withContext(Dispatchers.IO) {
+        runCatching {
+            val data = dataRequest(
+                "/x/space/wbi/arc/search",
+                mapOf(
+                    "mid" to mid.toString(),
+                    "pn" to page.toString(),
+                    "ps" to "30",
+                    "order" to "pubdate",
+                    "web_location" to "1550101",
+                    "dm_img_list" to "[]",
+                    "dm_img_str" to "V2ViR0wgMS4wIChPcGVuR0wgRVMgMi4wIENocm9taXVtKQ",
+                    "dm_cover_img_str" to "QU5HTEUgKE5WSURJQSwgTlZJRElBIEdlRm9yY2UgR1RYIDEwNjAgNkdCIERpcmVjdDNEMTEp",
+                    "dm_img_inter" to "{\"ds\":[],\"wh\":[0,0,0],\"of\":[0,0,0]}",
+                ),
+                signed = true,
+                referer = "https://space.bilibili.com/$mid",
+            )
+            data.optJSONObject("list")?.optJSONArray("vlist").objects()
+                .mapNotNull(::parseSpaceVideo)
+        }.getOrDefault(emptyList())
+    }
+
+    /** 空间图文投稿。 */
+    suspend fun spaceArticles(mid: Long, page: Int): List<SpaceArticle> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val data = dataRequest(
+                    "/x/space/wbi/article",
+                    mapOf(
+                        "mid" to mid.toString(),
+                        "pn" to page.toString(),
+                        "ps" to "20",
+                        "sort" to "publish_time",
+                    ),
+                    signed = true,
+                    referer = "https://space.bilibili.com/$mid",
+                )
+                data.optJSONArray("articles").objects().mapNotNull { article ->
+                    val id = article.l("id")
+                    if (id <= 0L) return@mapNotNull null
+                    val covers = article.optJSONArray("covers")
+                    val cover = when {
+                        covers != null && covers.length() > 0 -> covers.optString(0)
+                        else -> article.s("cover")
+                    }
+                    SpaceArticle(
+                        id = id,
+                        title = article.s("title"),
+                        cover = image(cover, 480),
+                        view = article.optJSONObject("stats")?.l("view")
+                            ?: article.l("view"),
+                        publishTime = article.l("publish_time"),
+                    )
+                }
+            }.getOrDefault(emptyList())
+        }
+
+    /** 空间追番。 */
+    suspend fun spaceBangumi(mid: Long, page: Int): List<SpaceBangumi> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val data = dataRequest(
+                    "/x/space/bangumi",
+                    mapOf(
+                        "mid" to mid.toString(),
+                        "pn" to page.toString(),
+                        "ps" to "30",
+                    ),
+                    referer = "https://space.bilibili.com/$mid",
+                )
+                data.optJSONArray("list").objects().mapNotNull { item ->
+                    val seasonId = item.l("season_id")
+                    val title = item.s("title")
+                    if (seasonId <= 0L || title.isBlank()) return@mapNotNull null
+                    SpaceBangumi(
+                        seasonId = seasonId,
+                        title = title,
+                        cover = image(item.s("cover"), 480),
+                        progress = item.s("progress"),
+                        total = item.optInt("total_count", 0),
+                    )
+                }
+            }.getOrDefault(emptyList())
+        }
+
+    /** UP 主小店：mall.bilibili.com 的 App 签名 POST 接口，先取第一页 8 个。 */
+    suspend fun spaceShop(mid: Long): List<SpaceShopItem> = withContext(Dispatchers.IO) {
+        runCatching {
+            val extras = mutableMapOf(
+                "actionKey" to "appkey",
+                "build" to "8430300",
+                "mVersion" to "309",
+                "mallVersion" to "8430300",
+                "statistics" to
+                    "{\"appId\":1,\"platform\":3,\"version\":\"8.43.0\",\"abtest\":\"\"}",
+            )
+            signAppParams(extras)
+            val query = extras.entries.joinToString("&") { (key, value) ->
+                "${android.net.Uri.encode(key)}=${android.net.Uri.encode(value)}"
+            }
+            val body = JSONObject()
+                .put("from", "cps_productTab_$mid")
+                .put("searchAfter", 0)
+                .put("msource", "cps_productTab_$mid")
+                .put("pageSize", 8)
+                .put("upMid", mid.toString())
+                .toString()
+            val request = Request.Builder()
+                .url("https://mall.bilibili.com/community-hub/small_shop/feed/tab/item?$query")
+                .post(body.toRequestBody("application/json".toMediaTypeOrNull()))
+                .header("User-Agent", APP_UA)
+                .header("Referer", "https://mall.bilibili.com/")
+                .header("Origin", "https://mall.bilibili.com")
+                .build()
+            val root = executeOnce(request, tolerateEmptyBody = true)
+            if (root.optInt("code", 0) != 0) return@runCatching emptyList()
+            val data = root.optJSONObject("data") ?: return@runCatching emptyList()
+            data.optJSONArray("data").objects().mapNotNull { item ->
+                val title = item.s("title")
+                if (title.isBlank()) return@mapNotNull null
+                val coverObj = item.optJSONObject("cover")
+                val priceObj = item.optJSONObject("netPrice")
+                val price = if (priceObj != null) {
+                    buildString {
+                        priceObj.s("pricePrefix").takeIf { it.isNotBlank() }?.let {
+                            append(it); append(' ')
+                        }
+                        append(priceObj.s("priceSymbol"))
+                        append(priceObj.s("netPrice"))
+                    }
+                } else {
+                    ""
+                }
+                val labels = item.optJSONArray("belowLabels").objects()
+                    .mapNotNull { it.s("title").takeIf(String::isNotBlank) }
+                    .joinToString("|")
+                SpaceShopItem(
+                    title = title,
+                    cover = image(coverObj?.s("url").orEmpty(), 480),
+                    price = price,
+                    source = labels.ifBlank { item.s("itemSourceName") },
+                    url = item.s("cardUrl"),
+                )
+            }
+        }.getOrDefault(emptyList())
+    }
+
     // ---------------------------------------------------------------- search
+
+    /**
+     * 搜索词联想：PiliPlus 同款 s.search.bilibili.com/main/suggest。
+     * 返回 term 作为真正提交的词，name 里可能带高亮 HTML，这里清洗掉。
+     */
+    suspend fun searchSuggest(term: String): List<String> = withContext(Dispatchers.IO) {
+        if (term.isBlank()) return@withContext emptyList()
+        runCatching {
+            val root = rawRequest(
+                "/main/suggest",
+                mapOf(
+                    "term" to term,
+                    "main_ver" to "v1",
+                    "highlight" to term,
+                ),
+                base = "https://s.search.bilibili.com",
+            )
+            root.optJSONObject("result")
+                ?.optJSONArray("tag")
+                .objects()
+                .mapNotNull { item ->
+                    item.s("term")
+                        .ifBlank { cleanHtml(item.s("name")) }
+                        .takeIf { it.isNotBlank() }
+                }
+                .distinct()
+                .take(8)
+        }.getOrDefault(emptyList())
+    }
 
     /** B 站热搜词。依次尝试「搜索发现」和「热搜词」，都失败时给一份兜底列表。 */
     suspend fun hotKeywords(): List<String> = withContext(Dispatchers.IO) {
@@ -1773,21 +2267,91 @@ class BiliApi(context: Context) {
                 it.s("nickname").ifBlank { it.s("uname") }.takeIf(String::isNotBlank)
             }
             val detailType = detail?.s("type").orEmpty()
-            val action = when {
-                type == 1 || detailType == "at" -> "提到了我"
-                type == 2 -> "赞了我的评论"
-                detailType == "video" -> "对我的视频发表了评论"
-                else -> "回复了我的评论"
-            }
-            val content = item.s("content")
+            val isLike = type == 2
+            val isAt = type == 1 || detailType == "at"
+            val sourceContent = detail?.s("source_content").orEmpty()
+            val targetContent = detail?.s("target_reply_content").orEmpty()
+            val rootContent = detail?.s("root_reply_content").orEmpty()
+            val businessId = detail?.optInt("business_id", 0) ?: 0
+            val rawContent = item.s("content")
                 .ifBlank { detail?.s("content").orEmpty() }
                 .ifBlank { detail?.s("message").orEmpty() }
-            val source = detail?.s("source_content").orEmpty()
-                .ifBlank { detail?.s("root_reply_content").orEmpty() }
-                .ifBlank { detail?.s("target_reply_content").orEmpty() }
+            // 回复通知的正文经常只放在 source_content 里；点赞通知优先保留原始正文，
+            // 这样「收到喜欢」右侧才能显示被点赞的评论原文。
+            val content = if (isLike) rawContent else rawContent.ifBlank { sourceContent }
+            val likeVideo = isLike && (
+                detailType == "video" || detailType == "archive" ||
+                    (businessId == 1 && sourceContent.isBlank() &&
+                        targetContent.isBlank() && rootContent.isBlank() && rawContent.isBlank())
+                )
+            val commentOnMyVideo = !isLike && !isAt &&
+                (detailType == "video" ||
+                    businessId == 1 && targetContent.isBlank() && rootContent.isBlank())
+            val action = when {
+                isLike && likeVideo -> "赞了我的视频"
+                isLike -> "赞了我的评论"
+                isAt -> "提到了我"
+                commentOnMyVideo -> "对我的视频发表了评论"
+                else -> "回复了我的评论"
+            }
+            // 右侧：层主评论 > 我原来的评论；评论我视频时固定用视频封面。
+            val subjectText = when {
+                commentOnMyVideo -> ""
+                isLike -> if (likeVideo) "" else sourceContent
+                    .ifBlank { targetContent }
+                    .ifBlank { rootContent }
+                    .ifBlank { rawContent }
+                rootContent.isNotBlank() -> rootContent
+                targetContent.isNotBlank() -> targetContent
+                else -> ""
+            }
+            // 底部引用只在线程里出现：我在这层楼里说过的话。
+            val quote = if (!isLike && rootContent.isNotBlank()) targetContent else ""
+            val source = sourceContent
+                .ifBlank { rootContent }
+                .ifBlank { targetContent }
+                .ifBlank { rawContent }
                 .ifBlank { detail?.s("desc").orEmpty() }
                 .ifBlank { item.s("title") }
             val title = detail?.s("title").orEmpty().ifBlank { item.s("title") }
+            val subjectCover = if (likeVideo || commentOnMyVideo) {
+                detail?.s("cover").orEmpty()
+                    .ifBlank { detail?.s("pic").orEmpty() }
+            } else {
+                ""
+            }
+            val videoSubject = likeVideo || commentOnMyVideo
+            val subjectId = (detail?.l("subject_id") ?: 0L)
+                .takeIf { it > 0L }
+                ?: item.l("subject_id")
+            val nativeUri = detail?.s("native_uri").orEmpty()
+                .ifBlank { detail?.s("uri").orEmpty() }
+                .ifBlank { item.s("native_uri").orEmpty() }
+            // 消息接口最可靠的是 native_uri：bilibili://video/{aid}/?comment_root_id=..&comment_secondary_id=..
+            // 之前只看 bvid / subject_id，回复消息里这两项经常为空或是别的东西，导致跳过去是空的。
+            val uriAid = listOf(
+                "bilibili://video/(\\d+)",
+                "bilibili://video/[aA][vV](\\d+)",
+                "bilibili\\.com/video/[aA][vV](\\d+)",
+            ).firstNotNullOfOrNull { pattern ->
+                Regex(pattern).find(nativeUri)?.groupValues?.getOrNull(1)?.toLongOrNull()
+            }
+            val uriBvid = Regex("BV[0-9A-Za-z]{10}").find(nativeUri)?.value.orEmpty()
+            val uriRootRpid = Regex("[?&]comment_root_id=(\\d+)")
+                .find(nativeUri)?.groupValues?.getOrNull(1)?.toLongOrNull() ?: 0L
+            val uriSecondRpid = Regex("[?&]comment_secondary_id=(\\d+)")
+                .find(nativeUri)?.groupValues?.getOrNull(1)?.toLongOrNull() ?: 0L
+            val bvid = uriBvid.ifBlank {
+                detail?.s("bvid").orEmpty()
+            }
+            val aid = when {
+                uriAid != null && uriAid > 0L -> uriAid
+                subjectId > 0L -> subjectId
+                else -> (detail?.l("oid") ?: 0L).takeIf { it > 0L }
+                    ?: (item.l("oid") ?: 0L)
+            }
+            val seekSeconds = Regex("[?&#](?:t|start|time)=([0-9]+)")
+                .find(nativeUri)?.groupValues?.getOrNull(1)?.toLongOrNull() ?: 0L
             // 点赞通知的文字字段经常是空的，只要有用户就保留，否则整页会「没有内容」。
             if (type != 2 && title.isBlank() && content.isBlank() && source.isBlank()) {
                 return@mapNotNull null
@@ -1804,7 +2368,7 @@ class BiliApi(context: Context) {
                     ?: (item.s("pub_time").toLongOrNull() ?: 0L),
                 name = user?.s("nickname").orEmpty().ifBlank { user?.s("uname").orEmpty() },
                 avatar = avatar(user?.s("avatar").orEmpty(), 96),
-                bvid = detail?.s("bvid").orEmpty(),
+                bvid = bvid,
                 action = action,
                 source = source,
                 userMid = user?.l("mid") ?: 0L,
@@ -1815,13 +2379,80 @@ class BiliApi(context: Context) {
                     detail?.optInt("counts", 0) ?: 0,
                     names.size,
                 ),
+                aid = aid,
+                rootRpid = uriRootRpid.takeIf { it > 0L } ?: (detail?.l("root_id") ?: 0L),
+                targetRpid = uriSecondRpid.takeIf { it > 0L } ?: (detail?.l("target_id") ?: 0L),
+                sourceRpid = uriSecondRpid.takeIf { it > 0L }
+                    ?: (detail?.l("source_id") ?: 0L),
+                businessId = businessId,
+                seekMs = seekSeconds * 1000L,
+                quote = quote,
+                subjectText = subjectText,
+                subjectCover = subjectCover,
+                videoSubject = videoSubject,
+                atMe = isAt,
+                commentOnMyVideo = commentOnMyVideo,
             )
         }
+        // 补充封面 / UP 主关系：同一个视频只查一次，失败不影响文字消息。
+        val enriched = enrichMessageVideos(parsed, type)
         LogCollector.record(
             "MSG",
-            "type=$type items=${rawItems.size} parsed=${parsed.size}",
+            "type=$type items=${rawItems.size} parsed=${enriched.size}",
         )
-        parsed
+        enriched
+    }
+
+    /**
+     * 消息接口只给文字和视频 id，不给封面、也不说回复者是不是 UP 主。
+     * 这里按 bvid 去重补一次视频信息；每页最多补 12 个，失败就保留纯文字卡片。
+     */
+    private suspend fun enrichMessageVideos(
+        items: List<MessageItem>,
+        type: Int,
+    ): List<MessageItem> {
+        if (items.isEmpty() || type == 1) return items
+        fun resolvedBvid(item: MessageItem): String =
+            item.bvid.ifBlank { aidToBvid(item.aid) }
+        val targets = items
+            .filter { resolvedBvid(it).isNotBlank() && (type == 0 || it.videoSubject) }
+            .distinctBy { resolvedBvid(it) }
+            .take(12)
+        if (targets.isEmpty()) return items
+        val briefs = withContext(Dispatchers.IO) {
+            kotlinx.coroutines.coroutineScope {
+                targets.map { item ->
+                    async {
+                        val bvid = resolvedBvid(item)
+                        val cached = synchronized(messageVideoCache) { messageVideoCache[bvid] }
+                        val brief = cached ?: runCatching {
+                            val detail = view(bvid)
+                            MessageVideoBrief(detail.cover, detail.ownerMid).also {
+                                synchronized(messageVideoCache) {
+                                    messageVideoCache[bvid] = it
+                                }
+                            }
+                        }.getOrNull()
+                        bvid to brief
+                    }
+                }.awaitAll()
+            }
+        }.filter { it.second != null }.associate { it.first to it.second!! }
+        if (briefs.isEmpty()) return items
+        return items.map { item ->
+            val bvid = resolvedBvid(item)
+            val brief = briefs[bvid] ?: return@map item
+            item.copy(
+                bvid = item.bvid.ifBlank { bvid },
+                subjectCover = if (item.videoSubject && item.subjectCover.isBlank()) {
+                    brief.cover
+                } else {
+                    item.subjectCover
+                },
+                isUp = item.isUp ||
+                    (item.userMid > 0L && brief.ownerMid > 0L && item.userMid == brief.ownerMid),
+            )
+        }
     }
 
     /**
@@ -1842,72 +2473,98 @@ class BiliApi(context: Context) {
         return followed(user) || followed(item)
     }
 
-    /** 消息中心会话列表（系统通知 + 私信会话）。 */
-    suspend fun messageSessions(followingOnly: Boolean): List<MessageSession> =
-        withContext(Dispatchers.IO) {
-            val request = mapOf(
-                "session_type" to "4",
-                "group_fold" to "0",
-                "unfollow_fold" to "0",
-                "sort_rule" to "2",
-                "size" to "200",
-                "mobi_app" to "web",
-            )
-            val root = rawRequest(
-                "/session_svr/v1/session_svr/get_sessions",
-                request,
-                base = VC,
-            )
-            if (root.optInt("code", 0) != 0) return@withContext emptyList()
-            val allSessions = root.optJSONObject("data")
-                ?.optJSONArray("session_list")
-                ?.objects()
-                .orEmpty()
-            // 「我关注的人」不再只依赖 session_type=9（部分账号会直接返回空），
-            // 先按 is_follow 过滤全部会话；仍然是空的话再请求一次 9 兜底。
-            val raw = if (followingOnly) {
-                val followed = allSessions.filter {
-                    it.optInt("is_follow", 0) == 1 &&
-                        it.optInt("system_msg_type", 0) == 0
-                }
-                if (followed.isNotEmpty()) {
-                    followed
-                } else {
-                    rawRequest(
-                        "/session_svr/v1/session_svr/get_sessions",
-                        request + ("session_type" to "9"),
-                        base = VC,
-                    ).optJSONObject("data")
-                        ?.optJSONArray("session_list")
-                        ?.objects()
-                        .orEmpty()
-                        .filter { it.optInt("system_msg_type", 0) == 0 }
-                }
-            } else {
-                allSessions
+    /** 消息中心会话列表：一次 25 条，按 session_ts 继续往后翻。 */
+    suspend fun messageSessions(
+        followingOnly: Boolean,
+        sessionTs: Long = 0L,
+        pageSize: Int = 25,
+        /** 昵称 / 头像补全完成后再回调一次，让首屏先显示、名字稍后补上。 */
+        onEnriched: ((List<MessageSession>) -> Unit)? = null,
+    ): Pair<List<MessageSession>, Boolean> = withContext(Dispatchers.IO) {
+        val request = mutableMapOf(
+            "session_type" to "4",
+            "group_fold" to "0",
+            "unfollow_fold" to "0",
+            "sort_rule" to "2",
+            "size" to pageSize.toString(),
+            "mobi_app" to "web",
+        )
+        if (sessionTs > 0L) request["session_ts"] = sessionTs.toString()
+        val root = rawRequest(
+            "/session_svr/v1/session_svr/get_sessions",
+            request,
+            base = VC,
+        )
+        if (root.optInt("code", 0) != 0) return@withContext emptyList<MessageSession>() to false
+        val allSessions = root.optJSONObject("data")
+            ?.optJSONArray("session_list")
+            ?.objects()
+            .orEmpty()
+        val raw = if (followingOnly) {
+            val followed = allSessions.filter {
+                it.optInt("is_follow", 0) == 1 &&
+                    it.optInt("system_msg_type", 0) == 0
             }
-            val system = raw.map { it.toMessageSession() }
-            // 私信会话只给 talker_id，名字/头像要单独补；最多补 12 个，避免一次打太多接口。
-            val needResolve = system
-                .filter { it.name.isBlank() && it.sessionType == 1 && !it.isSystem }
-            if (needResolve.isEmpty()) return@withContext system
-            // 不再只补前 12 个；分批并发，保证下拉到底的人名和头像也都齐全。
-            val resolved = kotlinx.coroutines.coroutineScope {
-                needResolve.chunked(8).flatMap { chunk ->
-                    chunk.map { session ->
-                        async {
-                            val brief = userBrief(session.talkerId)
-                            if (brief == null) {
-                                session
-                            } else {
-                                session.copy(name = brief.first, avatar = brief.second)
-                            }
-                        }
-                    }.awaitAll()
-                }
-            }.associateBy { it.id }
-            system.map { resolved[it.id] ?: it }
+            if (followed.isNotEmpty()) {
+                followed
+            } else {
+                rawRequest(
+                    "/session_svr/v1/session_svr/get_sessions",
+                    request + ("session_type" to "9"),
+                    base = VC,
+                ).optJSONObject("data")
+                    ?.optJSONArray("session_list")
+                    ?.objects()
+                    .orEmpty()
+                    .filter { it.optInt("system_msg_type", 0) == 0 }
+            }
+        } else {
+            allSessions
         }
+        val system = raw.map { it.toMessageSession() }
+        // 首屏先返回：内存缓存里已经有的名字/头像立即带上，其余留给后台补全。
+        val quick = system.map { session ->
+            val cached = MessageUserCache.get(session.talkerId)
+            if (cached != null) {
+                session.copy(name = cached.first, avatar = cached.second)
+            } else {
+                session
+            }
+        }
+        val needResolve = quick
+            .filter { it.name.isBlank() && it.sessionType == 1 && !it.isSystem }
+        if (needResolve.isNotEmpty() && onEnriched != null) {
+            backgroundScope.launch {
+                runCatching {
+                    kotlinx.coroutines.coroutineScope {
+                        needResolve.map { session ->
+                            async {
+                                val cached = MessageUserCache.get(session.talkerId)
+                                if (cached != null) {
+                                    session.copy(name = cached.first, avatar = cached.second)
+                                } else {
+                                    val brief = userBrief(session.talkerId)
+                                    if (brief == null) {
+                                        session
+                                    } else {
+                                        MessageUserCache.put(
+                                            session.talkerId,
+                                            brief.first,
+                                            brief.second,
+                                        )
+                                        session.copy(name = brief.first, avatar = brief.second)
+                                    }
+                                }
+                            }
+                        }.awaitAll()
+                    }.associateBy { it.id }.let { map ->
+                        onEnriched(quick.map { map[it.id] ?: it })
+                    }
+                }
+            }
+        }
+        quick to (raw.size >= pageSize)
+    }
 
     /** 拉取一个私信会话的消息。 */
     suspend fun privateMessages(
@@ -2004,6 +2661,7 @@ class BiliApi(context: Context) {
         data.optJSONArray("list").objects().mapNotNull { fan ->
             val fanMid = fan.l("mid")
             if (fanMid <= 0L) return@mapNotNull null
+            val attribute = fan.optInt("attribute", 0)
             MessageItem(
                 id = "fans_$fanMid",
                 title = "",
@@ -2014,6 +2672,9 @@ class BiliApi(context: Context) {
                 action = "关注了我",
                 source = fan.s("sign"),
                 userMid = fanMid,
+                // 粉丝列表接口里 attribute 2/6 表示我已经关注 / 互关，用来决定「回关」按钮。
+                followed = attribute == 2 || attribute == 6 ||
+                    fan.optBoolean("is_follow", false),
             )
         }
     }
@@ -2118,6 +2779,7 @@ class BiliApi(context: Context) {
             unread = optInt("unread_count", 0),
             isSystem = systemType != 0 || account != null,
             maxSeqno = l("max_seqno"),
+            sessionTs = l("session_ts"),
         )
     }
 
@@ -2493,6 +3155,12 @@ class BiliApi(context: Context) {
             val url = pic.s("img_src").ifBlank { pic.s("url") }
             if (url.isBlank()) null else image(url, 720)
         }.orEmpty()
+        // 正文里 @ 的人；官方接口会在 content.members 里给出 mid。
+        val mentions = content?.optJSONArray("members")?.objects()?.mapNotNull { m ->
+            val name = m.s("uname").ifBlank { m.s("name") }
+            val memberMid = m.l("mid")
+            if (name.isBlank() || memberMid <= 0L) null else CommentMention(memberMid, name)
+        }.orEmpty()
         return CommentItem(
             rpid = reply.l("rpid"),
             uname = member?.s("uname").orEmpty(),
@@ -2513,6 +3181,7 @@ class BiliApi(context: Context) {
             ipLocation = reply.optJSONObject("reply_control")?.s("location").orEmpty(),
             isVip = member?.optJSONObject("vip")?.optInt("vipStatus", 0) == 1,
             pictures = pictures,
+            mentions = mentions,
             previewReplies = if (depth < 1) {
                 reply.optJSONArray("replies")?.objects()
                     ?.take(3)
@@ -2620,8 +3289,19 @@ class BiliApi(context: Context) {
         base: String = API,
         method: String = "GET",
         referer: String? = null,
+        userAgent: String? = null,
+        headers: Map<String, String> = emptyMap(),
     ): JSONObject {
-        val root = rawRequest(path, params, signed, base, method, referer)
+        val root = rawRequest(
+            path,
+            params,
+            signed,
+            base,
+            method,
+            referer,
+            userAgent = userAgent,
+            headers = headers,
+        )
         val code = root.optInt("code", 0)
         if (code != 0) throw BiliException(code, apiMessage(code, root.optString("message")))
         return root.optJSONObject("data") ?: JSONObject()
@@ -2707,6 +3387,8 @@ class BiliApi(context: Context) {
         method: String = "GET",
         referer: String? = null,
         tolerateEmptyBody: Boolean = false,
+        userAgent: String? = null,
+        headers: Map<String, String> = emptyMap(),
     ): JSONObject = withContext(Dispatchers.IO) {
         ensureBuvid()
         val actualParams = params.toMutableMap()
@@ -2727,10 +3409,11 @@ class BiliApi(context: Context) {
         }
         val builder = Request.Builder()
             .url(url)
-            .header("User-Agent", UA)
+            .header("User-Agent", userAgent ?: UA)
             .header("Referer", referer ?: if (base == PASSPORT) "https://passport.bilibili.com/" else "https://www.bilibili.com/")
             .header("Accept", "application/json, text/plain, */*")
             .header("Accept-Language", "zh-CN,zh;q=0.9")
+        headers.forEach { (key, value) -> builder.header(key, value) }
         if (method == "POST") {
             val form = FormBody.Builder()
             actualParams.forEach { (key, value) -> form.add(key, value) }
@@ -2791,9 +3474,48 @@ class BiliApi(context: Context) {
         return result.optJSONObject("data") ?: JSONObject()
     }
 
+    /**
+     * 给 app.bilibili.com 的接口补上 App 签名。
+     * 规则：params 按 key 排序 → 拼成 a=b&c=d → 末尾接 appsec → MD5。
+     * 网页的 WBI 签名在这类接口上无效，会直接返回 -400。
+     */
+    private fun signAppParams(
+        params: MutableMap<String, String>,
+        appKey: String = APP_KEY,
+        appSec: String = APP_SEC,
+        includeAccessKey: Boolean = true,
+    ) {
+        params["appkey"] = appKey
+        params["ts"] = (System.currentTimeMillis() / 1000L).toString()
+        if (includeAccessKey) {
+            cookieJar.value("access_key").takeIf { it.isNotBlank() }?.let {
+                params["access_key"] = it
+            }
+        }
+        val query = params.toSortedMap().entries.joinToString("&") { (key, value) ->
+            "${encode(key)}=${encode(value)}"
+        }
+        params["sign"] = md5(query + appSec)
+    }
+
     companion object {
         const val API = "https://api.bilibili.com"
+    const val APP_API = "https://app.bilibili.com"
+    const val APP_UA =
+        "Mozilla/5.0 BiliDroid/8.43.0 (bbcallen@gmail.com) os/android model/android " +
+            "mobi_app/android build/8430300 channel/master innerVer/8430300 osVer/15 network/2"
         const val APP = "https://app.bilibili.com"
+        /** Android App 的 appkey / appsec，用于 app.bilibili.com 的签名。 */
+        private const val APP_KEY = "dfca71928277209b"
+        private const val APP_SEC = "b5475a8825547a4fc26c7d518eaaa02e"
+        /** TV 端 appkey，用于 /x/passport-tv-login 扫码换 access_key。 */
+        private const val TV_APP_KEY = "4409e2ce8ffd12b8"
+        private const val TV_APP_SEC = "59b43e04ad6965f34319062b478f83dd"
+        private val APP_HEADERS = mapOf(
+            "env" to "prod",
+            "app-key" to "android64",
+            "x-bili-aurora-zone" to "sh001",
+        )
         const val PASSPORT = "https://passport.bilibili.com"
         const val VC = "https://api.vc.bilibili.com"
         const val UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
@@ -2921,45 +3643,30 @@ internal fun JSONArray?.objects(): List<JSONObject> {
     return result
 }
 
-internal fun String.toReadableCount(): String {
-    val value = toLongOrNull() ?: return this
-    return when {
-        value >= 100_000_000 -> "%.1f亿".format(value / 100_000_000.0)
-        value >= 10_000 -> "%.1f万".format(value / 10_000.0)
-        else -> value.toString()
+/** 私信会话名字/头像的小缓存，避免每页重复请求同一批用户。 */
+private object MessageUserCache {
+    private const val MAX = 200
+    private val map = object : LinkedHashMap<Long, Pair<String, String>>(MAX, 0.75f, true) {
+        override fun removeEldestEntry(
+            eldest: MutableMap.MutableEntry<Long, Pair<String, String>>?,
+        ): Boolean = size > MAX
+    }
+
+    @Synchronized
+    fun get(mid: Long): Pair<String, String>? = map[mid]
+
+    @Synchronized
+    fun put(mid: Long, name: String, avatar: String) {
+        if (mid > 0L && name.isNotBlank()) map[mid] = name to avatar
     }
 }
-
-internal fun Int.toDurationText(): String {
-    if (this <= 0) return "00:00"
-    val h = this / 3600
-    val m = (this % 3600) / 60
-    val s = this % 60
-    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
-}
-
-internal fun Long.toAgoText(): String {
-    if (this <= 0) return ""
-    val diff = (System.currentTimeMillis() / 1000 - this).coerceAtLeast(0)
-    return when {
-        diff < 3600 -> "${diff / 60}分钟前"
-        diff < 86400 -> "${diff / 3600}小时前"
-        diff < 86400 * 30 -> "${diff / 86400}天前"
-        else -> {
-            val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.CHINA)
-            date.format(java.util.Date(this * 1000))
-        }
-    }
-}
-
-internal fun String.toViewCount(): String = toReadableCount()
-
-internal fun String.toDurationSeconds(): Int = BiliApi.parseDurationText(this)
-
-internal fun Double.toCoinText(): String = if (this == this.toLong().toDouble()) this.toLong().toString() else "%.1f".format(this)
 
 private object SponsorSegmentCache {
-    private val values = HashMap<String, List<SponsorSegment>>()
+    private val values = object : LinkedHashMap<String, List<SponsorSegment>>(100, 0.75f, true) {
+        override fun removeEldestEntry(
+            eldest: MutableMap.MutableEntry<String, List<SponsorSegment>>?,
+        ): Boolean = size > 100
+    }
 
     @Synchronized
     fun get(bvid: String): List<SponsorSegment>? = values[bvid]

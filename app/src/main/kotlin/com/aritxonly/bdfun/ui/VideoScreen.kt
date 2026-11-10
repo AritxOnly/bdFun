@@ -8,6 +8,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -33,6 +34,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
@@ -42,6 +45,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -58,7 +62,10 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -67,6 +74,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
@@ -82,13 +90,18 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.sp
@@ -157,6 +170,15 @@ fun VideoScreen(
     autoRotate: Boolean = true,
     /** 视频画面顶到状态栏下面（设置项，默认关闭）。 */
     immersiveStatusBar: Boolean = false,
+    /** 由 Activity 从窗口根 insets 取到的状态栏高度；页面内部读到的可能被消费成 0。 */
+    statusBarTop: Dp = rememberStatusBarTop(),
+    /** 这个页面是从上一个视频页的相关推荐进来的：返回时回到上一页，不把声音交给后台。 */
+    openedFromVideoPage: Boolean = false,
+    /** 从消息页进入时要定位的评论。 */
+    initialCommentRoot: Long = 0L,
+    initialCommentTarget: Long = 0L,
+    /** 消息链接里带的播放时间：不依赖「记忆播放进度」开关。 */
+    initialSeekMs: Long = 0L,
     /** 由 VideoActivity 创建并持有：tab 栏直接读它的 currentPage，天然双向同步。 */
     pager: androidx.compose.foundation.pager.PagerState =
         androidx.compose.foundation.pager.rememberPagerState(pageCount = { 2 }),
@@ -166,13 +188,24 @@ fun VideoScreen(
     var detail by remember { mutableStateOf<VideoDetail?>(null) }
     var activeBvid by remember { mutableStateOf(video.bvid) }
     var playInfo by remember { mutableStateOf<PlayInfo?>(null) }
-    var related by remember { mutableStateOf<List<VideoItem>>(emptyList()) }
+    var related by remember(video.bvid) {
+        mutableStateOf(RelatedMemory[video.bvid].orEmpty())
+    }
+    // 只记录当前 bvid。真正退出视频页时由 VideoActivity 的 onDestroy 清理；
+    // 从相关推荐进另一个视频再返回时，这里不会被清，相关推荐不重载。
+    LaunchedEffect(activeBvid) {
+        VideoPageBus.currentBvid = activeBvid
+    }
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
     var qualityId by remember { mutableIntStateOf(defaultQuality) }
     var autoQuality by remember { mutableStateOf(defaultQuality == 0) }
     var resumePositionMs by remember {
-        val explicit = if (AppGraph.settings.resumePlayback) video.startPositionMs else 0L
+        val explicit = when {
+            initialSeekMs > 0L -> initialSeekMs
+            AppGraph.settings.resumePlayback -> video.startPositionMs
+            else -> 0L
+        }
         val local = if (explicit <= 0L && AppGraph.settings.resumePlayback) {
             com.aritxonly.bdfun.data.PlaybackProgressStore.resumeFor(video.bvid)
         } else {
@@ -184,6 +217,157 @@ fun VideoScreen(
     var danmaku by remember { mutableStateOf<List<DanmakuItem>>(emptyList()) }
     var followed by remember { mutableStateOf(false) }
     var playing by remember { mutableStateOf(true) }
+
+    // ---- 播放器随浏览收起：完全照搬 BiliPai 的共享位移模型 ----
+    // offsetPx 是唯一的状态，播放器高度、缩放、页面内边距都由它推导。
+    val collapseDensity = LocalDensity.current
+    val screenWidthForPlayer = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+    val videoAspectHeight = screenWidthForPlayer * 9f / 16f
+    val collapseState = rememberInlinePlayerCollapseState(activeBvid)
+    // 「上滑收起播放器」设置已删除，固定按原来的「关闭」模式运行。
+    val collapseMode = com.aritxonly.bdfun.data.PlayerCollapseMode.OFF
+    // bdFun 的视频详情页固定 16:9 横屏画面；竖屏视频仍按横屏详情页处理。
+    val isVerticalVideo = false
+    val pausedForInlineLayout = !playing
+    val commentThreadVisible = VideoPageBus.commentThreadVisible
+    val hidePausedPlayerForComments = shouldHidePausedInlinePlayerForComments(
+        selectedTabIndex = pager.currentPage,
+        isPlaybackPaused = pausedForInlineLayout,
+        isCommentThreadVisible = commentThreadVisible,
+    )
+    val collapseEnabled = shouldEnableInlinePortraitScrollTransform(
+        collapseMode = collapseMode,
+        selectedTabIndex = pager.currentPage,
+        isVerticalVideo = isVerticalVideo,
+        isPlaybackPaused = pausedForInlineLayout,
+        isCommentThreadVisible = commentThreadVisible,
+    )
+    // 整块播放器区域（含状态栏）在展开时的下边界。
+    val expandedTopInset = if (immersiveStatusBar) 0.dp else statusBarTop
+    val expandedPlayerHeight = videoAspectHeight + expandedTopInset
+    // 最小时保留「状态栏 + 56dp 立即播放条」。
+    val collapsedViewportHeightDp = resolveInlinePlayerCollapsedViewportHeightDp(
+        standardCollapsedHeightDp = 56f,
+        hidePausedPlayerForComments = hidePausedPlayerForComments,
+        retainPlayToolbar = true,
+    ).dp
+    val collapsedPlayerHeight = statusBarTop + collapsedViewportHeightDp
+    val collapseRangePx = with(collapseDensity) {
+        (expandedPlayerHeight - collapsedPlayerHeight).coerceAtLeast(0.dp).toPx()
+    }
+    // 切页/暂停让可收起范围变化时，把超界位移平滑收回。
+    LaunchedEffect(collapseEnabled, collapseRangePx) {
+        collapseState.reconcileLayout(
+            collapseEnabled = collapseEnabled,
+            collapseRangePx = collapseRangePx,
+        )
+    }
+    // 收起浏览时自动暂停，展开后只恢复本功能触发的暂停。
+    var autoPausedByCollapse by remember(activeBvid) { mutableStateOf(false) }
+    LaunchedEffect(playing) {
+        if (playing) autoPausedByCollapse = false
+    }
+    val collapsedForAutoPause = resolvePlayerCollapsedForAutoPause(
+        swipeHidePlayerEnabled = collapseEnabled,
+        playerHeightOffsetPx = collapseState.offsetPx,
+        videoHeightPx = collapseRangePx,
+        compactForCommentTab = false,
+        restoreRequested = collapseState.restoreRequested,
+    )
+    LaunchedEffect(collapsedForAutoPause, collapseEnabled) {
+        when {
+            shouldAutoPauseOnPlayerCollapse(
+                autoPauseEnabled = true,
+                isPlayerCollapsed = collapsedForAutoPause,
+                isPlaying = playing,
+            ) -> {
+                autoPausedByCollapse = true
+                VideoPageBus.pauseAll()
+            }
+            shouldAutoResumeOnPlayerExpand(
+                autoPauseEnabled = true,
+                isPlayerCollapsed = collapsedForAutoPause,
+                wasAutoPausedByCollapse = autoPausedByCollapse,
+            ) -> {
+                autoPausedByCollapse = false
+                BackgroundPlayback.togglePlayPause()
+            }
+            !collapsedForAutoPause -> autoPausedByCollapse = false
+        }
+    }
+    // 简介和评论共用同一个折叠手势；谁在滚动，都先收播放器，收满再把剩余距离交给列表。
+    val collapseConnection = remember(collapseEnabled, collapseRangePx, collapseState) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                val update = reduceVideoDetailPreScroll(
+                    currentOffsetPx = collapseState.offsetPx,
+                    deltaPx = available.y,
+                    // 切页后位移可能暂时超出新范围；先允许它从当前位置回到合法范围。
+                    minOffsetPx = minOf(-collapseRangePx, collapseState.offsetPx),
+                    inlinePortraitScrollEnabled = collapseEnabled,
+                    isPortraitFullscreen = false,
+                )
+                return Offset(0f, collapseState.consumeScroll(update))
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                val update = reduceVideoDetailPostScroll(
+                    currentOffsetPx = collapseState.offsetPx,
+                    deltaPx = available.y,
+                    minOffsetPx = minOf(-collapseRangePx, collapseState.offsetPx),
+                    inlinePortraitScrollEnabled = collapseEnabled,
+                    isPortraitFullscreen = false,
+                )
+                return Offset(0f, collapseState.consumeScroll(update))
+            }
+        }
+    }
+    // 「展开回复」是独立 Dialog，拿不到这里的 nestedScroll，所以注册一个入口：
+    // 它的列表往上划时，把同样的位移交给当前播放器，效果和主评论区一致。
+    DisposableEffect(collapseConnection, collapseEnabled, collapseRangePx) {
+        VideoPageBus.playerCollapseScroll = { deltaPx ->
+            val update = if (deltaPx < 0f) {
+                reduceVideoDetailPreScroll(
+                    currentOffsetPx = collapseState.offsetPx,
+                    deltaPx = deltaPx,
+                    minOffsetPx = minOf(-collapseRangePx, collapseState.offsetPx),
+                    inlinePortraitScrollEnabled = collapseEnabled,
+                    isPortraitFullscreen = false,
+                )
+            } else {
+                reduceVideoDetailPostScroll(
+                    currentOffsetPx = collapseState.offsetPx,
+                    deltaPx = deltaPx,
+                    minOffsetPx = minOf(-collapseRangePx, collapseState.offsetPx),
+                    inlinePortraitScrollEnabled = collapseEnabled,
+                    isPortraitFullscreen = false,
+                )
+            }
+            if (update == null) 0f else collapseState.consumeScroll(update)
+        }
+        onDispose { VideoPageBus.playerCollapseScroll = null }
+    }
+    // 高度只由共享位移推导：跟手拖动 snap，恢复展开/范围校正用 220ms 补间。
+    val targetPlayerHeight = (
+        expandedPlayerHeight + with(collapseDensity) { collapseState.offsetPx.toDp() }
+        ).coerceIn(collapsedPlayerHeight, expandedPlayerHeight)
+    val animatedPlayerHeight by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = targetPlayerHeight.value,
+        animationSpec = if (collapseState.restoreRequested || collapseState.layoutReconciled) {
+            androidx.compose.animation.core.tween(
+                durationMillis = 220,
+                easing = androidx.compose.animation.core.FastOutSlowInEasing,
+            )
+        } else {
+            androidx.compose.animation.core.snap()
+        },
+        label = "inline_player_collapse_height",
+    )
+    val playerBlockHeight = animatedPlayerHeight.dp
     // 当前分 P / 合集的 cid（多 P 切换时只换流，不重建页面）
     var currentCid by remember { mutableLongStateOf(video.cid) }
     // 字幕：官方字幕轨 + 当前选择的字幕内容
@@ -212,6 +396,9 @@ fun VideoScreen(
     var onlineText by remember { mutableStateOf("") }
     // 播放器下方的信息统一等详情/粉丝数据回来后再一起淡入，避免一块一块跳出来。
     var metaReady by remember { mutableStateOf(false) }
+    // 相关推荐整组共用一次入场：淡入 + 轻微上浮；懒加载后每一条都读同一个进度。
+    val relatedEnter = rememberStaggerProgress(metaReady && related.isNotEmpty(), 9)
+    // 相关推荐入场动画：只在这个视频页第一次出现时播；进出全屏不重播。
     // 投币 / 收藏夹 弹出面板
     var coinSheet by remember { mutableStateOf(false) }
     var favSheet by remember { mutableStateOf(false) }
@@ -538,8 +725,11 @@ fun VideoScreen(
                         cdnService = AppGraph.settings.cdnService,
                     )
                 }.getOrNull()
-                danmaku = runCatching { api.danmaku(page.cid) }.getOrDefault(emptyList())
-                related = runCatching { api.related(loaded.bvid) }.getOrDefault(emptyList())
+                danmaku = runCatching { api.danmaku(page.cid, page.duration) }
+                    .getOrDefault(emptyList())
+                related = runCatching { api.related(loaded.bvid) }
+                    .getOrDefault(emptyList())
+                    .also { if (it.isNotEmpty()) RelatedMemory[loaded.bvid] = it }
             }
             return
         }
@@ -557,7 +747,8 @@ fun VideoScreen(
                     cdnService = AppGraph.settings.cdnService,
                 )
             }.getOrNull()
-            danmaku = runCatching { api.danmaku(page.cid) }.getOrDefault(emptyList())
+            danmaku = runCatching { api.danmaku(page.cid, page.duration) }
+                .getOrDefault(emptyList())
         }
     }
 
@@ -628,8 +819,21 @@ fun VideoScreen(
         if (detail != null) shareCount += 1
     }
 
+    /** 退出播放器：开启后台播放时先交棒，再正常关闭页面，保留一镜到底退出动画。 */
+    fun leaveVideo() {
+        // 从相关推荐进来、返回是回到上一个视频页时，不交棒给后台：
+        // 上一页会自己续播，交棒只会造成两路声音。
+        if (AppGraph.settings.showDiscAfterVideo && !openedFromVideoPage) {
+            com.aritxonly.bdfun.ui.BackgroundPlayback.requestHandOff()
+        }
+        onBack()
+    }
+
     BackHandler {
-        if (fullscreen) fullscreen = false else onBack()
+        when {
+            fullscreen -> fullscreen = false
+            else -> leaveVideo()
+        }
     }
 
     LaunchedEffect(video.bvid) {
@@ -667,7 +871,7 @@ fun VideoScreen(
             detail = cached.detail
             playInfo = cached.playInfo
             danmaku = cached.danmaku
-            related = cached.related
+            related = cached.related.ifEmpty { RelatedMemory[video.bvid].orEmpty() }
             currentCid = cached.detail.cid
             if (AppGraph.settings.resumePlayback && resumePositionMs <= 0L) {
                 resumePositionMs = runCatching {
@@ -704,7 +908,8 @@ fun VideoScreen(
                 }.onFailure { playError = it }.getOrNull()
             }
             val danmakuDeferred = async {
-                runCatching { api.danmaku(loaded.cid) }.getOrDefault(emptyList())
+                runCatching { api.danmaku(loaded.cid, loaded.duration) }
+                    .getOrDefault(emptyList())
             }
             val relatedDeferred = async {
                 runCatching { api.related(video.bvid) }.getOrDefault(emptyList())
@@ -734,7 +939,11 @@ fun VideoScreen(
             // 播放地址就绪即可撤掉全屏 loading，弹幕和相关推荐在后台继续补。
             loading = false
             danmaku = danmakuDeferred.await()
-            related = relatedDeferred.await()
+            val fetchedRelated = relatedDeferred.await()
+            if (fetchedRelated.isNotEmpty()) {
+                related = fetchedRelated
+                RelatedMemory[video.bvid] = fetchedRelated
+            }
             VideoCache.put(
                 video.bvid,
                 VideoCacheEntry(loaded, playInfo, danmaku, related),
@@ -762,13 +971,13 @@ fun VideoScreen(
         metaReady = true
     }
 
-    // 粉丝接口偶发很慢时，最多等 350ms 就让下方信息一起出现，避免页面长时间空着。
+    // 粉丝接口偶发很慢时，最多等一小会儿就让下方信息一起出现，避免页面长时间空着。
     LaunchedEffect(detail?.bvid) {
         if (detail == null) {
             metaReady = false
             return@LaunchedEffect
         }
-        delay(350)
+        delay(175)
         metaReady = true
     }
 
@@ -888,9 +1097,47 @@ fun VideoScreen(
         qualities.firstOrNull { it.id == qualityId } ?: qualities.firstOrNull()
     }
 
+    // 底栏唱片用：当前播放的视频、标题、封面、集数。切 P / 切合集时一起更新。
+    LaunchedEffect(
+        video.bvid,
+        detail?.bvid,
+        detail?.title,
+        detail?.cover,
+        currentCid,
+        activeQuality?.id,
+    ) {
+        val d = detail
+        val item = video.copy(
+            bvid = d?.bvid ?: video.bvid,
+            aid = d?.aid ?: video.aid,
+            title = d?.title ?: video.title,
+            cover = d?.cover ?: video.cover,
+            ownerName = d?.ownerName ?: video.ownerName,
+            ownerFace = d?.ownerFace ?: video.ownerFace,
+            ownerMid = d?.ownerMid ?: video.ownerMid,
+            play = d?.play ?: video.play,
+            danmaku = d?.danmaku ?: video.danmaku,
+            duration = d?.duration ?: video.duration,
+            pubdate = d?.pubdate ?: video.pubdate,
+            cid = currentCid,
+        )
+        com.aritxonly.bdfun.ui.BackgroundPlayback.updateInfo(
+            video = item,
+            title = item.title,
+            author = item.ownerName,
+            cover = item.cover,
+        )
+        com.aritxonly.bdfun.ui.BackgroundPlayback.updateSession(
+            video = item,
+            detail = d,
+            currentCid = currentCid,
+            qualityId = activeQuality?.id ?: 0,
+        )
+    }
+
     // 状态栏高度：隐藏状态栏时不变，首帧 insets 未下发时按系统资源兜底。
     // 视频容器和 tab 都用这一个值，进入页面时不会一个先跳一个后跳。
-    val statusTop = rememberStatusBarTop()
+    val statusTop = statusBarTop
 
     // 兜底：极少数情况下 pager 停在上一次拖动的中间位置，
     // 松手后强制吸附到最近的一页，避免停在 0.3 / 0.7 这种位置。
@@ -913,15 +1160,34 @@ fun VideoScreen(
 
         // 全屏时只隐藏、不卸载：否则退回竖屏评论列表会整段重载
         run {
+            // 全屏时强制沿用竖屏尺寸，别让 LazyColumn 在横屏里重新测量、
+            // 把底部已经组合好的「相关推荐」扔掉，退出全屏后又重新淡入一遍。
+            var portraitContentSize by remember {
+                mutableStateOf(androidx.compose.ui.unit.IntSize.Zero)
+            }
+            val density = LocalDensity.current
+            val freezePortrait = fullscreen &&
+                portraitContentSize.width > 0 && portraitContentSize.height > 0
             BoxWithConstraints(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .then(
+                        if (freezePortrait) {
+                            with(density) {
+                                Modifier.size(
+                                    portraitContentSize.width.toDp(),
+                                    portraitContentSize.height.toDp(),
+                                )
+                            }
+                        } else {
+                            Modifier.fillMaxSize()
+                        },
+                    )
+                    .onSizeChanged {
+                        if (!fullscreen) portraitContentSize = it
+                    }
                     .graphicsLayer { alpha = if (fullscreen) 0f else 1f }
                     .blockTouches(fullscreen),
             ) {
-                // 状态栏高度由外层统一提供（见 statusTop）
-                val playerHeight = maxWidth * 9f / 16f +
-                    if (immersiveStatusBar) 0.dp else statusTop
                 HorizontalPager(
                     state = pager,
                     // 两页都保持 compose：切到简介再回来，评论列表不重载
@@ -929,14 +1195,16 @@ fun VideoScreen(
                     // 只有两页：到边后再往外滑不要任何回弹动画
                     overscrollEffect = null,
                     // 允许左右滑动；tab 直接读 pager.currentPage，会跟着一起动
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .nestedScroll(collapseConnection),
                 ) { page ->
                     if (page == 0) {
                         LazyColumn(
                             state = listState,
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(
-                                top = playerHeight + 52.dp,
+                                top = playerBlockHeight + 52.dp,
                                 bottom = 32.dp,
                             ),
                         ) {
@@ -1183,6 +1451,7 @@ fun VideoScreen(
                             kind = ActionKind.ThumbUp,
                             active = liked,
                             onClick = { toggleLike() },
+                            onLongPress = { tripleAction() },
                         )
                         ActionStat(
                             label = "不喜欢",
@@ -1197,7 +1466,6 @@ fun VideoScreen(
                             kind = ActionKind.Coin,
                             active = coined,
                             onClick = { giveCoin() },
-                            onLongPress = { tripleAction() },
                         )
                         ActionStat(
                             label = "收藏",
@@ -1287,33 +1555,49 @@ fun VideoScreen(
             }
 
             if (related.isNotEmpty()) {
-                item(key = "related-card") {
-                    val enter = rememberStaggerProgress(metaReady, 9)
-                    Column(
+                itemsIndexed(
+                    items = related,
+                    key = { _, item -> "related-${item.bvid}" },
+                ) { index, relatedItem ->
+                    val isFirst = index == 0
+                    val isLast = index == related.lastIndex
+                    val shape = RoundedCornerShape(
+                        topStart = if (isFirst) 16.dp else 0.dp,
+                        topEnd = if (isFirst) 16.dp else 0.dp,
+                        bottomStart = if (isLast) 16.dp else 0.dp,
+                        bottomEnd = if (isLast) 16.dp else 0.dp,
+                    )
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 6.dp)
+                            .padding(
+                                start = 12.dp,
+                                end = 12.dp,
+                                top = if (isFirst) 14.dp else 0.dp,
+                                bottom = if (isLast) 6.dp else 0.dp,
+                            )
                             .graphicsLayer {
-                                alpha = enter
-                                translationY = (1f - enter) * 12.dp.toPx()
+                                alpha = relatedEnter
+                                translationY = (1f - relatedEnter) * 12.dp.toPx()
                             }
-                            .clip(ContinuousCornerShape(16.dp))
+                            .clip(shape)
                             .background(colors.surface)
                             .padding(vertical = 2.dp),
                     ) {
-                        related.forEachIndexed { index, relatedItem ->
-                            RelatedRow(
-                                item = relatedItem,
-                                onClick = {
-                                    // 先同步停掉当前播放器，再启动新页面，避免转场期间双声。
-                                    VideoPageBus.pauseAll()
-                                    com.aritxonly.bdfun.TeakNavigator.openVideo(
-                                        context,
-                                        relatedItem,
-                                    )
-                                },
-                            )
-                        }
+                        RelatedRow(
+                            item = relatedItem,
+                            onClick = {
+                                // 先同步停掉当前播放器，再启动新页面，避免转场期间双声。
+                                // 从这个页面点相关推荐进去的页面，返回时是回到本页，
+                                // 所以新页面退出时不要交给后台播放，否则会和本页叠音。
+                                VideoPageBus.pauseAll()
+                                com.aritxonly.bdfun.TeakNavigator.openVideo(
+                                    context,
+                                    relatedItem,
+                                    fromVideoPage = true,
+                                )
+                            },
+                        )
                     }
                 }
             }
@@ -1329,7 +1613,11 @@ fun VideoScreen(
                                 onBack = {},
                                 bvid = d.bvid,
                                 bare = true,
-                                topInset = playerHeight + 14.dp,
+                                topInset = playerBlockHeight + 14.dp +
+                                    (if (immersiveStatusBar) 36.dp else 0.dp),
+                                threadPlayerBottom = playerBlockHeight,
+                                focusRootRpid = initialCommentRoot,
+                                focusTargetRpid = initialCommentTarget,
                             )
                         }
                     }
@@ -1347,19 +1635,38 @@ fun VideoScreen(
             )
         }
 
+        // 收起进度、顶部避让全部由共享位移推导（BiliPai 同款）。
+        val collapseRangeDp = (expandedPlayerHeight - collapsedPlayerHeight).coerceAtLeast(0.dp)
+        val collapseProgress = if (fullscreen || collapseRangeDp.value <= 0f) {
+            0f
+        } else {
+            ((expandedPlayerHeight.value - animatedPlayerHeight) / collapseRangeDp.value)
+                .coerceIn(0f, 1f)
+        }
+        // 沉浸模式下，收起过程中把画面顶部让到状态栏下面，避免被状态栏裁切。
+        val playerTopInset = if (immersiveStatusBar) statusTop * collapseProgress else statusTop
+        // 把播放器真实底边同步给 Activity：Tab 和渐变用它定位，永远贴着视频底边。
+        val playerDensity = androidx.compose.ui.platform.LocalDensity.current
+        androidx.compose.runtime.SideEffect {
+            VideoPageBus.playerBottomPx = with(playerDensity) { playerBlockHeight.toPx() }
+        }
         Box(
             modifier = if (fullscreen) {
                 Modifier.fillMaxSize()
             } else {
                 Modifier
-                    // 非沉浸：视频让开状态栏；沉浸：视频铺到 0。
-                    // 用 statusTop 而不是 windowInsetsPadding，首帧 insets 未下发时也不会先跳一帧
-                    .then(if (immersiveStatusBar) Modifier else Modifier.padding(top = statusTop))
                     .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
+                    // 黑色底就是播放器窗口本身：窗口收缩，画面跟着收缩，两者不会分离。
+                    // 状态栏那一条也要铺黑，否则沉浸时视频缩下去会露出白色页面底。
+                    .height(playerBlockHeight)
+                    .background(androidx.compose.ui.graphics.Color.Black)
+                    .padding(top = playerTopInset)
+                    .clipToBounds()
                     .align(Alignment.TopCenter)
             },
         ) {
+            // 画面直接铺满不断收缩的播放器窗口：BiliPai 的 continuousPlayerViewportHeight。
+            // 窗口变矮时 PlayerView 会按高度贴合，视频底边始终贴住窗口底边（Tab 行）。
             VideoPlayer(
                 bvid = activeBvid,
                 info = playInfo,
@@ -1413,23 +1720,65 @@ fun VideoScreen(
                 onAddWatchLater = { addWatchLater() },
                 onPlayStateChanged = { playing = it },
                 onToggleFullscreen = { fullscreen = !fullscreen },
-                onBackClick = onBack,
-                onHomeClick = {
-                    videoContext.startActivity(
-                        android.content.Intent(videoContext, MainActivity::class.java).apply {
-                            addFlags(
-                                android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                                    android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP,
-                            )
-                        },
-                    )
+                onBackClick = {
+                    when {
+                        fullscreen -> fullscreen = false
+                        else -> leaveVideo()
+                    }
                 },
+                onHomeClick = { leaveVideo() },
                 resumePositionMs = resumePositionMs,
                 onQualitySelected = { switchQuality(it) },
                 onCacheVideo = { cacheVideo(it) },
                 immersiveStatusBar = immersiveStatusBar,
                 modifier = Modifier.fillMaxSize(),
             )
+        }
+
+        // 随着收起进度给整个播放器盖一层粉色遮罩；收满时完全不透明。
+        // 遮罩高度就是播放器块高度，所以状态栏那一条也会一起变粉。
+        if (!fullscreen && collapseProgress > 0.001f) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .height(playerBlockHeight)
+                    .background(BrandPink.copy(alpha = collapseProgress)),
+            )
+        }
+
+        // 粉色遮罩快盖满时，在顶部 56dp 里显示播放入口（接近到顶才出现）。
+        val collapsedPlayAlpha = ((collapseProgress - 0.85f) / 0.15f).coerceIn(0f, 1f)
+        if (!fullscreen && collapsedPlayAlpha > 0.01f) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = statusTop)
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .graphicsLayer { alpha = collapsedPlayAlpha }
+                    .clickable(interactionSource = null, indication = null) {
+                        // 点“立即播放”：先让播放器展开，再开始播放。
+                        collapseState.restore()
+                        if (!playing) BackgroundPlayback.togglePlayPause()
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                Box(
+                    modifier = Modifier.size(18.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    // 和播放器控件同一个播放图标（TeakIcon.PlayerPlay），无底色、纯白。
+                    PlayGlyph(tint = Color.White, size = 16.dp)
+                }
+                Spacer(Modifier.width(7.dp))
+                Text(
+                    text = "立即播放",
+                    color = Color.White,
+                    fontSize = 15.sp,
+                )
+            }
         }
     }
 
@@ -1540,36 +1889,34 @@ private fun ActionStat(
         label = "action-tint",
     )
 
-    // 长按投币：圆环随按住时间逐渐绕满，绕满后发光并触发一键三连
-    var ringTick by remember { mutableIntStateOf(0) }
-    var ringProgress by remember { mutableFloatStateOf(0f) }
-    var ringAlpha by remember { mutableFloatStateOf(0f) }
-    var ringGlow by remember { mutableStateOf(false) }
-    var ringScale by remember { mutableFloatStateOf(1f) }
-    var glowAlpha by remember { mutableFloatStateOf(0f) }
     var longPressFired by remember { mutableStateOf(false) }
-    var glowPhase by remember { mutableFloatStateOf(0f) }
-    // 先按住一小会才启动三连圆环；普通单击只打开投币面板
-    LaunchedEffect(isPressing) {
-        if (isPressing && onLongPress != null) {
-            delay(280)
-            if (isPressing) {
-                longPressFired = false
-                ringTick++
-            }
-        }
-    }
-    val haptic = LocalHapticFeedback.current
+    var rippleHolding by remember { mutableStateOf(false) }
+    var rippleBurst by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
-    fun strongVibrate() {
+    fun defaultVibrator(): android.os.Vibrator? {
         val vibrator = if (android.os.Build.VERSION.SDK_INT >= 31) {
             (context.getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE)
                 as? android.os.VibratorManager)?.defaultVibrator
         } else {
             @Suppress("DEPRECATION")
             context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? android.os.Vibrator
-        } ?: return
-        if (!vibrator.hasVibrator()) return
+        }
+        return vibrator?.takeIf { it.hasVibrator() }
+    }
+    /** 按住期间脉冲式的轻震动，和小水波同一个节奏（170ms 一下）。 */
+    fun pulseVibrate() {
+        val vibrator = defaultVibrator() ?: return
+        runCatching {
+            vibrator.vibrate(
+                android.os.VibrationEffect.createOneShot(
+                    26L,
+                    72,
+                ),
+            )
+        }
+    }
+    fun strongVibrate() {
+        val vibrator = defaultVibrator() ?: return
         vibrator.cancel()
         // 一下大的长震，而不是连续两下
         vibrator.vibrate(
@@ -1579,69 +1926,37 @@ private fun ActionStat(
             ),
         )
     }
-    LaunchedEffect(ringGlow) {
-        if (!ringGlow) return@LaunchedEffect
-        while (ringGlow) {
-            glowPhase += 5f
-            kotlinx.coroutines.delay(16)
+    LaunchedEffect(isPressing, onLongPress) {
+        if (!isPressing) {
+            rippleHolding = false
+            return@LaunchedEffect
         }
-    }
-    LaunchedEffect(ringTick) {
-        if (onLongPress == null || ringTick == 0) return@LaunchedEffect
-        ringGlow = false
         longPressFired = false
-        ringProgress = 0f
-        ringAlpha = 0f
-        glowAlpha = 0f
-        ringScale = 1f
-        val startNanos = System.nanoTime()
-        var lastHapticAt = -1000f
-        while (true) {
-            if (!isPressing) {
-                // 没到三连就松手：直接清掉圆环和光效
-                ringGlow = false
-                glowAlpha = 0f
-                ringProgress = 0f
-                ringAlpha = 0f
-                ringScale = 1f
-                break
-            }
-            val elapsedMs = (System.nanoTime() - startNanos) / 1_000_000f
-            // 画圈过程中持续轻震动；三连完成后即使还按着也不再震
-            if (!longPressFired && elapsedMs - lastHapticAt >= 90f) {
-                lastHapticAt = elapsedMs
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-            }
-            val p = (elapsedMs / 1150f).coerceIn(0f, 1f)
-            ringProgress = p
-            ringAlpha = 1f
-            if (p >= 1f && !longPressFired) {
+        if (onLongPress == null) return@LaunchedEffect
+        delay(280)
+        if (!isPressing) {
+            rippleHolding = false
+            return@LaunchedEffect
+        }
+        rippleHolding = true
+        val start = System.nanoTime()
+        var nextPulseNs = 0L
+        while (isPressing && !longPressFired) {
+            val now = System.nanoTime()
+            val elapsed = (now - start) / 1_000_000f
+            // 大震点必须落在小震的同一节拍上：小震在 0/320/640/960ms，
+            // 1280ms 先判完成、不再补小震，于是最后一下小震到大震正好也是 320ms。
+            if (elapsed >= 1280f) {
                 longPressFired = true
-                ringGlow = true
-                glowAlpha = 1f
-                // 完成时用系统马达做一次更强、更长的震动
+                rippleHolding = false
+                rippleBurst += 1
                 strongVibrate()
                 onLongPress()
-                // 结束时圆环和光效一起向外扩、渐隐；手指仍按着也不再保留
-                val fromAlpha = ringAlpha
-                val fadeStart = System.nanoTime()
-                while (true) {
-                    val t = ((System.nanoTime() - fadeStart) / 1_000_000f / 420f)
-                        .coerceIn(0f, 1f)
-                    ringAlpha = fromAlpha * (1f - t)
-                    glowAlpha = 1f - t
-                    ringScale = 1f + 0.18f * t
-                    if (t >= 1f) break
-                    kotlinx.coroutines.delay(8)
-                }
-                ringGlow = false
-                ringProgress = 0f
-                ringAlpha = 0f
-                glowAlpha = 0f
-                ringScale = 1f
-                break
+            } else if (now >= nextPulseNs) {
+                nextPulseNs = now + 320_000_000L
+                pulseVibrate()
             }
-            kotlinx.coroutines.delay(8)
+            delay(16)
         }
     }
 
@@ -1683,82 +1998,11 @@ private fun ActionStat(
             modifier = Modifier.size(36.dp),
             contentAlignment = Alignment.Center,
         ) {
-            // 发光层和进度圆环不跟着图标一起模糊，保持清晰
-            if (ringGlow) {
-                // 纯圆形渐变：粉色径向光晕 + 两层旋转七彩环，不会有方形图层边缘
-                androidx.compose.foundation.Canvas(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .graphicsLayer {
-                            rotationZ = glowPhase
-                            alpha = glowAlpha
-                        },
-                ) {
-                    val center = androidx.compose.ui.geometry.Offset(
-                        size.width / 2f,
-                        size.height / 2f,
-                    )
-                    val maxR = size.minDimension / 2f
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                BrandPink.copy(alpha = 0.50f),
-                                BrandPink.copy(alpha = 0.22f),
-                                Color.Transparent,
-                            ),
-                            center = center,
-                            radius = maxR,
-                        ),
-                        radius = maxR,
-                        center = center,
-                    )
-                    val rainbow = listOf(
-                        BrandPink,
-                        Color(0xFFB388FF),
-                        Color(0xFF64D2FF),
-                        Color(0xFFFFE066),
-                        BrandPink,
-                    )
-                    drawCircle(
-                        brush = Brush.sweepGradient(rainbow, center),
-                        radius = maxR * 0.74f,
-                        center = center,
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(
-                            width = 10.dp.toPx(),
-                        ),
-                        alpha = 0.65f,
-                    )
-                    drawCircle(
-                        brush = Brush.sweepGradient(rainbow, center),
-                        radius = maxR * 0.54f,
-                        center = center,
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(
-                            width = 6.dp.toPx(),
-                        ),
-                        alpha = 0.40f,
-                    )
-                }
-            }
-            if (onLongPress != null && ringAlpha > 0.01f && (ringProgress > 0f || ringGlow)) {
-                androidx.compose.foundation.Canvas(
-                    modifier = Modifier
-                        .size(35.dp)
-                        .graphicsLayer {
-                            scaleX = ringScale
-                            scaleY = ringScale
-                        },
-                ) {
-                    drawArc(
-                        color = BrandPink.copy(alpha = ringAlpha),
-                        startAngle = -90f,
-                        sweepAngle = 360f * ringProgress.coerceIn(0f, 1f),
-                        useCenter = false,
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(
-                            width = 2.4.dp.toPx(),
-                            cap = androidx.compose.ui.graphics.StrokeCap.Round,
-                        ),
-                    )
-                }
+            if (onLongPress != null) {
+                LikeRipple(
+                    holding = rippleHolding,
+                    burst = rippleBurst,
+                )
             }
             Box(
                 modifier = Modifier
@@ -1825,19 +2069,40 @@ private fun MiniStat(text: String, playIcon: Boolean) {
 
 @Composable
 private fun PersonGlyph(color: Color, size: androidx.compose.ui.unit.Dp = 12.dp) {
+    // 和播放器左上角「正在看」使用同一套双人观看图标。
     androidx.compose.foundation.Canvas(modifier = Modifier.size(size)) {
+        val stroke = 1.dp.toPx()
         val w = this.size.width
         val h = this.size.height
         drawCircle(
             color = color,
-            radius = w * 0.17f,
-            center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.26f),
+            radius = w * 0.15f,
+            center = androidx.compose.ui.geometry.Offset(w * 0.3f, h * 0.32f),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(stroke),
         )
-        drawRoundRect(
+        drawCircle(
             color = color,
-            topLeft = androidx.compose.ui.geometry.Offset(w * 0.2f, h * 0.5f),
-            size = androidx.compose.ui.geometry.Size(w * 0.6f, h * 0.42f),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.3f, w * 0.3f),
+            radius = w * 0.13f,
+            center = androidx.compose.ui.geometry.Offset(w * 0.7f, h * 0.3f),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(stroke),
+        )
+        drawArc(
+            color = color,
+            startAngle = 200f,
+            sweepAngle = 140f,
+            useCenter = false,
+            topLeft = androidx.compose.ui.geometry.Offset(w * 0.08f, h * 0.5f),
+            size = androidx.compose.ui.geometry.Size(w * 0.44f, h * 0.38f),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(stroke),
+        )
+        drawArc(
+            color = color,
+            startAngle = 200f,
+            sweepAngle = 140f,
+            useCenter = false,
+            topLeft = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.48f),
+            size = androidx.compose.ui.geometry.Size(w * 0.4f, h * 0.36f),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(stroke),
         )
     }
 }
@@ -1856,16 +2121,31 @@ private fun CollapsibleDescription(
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+    val linkColor = MiuixTheme.colorScheme.primary
+    val biliTitles = rememberBiliLinkTitles(text)
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
     val style = androidx.compose.ui.text.TextStyle(
         color = color,
         fontSize = 12.sp,
         lineHeight = 18.sp,
     )
+    val annotatedText = androidx.compose.runtime.remember(text, linkColor, biliTitles) {
+        linkifyText(
+            text = text,
+            linkColor = linkColor,
+            titles = biliTitles,
+            onOpenVideo = { bvid ->
+                com.aritxonly.bdfun.TeakNavigator.openVideoByBvid(context, bvid)
+            },
+            onOpen = { uriHandler.openUri(it) },
+        )
+    }
     BoxWithConstraints(modifier) {
         val widthPx = with(density) { maxWidth.toPx() }.toInt().coerceAtLeast(1)
         val measured = measurer.measure(
-            text = androidx.compose.ui.text.AnnotatedString(text),
+            text = annotatedText,
             style = style,
             maxLines = Int.MAX_VALUE,
             constraints = androidx.compose.ui.unit.Constraints(maxWidth = widthPx),
@@ -1873,7 +2153,7 @@ private fun CollapsibleDescription(
         val fullPx = measured.size.height.toFloat()
         // 两行的真实高度与第二行结束位置：模糊只作用在这之后的部分
         val twoLineLayout = measurer.measure(
-            text = androidx.compose.ui.text.AnnotatedString(text),
+            text = annotatedText,
             style = style,
             maxLines = 2,
             constraints = androidx.compose.ui.unit.Constraints(maxWidth = widthPx),
@@ -1914,7 +2194,15 @@ private fun CollapsibleDescription(
                         .height(with(density) { (fullPx - safeTopPx).coerceAtLeast(0f).toDp() }),
                 ) {
                     Text(
-                        text = tailText,
+                        text = linkifyText(
+                            text = tailText,
+                            linkColor = linkColor,
+                            titles = biliTitles,
+                            onOpenVideo = { bvid ->
+                                com.aritxonly.bdfun.TeakNavigator.openVideoByBvid(context, bvid)
+                            },
+                            onOpen = { uriHandler.openUri(it) },
+                        ),
                         style = style,
                         maxLines = Int.MAX_VALUE,
                         modifier = Modifier
@@ -1933,7 +2221,7 @@ private fun CollapsibleDescription(
             )
             // 折叠态：两行 + 省略号（随进度淡出）
             Text(
-                text = text,
+                text = annotatedText,
                 style = style,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -1946,7 +2234,7 @@ private fun CollapsibleDescription(
             )
             // 原有的前两行：展开后保持清晰，不参与模糊
             Text(
-                text = text,
+                text = annotatedText,
                 style = style,
                 maxLines = 2,
                 overflow = TextOverflow.Clip,
@@ -2070,7 +2358,11 @@ private fun VideoPageStrip(
     }
 }
 
-/** 播放器下方内容按从上到下依次浮出；order 越大越晚，总时长控制在 1 秒内。 */
+/**
+ * 播放器下方内容按从上到下依次浮出。
+ * 用户反馈原来上浮拖沓：这里把错开间隔和单段时长都砍半
+ * （60ms / 120ms → 30ms / 60ms），保留层次但整体更快。
+ */
 @Composable
 private fun rememberStaggerProgress(ready: Boolean, order: Int): Float {
     var target by remember { mutableStateOf(0f) }
@@ -2078,11 +2370,11 @@ private fun rememberStaggerProgress(ready: Boolean, order: Int): Float {
         if (!ready) {
             target = 0f
         } else {
-            kotlinx.coroutines.delay(order * 60L)
+            kotlinx.coroutines.delay(order * 30L)
             target = 1f
         }
     }
-    return rememberManualProgress(target, 120f)
+    return rememberManualProgress(target, 60f)
 }
 
 @Composable
@@ -2113,11 +2405,55 @@ private fun VideoCollectionCard(
     onSelect: (com.aritxonly.bdfun.data.VideoEpisode) -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
+    val scope = rememberCoroutineScope()
+    val density = androidx.compose.ui.platform.LocalDensity.current
     var expanded by remember(title, episodes.size) { mutableStateOf(false) }
+    // 点击合集标题栏按钮时，等展开动画让列表完成测量后再滚。
+    // 0 = 顶部，1 = 当前集，2 = 底部。
+    var pendingScrollTarget by remember { mutableStateOf<Int?>(null) }
     val currentIndex = episodes.indexOfFirst { it.cid == currentCid }.let {
         if (it < 0) 0 else it
     }
     val scrollState = rememberScrollState()
+    // 记住每一集在合集内部的纵坐标，点「定位」时能准确滚到当前这一集。
+    val episodeOffsets = remember { mutableStateMapOf<Long, Int>() }
+    fun centeredScrollOffset(): Int {
+        val cid = episodes.getOrNull(currentIndex)?.cid ?: return 0
+        val raw = episodeOffsets[cid]
+            ?: with(density) { (currentIndex * 62).dp.toPx() }.toInt()
+        val halfViewport = with(density) { 99.dp.toPx() }
+        val halfItem = with(density) { 31.dp.toPx() }
+        return (raw - halfViewport + halfItem).toInt().coerceAtLeast(0)
+    }
+    // 展开后默认让当前播放的这一集停在合集区域的中间。
+    LaunchedEffect(expanded) {
+        if (!expanded) return@LaunchedEffect
+        delay(40)
+        val target = pendingScrollTarget
+        pendingScrollTarget = null
+        val value = when (target) {
+            0 -> 0
+            2 -> scrollState.maxValue
+            else -> centeredScrollOffset()
+        }
+        scrollState.animateScrollTo(value)
+    }
+    fun scrollCollection(target: Int) {
+        scope.launch {
+            if (!expanded) {
+                pendingScrollTarget = target
+                expanded = true
+            } else {
+                delay(40)
+                val value = when (target) {
+                    0 -> 0
+                    2 -> scrollState.maxValue
+                    else -> centeredScrollOffset()
+                }
+                scrollState.animateScrollTo(value)
+            }
+        }
+    }
     // Miuix 负责回弹，这一层负责把回弹之后剩下的位移/惯性吃掉，
     // 否则快速一甩仍会把速度传给整页。
     val keepInsideCollection = remember {
@@ -2160,8 +2496,144 @@ private fun VideoCollectionCard(
                 fontSize = 13.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f, fill = false),
             )
+            // 一键回到顶部，紧贴在合集名称右边。
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .clickable(interactionSource = null, indication = null) {
+                        // 只回到合集内部的顶部，不把整个视频页滚回最上面。
+                        scrollCollection(0)
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.compose.foundation.Canvas(modifier = Modifier.size(14.dp)) {
+                    val stroke = 1.6.dp.toPx()
+                    val cx = size.width / 2f
+                    val topY = size.height * 0.16f
+                    val bottomY = size.height * 0.86f
+                    drawLine(
+                        color = colors.onBackgroundVariant,
+                        start = androidx.compose.ui.geometry.Offset(cx, bottomY),
+                        end = androidx.compose.ui.geometry.Offset(cx, topY),
+                        strokeWidth = stroke,
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                    )
+                    drawLine(
+                        color = colors.onBackgroundVariant,
+                        start = androidx.compose.ui.geometry.Offset(cx, topY),
+                        end = androidx.compose.ui.geometry.Offset(
+                            size.width * 0.20f,
+                            size.height * 0.44f,
+                        ),
+                        strokeWidth = stroke,
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                    )
+                    drawLine(
+                        color = colors.onBackgroundVariant,
+                        start = androidx.compose.ui.geometry.Offset(cx, topY),
+                        end = androidx.compose.ui.geometry.Offset(
+                            size.width * 0.80f,
+                            size.height * 0.44f,
+                        ),
+                        strokeWidth = stroke,
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                    )
+                }
+            }
+            // 一键到底：排在「一键到顶」右边。
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .clickable(interactionSource = null, indication = null) {
+                        scrollCollection(2)
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.compose.foundation.Canvas(modifier = Modifier.size(14.dp)) {
+                    val stroke = 1.6.dp.toPx()
+                    val cx = size.width / 2f
+                    val topY = size.height * 0.14f
+                    val bottomY = size.height * 0.84f
+                    drawLine(
+                        color = colors.onBackgroundVariant,
+                        start = androidx.compose.ui.geometry.Offset(cx, topY),
+                        end = androidx.compose.ui.geometry.Offset(cx, bottomY),
+                        strokeWidth = stroke,
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                    )
+                    drawLine(
+                        color = colors.onBackgroundVariant,
+                        start = androidx.compose.ui.geometry.Offset(cx, bottomY),
+                        end = androidx.compose.ui.geometry.Offset(
+                            size.width * 0.20f,
+                            size.height * 0.56f,
+                        ),
+                        strokeWidth = stroke,
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                    )
+                    drawLine(
+                        color = colors.onBackgroundVariant,
+                        start = androidx.compose.ui.geometry.Offset(cx, bottomY),
+                        end = androidx.compose.ui.geometry.Offset(
+                            size.width * 0.80f,
+                            size.height * 0.56f,
+                        ),
+                        strokeWidth = stroke,
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                    )
+                }
+            }
+            // 定位到当前播放的这一集：展开合集并滚到当前集。
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .clickable(interactionSource = null, indication = null) {
+                        scrollCollection(1)
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.compose.foundation.Canvas(modifier = Modifier.size(14.dp)) {
+                    val stroke = 1.5.dp.toPx()
+                    val c = center
+                    drawCircle(
+                        color = colors.onBackgroundVariant,
+                        radius = size.minDimension * 0.30f,
+                        center = c,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke),
+                    )
+                    drawCircle(
+                        color = colors.onBackgroundVariant,
+                        radius = size.minDimension * 0.10f,
+                        center = c,
+                    )
+                    val arm = size.minDimension * 0.5f
+                    val gap = size.minDimension * 0.38f
+                    listOf(
+                        androidx.compose.ui.geometry.Offset(c.x, c.y - arm) to
+                            androidx.compose.ui.geometry.Offset(c.x, c.y - gap),
+                        androidx.compose.ui.geometry.Offset(c.x, c.y + gap) to
+                            androidx.compose.ui.geometry.Offset(c.x, c.y + arm),
+                        androidx.compose.ui.geometry.Offset(c.x - arm, c.y) to
+                            androidx.compose.ui.geometry.Offset(c.x - gap, c.y),
+                        androidx.compose.ui.geometry.Offset(c.x + gap, c.y) to
+                            androidx.compose.ui.geometry.Offset(c.x + arm, c.y),
+                    ).forEach { (start, end) ->
+                        drawLine(
+                            color = colors.onBackgroundVariant,
+                            start = start,
+                            end = end,
+                            strokeWidth = stroke,
+                            cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.weight(1f))
             Text(
                 text = "${currentIndex + 1}/${episodes.size}",
                 color = colors.onBackgroundVariant,
@@ -2192,6 +2664,9 @@ private fun VideoCollectionCard(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .onGloballyPositioned {
+                                    episodeOffsets[episode.cid] = it.positionInParent().y.toInt()
+                                }
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(
                                     if (active) colors.primary.copy(alpha = 0.12f) else Color.Transparent,
@@ -2286,7 +2761,11 @@ private fun VideoCollectionCard(
 }
 
 @Composable
-private fun RelatedRow(item: VideoItem, onClick: () -> Unit) {
+internal fun RelatedRow(
+    item: VideoItem,
+    onClick: () -> Unit,
+    metaLabel: String? = null,
+) {
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
     val oneTake = rememberOneTakeAnchor()
@@ -2310,7 +2789,7 @@ private fun RelatedRow(item: VideoItem, onClick: () -> Unit) {
                 .background(colors.surfaceContainerHigh),
         ) {
             AsyncImage(
-                model = rememberImageRequest(item.cover),
+                model = rememberImageRequest(item.cover, crossfade = false),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
@@ -2363,16 +2842,26 @@ private fun RelatedRow(item: VideoItem, onClick: () -> Unit) {
                 )
             }
             Spacer(Modifier.weight(1f))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                UpBadge()
-                Spacer(Modifier.width(5.dp))
+            if (metaLabel != null) {
                 Text(
-                    text = item.ownerName,
+                    text = metaLabel,
                     color = colors.onBackgroundVariant,
                     fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    UpBadge()
+                    Spacer(Modifier.width(5.dp))
+                    Text(
+                        text = item.ownerName,
+                        color = colors.onBackgroundVariant,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }
@@ -2419,9 +2908,30 @@ private data class VideoCacheEntry(
     val related: List<VideoItem>,
 )
 
+/** 真正退出视频页时调用；从相关推荐进另一个视频不会走这里。 */
+internal fun clearRelatedMemory(bvid: String) {
+    if (bvid.isNotBlank()) RelatedMemory.remove(bvid)
+}
+
+/** 相关推荐单独存一份：页面被重新组合时先把列表放回去，不会先空一下再出现。 */
+private object RelatedMemory {
+    private val map = HashMap<String, List<VideoItem>>()
+    operator fun get(bvid: String): List<VideoItem>? = map[bvid]
+    operator fun set(bvid: String, value: List<VideoItem>) {
+        if (value.isNotEmpty()) map[bvid] = value
+        while (map.size > 12) {
+            val first = map.keys.firstOrNull() ?: break
+            map.remove(first)
+        }
+    }
+
+    fun remove(bvid: String) {
+        map.remove(bvid)
+    }
+}
+
 /** 视频详情的内存缓存：从相关推荐返回时不再重新请求。 */
-private object VideoCache {
-    private val map = LinkedHashMap<String, VideoCacheEntry>()
+private object VideoCache {    private val map = LinkedHashMap<String, VideoCacheEntry>()
 
     fun get(bvid: String): VideoCacheEntry? = map[bvid]
 

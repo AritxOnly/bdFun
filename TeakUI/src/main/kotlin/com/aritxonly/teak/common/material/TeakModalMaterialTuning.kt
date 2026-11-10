@@ -22,19 +22,3 @@ data class TeakModalMaterialTuning(
     }
 }
 
-fun TeakMaterialFineTuning.teakModalMaterial(
-    kind: TeakModalKind,
-): TeakModalMaterialTuning {
-    val tuning = normalized()
-    return when (kind) {
-        TeakModalKind.Dialog -> TeakModalMaterialTuning(
-            backgroundAlpha = tuning.dialogBackgroundAlpha,
-            blurRadiusDp = tuning.dialogBlurRadiusDp,
-        )
-
-        TeakModalKind.BottomSheet -> TeakModalMaterialTuning(
-            backgroundAlpha = tuning.bottomSheetBackgroundAlpha,
-            blurRadiusDp = tuning.bottomSheetBlurRadiusDp,
-        )
-    }
-}

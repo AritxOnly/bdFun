@@ -1,6 +1,7 @@
 package com.aritxonly.bdfun.ui
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -57,6 +58,27 @@ object ReplyTarget {
 object VideoPageBus {
     var aid by mutableLongStateOf(0L)
     var cid by mutableLongStateOf(0L)
+    /** 当前视频页的 bvid，退出时用来清理相关推荐缓存。 */
+    @Volatile var currentBvid: String = ""
+
+    /** 从消息页打开视频时要定位的评论：根评论 / 具体回复。 */
+    @Volatile var pendingCommentRoot: Long = 0L
+    @Volatile var pendingCommentTarget: Long = 0L
+    @Volatile var pendingCommentSeekMs: Long = 0L
+
+    fun requestComment(root: Long, target: Long, seekMs: Long = 0L) {
+        pendingCommentRoot = root
+        pendingCommentTarget = target
+        pendingCommentSeekMs = seekMs
+    }
+
+    fun consumeCommentRequest(): Triple<Long, Long, Long> {
+        val value = Triple(pendingCommentRoot, pendingCommentTarget, pendingCommentSeekMs)
+        pendingCommentRoot = 0L
+        pendingCommentTarget = 0L
+        pendingCommentSeekMs = 0L
+        return value
+    }
 
     /** 播完且没有下一分P时，请求 Activity 打开播放队列里的下一个视频。 */
     var autoNextRequest by mutableIntStateOf(0)
@@ -69,6 +91,12 @@ object VideoPageBus {
 
     /** 打开弹幕设置时抓的一帧画面，用作面板的磨砂底。 */
     var panelBackdrop by mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null)
+
+    /** 播放器当前被评论区手势往上推的位移（px，负数）。Activity overlay 里的 Tab 行跟着它一起动。 */
+    var playerLiftPx by mutableFloatStateOf(0f)
+
+    /** 播放器区域当前的底边（px，相对于 Activity 内容顶部）。Tab 和渐变都贴在它下面。 */
+    var playerBottomPx by mutableFloatStateOf(0f)
 
     /** 请求关闭弹幕输入条（让它先渐隐再移除）。 */
     var danmakuInputClose by mutableIntStateOf(0)
@@ -84,18 +112,23 @@ object VideoPageBus {
      * 相关推荐会在旧 Activity 销毁前再开一个新播放器，单例槽位会被新实例覆盖，
      * 旧实例就再也停不下来，所以这里改成注册表，暂停时把所有实例都停掉。
      */
-    private val pauseHooks = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
+    private val pauseHooks = java.util.concurrent.CopyOnWriteArrayList<(Boolean) -> Unit>()
 
-    fun registerPause(hook: () -> Unit) {
+    fun registerPause(hook: (Boolean) -> Unit) {
         if (!pauseHooks.contains(hook)) pauseHooks.add(hook)
     }
 
-    fun unregisterPause(hook: () -> Unit) {
+    fun unregisterPause(hook: (Boolean) -> Unit) {
         pauseHooks.remove(hook)
     }
 
-    fun pauseAll() {
-        pauseHooks.toList().forEach { hook -> runCatching { hook() } }
+    /**
+     * @param allowResume 是否允许旧页面在回来时自动续播。
+     * 开着「后台听视频」去点相关推荐时传 false：新页面退场会把声音交给后台，
+     * 旧页面此时再自动续播就会出现两路声音。
+     */
+    fun pauseAll(allowResume: Boolean = true) {
+        pauseHooks.toList().forEach { hook -> runCatching { hook(allowResume) } }
     }
 
     /** 回复栏是否处于可编辑状态（键盘/表情面板展开）——Activity 据此决定要不要吃掉空白点击。 */
@@ -114,4 +147,13 @@ object VideoPageBus {
 
     /** 评论长按菜单是否打开：打开时底部回复栏先渐隐，关闭后再渐显。 */
     var commentMenuOpen by mutableStateOf(false)
+
+    /** 「展开回复」整页是否打开。 */
+    var commentThreadVisible by mutableStateOf(false)
+
+    /**
+     * 「展开回复」页滚动时把位移交给播放器，和主评论区共用同一套收起逻辑。
+     * 返回实际吃掉的像素；null 表示当前页面没有可收起的播放器。
+     */
+    var playerCollapseScroll: ((Float) -> Float)? = null
 }

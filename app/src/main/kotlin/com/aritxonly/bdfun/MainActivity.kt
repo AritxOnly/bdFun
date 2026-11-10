@@ -22,6 +22,14 @@ class MainActivity : ComponentActivity() {
     private var lastHandledLink = ""
     private var lastClipText = ""
 
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        // App 退到后台 / 系统内存紧张时释放图片内存缓存；首页列表本身保留。
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
+            coil.Coil.imageLoader(this).memoryCache?.clear()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         com.aritxonly.bdfun.data.LogCollector.init(applicationContext)

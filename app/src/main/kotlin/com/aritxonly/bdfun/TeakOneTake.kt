@@ -51,7 +51,43 @@ object TeakOneTake {
         foregroundColor: Int = 0,
         fallback: () -> Unit,
     ) {
-        Log.d(TAG, "openVideo 进入 anchor=$anchor radius=$radiusPx")
+        openWith(context, anchor, radiusPx, foregroundColor, fallback) { activity, opts ->
+            AppGraph.pendingVideo.value = video
+            activity.startActivity(
+                Intent(activity, VideoActivity::class.java),
+                opts.toBundle(),
+            )
+        }
+    }
+
+    /** 动态详情也用同一套系统放大动画；起点是整张动态卡片。 */
+    @JvmStatic
+    fun openDynamic(
+        context: Context,
+        dynamic: com.aritxonly.bdfun.data.DynamicItem,
+        anchor: Rect?,
+        radiusPx: Float,
+        foregroundColor: Int = 0,
+        fallback: () -> Unit,
+    ) {
+        openWith(context, anchor, radiusPx, foregroundColor, fallback) { activity, opts ->
+            AppGraph.pendingDynamic.value = dynamic
+            activity.startActivity(
+                Intent(activity, DynamicDetailActivity::class.java),
+                opts.toBundle(),
+            )
+        }
+    }
+
+    private fun openWith(
+        context: Context,
+        anchor: Rect?,
+        radiusPx: Float,
+        foregroundColor: Int,
+        fallback: () -> Unit,
+        launch: (Activity, ActivityOptions) -> Unit,
+    ) {
+        Log.d(TAG, "openWith 进入 anchor=$anchor radius=$radiusPx")
         val activity = findActivity(context)
         if (activity == null) {
             fail("拿不到 Activity（${context.javaClass.simpleName}）", fallback)
@@ -78,7 +114,7 @@ object TeakOneTake {
                 fail("截图失败", fallback)
                 return@captureByPixelCopy
             }
-            start(activity, m, decor, video, anchor, radiusPx, foregroundColor, thumb, context, fallback)
+            start(activity, m, decor, anchor, radiusPx, foregroundColor, thumb, launch, fallback)
         }
     }
 
@@ -86,12 +122,11 @@ object TeakOneTake {
         activity: Activity,
         m: Method,
         decor: View,
-        video: VideoItem,
         anchor: Rect,
         radiusPx: Float,
         foregroundColor: Int,
         thumb: Bitmap,
-        context: Context,
+        launch: (Activity, ActivityOptions) -> Unit,
         fallback: () -> Unit,
     ) {
         try {
@@ -113,11 +148,7 @@ object TeakOneTake {
                 return
             }
             Log.d(TAG, "系统动画启动 rect=$anchor r=$radiusPx thumb=${thumb.width}x${thumb.height}")
-            AppGraph.pendingVideo.value = video
-            activity.startActivity(
-                Intent(activity, VideoActivity::class.java),
-                opts.toBundle(),
-            )
+            launch(activity, opts)
         } catch (t: Throwable) {
             Log.w(TAG, "启动失败", t)
             fail("启动失败：${t.javaClass.simpleName}", fallback)

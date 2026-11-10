@@ -17,6 +17,8 @@ local.properties
 .DS_Store
 
 # Logs / captures
+HANDOFF.md
+handoff*.md
 *.log
 *.hprof
 captures/

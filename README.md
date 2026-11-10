@@ -50,6 +50,10 @@ bdFun 是一个第三方哔哩哔哩 Android 客户端，使用 Kotlin + Jetpack
 gradlew.bat :app:assembleDebug
 ```
 
+> Note: this project builds against a local Miuix source snapshot.
+> Place it at `../miuix-src/miuix-45645854cd46c32275c5666e3aafa9980d8f104e`
+> or set the `MIUIX_SOURCE` environment variable to the Miuix repo path.
+
 Release：
 
 ```bash

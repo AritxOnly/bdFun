@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -32,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -74,16 +76,18 @@ import com.aritxonly.teak.common.chrome.TeakMotion
 import com.aritxonly.teak.common.chrome.TeakPageChrome
 import com.aritxonly.teak.common.chrome.TeakPageScrollState
 import com.aritxonly.teak.common.chrome.TrackTeakPageScroll
+import com.aritxonly.teak.common.material.LocalTeakBackdrop
 import com.aritxonly.teak.common.material.TeakGlassPanel
 import kotlinx.coroutines.delay
+import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Switch
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.basic.Surface
+import top.yukonga.miuix.kmp.glass.GlassDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private val CardShape = TeakContinuousCornerShape(22.dp)
-
-/** 退出动画结束后 Dialog 还留多久（略长于 240ms 的退场），之后必须拆掉，否则会吞点击。 */
-private const val ExitHoldMs = 300L
 
 /**
  * 设置页外壳：滚动大标题 + 返回键进度 + 统一列表间距。
@@ -116,26 +120,44 @@ fun TeakSettingsPage(
 ) {
     val listState = rememberLazyListState()
     TrackTeakPageScroll(listState, pageState)
-    LazyColumn(
-        state = listState,
-        modifier = modifier
-            .fillMaxSize()
-            .statusBarsPadding(),
-        contentPadding = contentPadding,
-        verticalArrangement = verticalArrangement,
-    ) {
-        item(key = "teak_settings_header") {
-            TeakLargeTitle(
-                title = title,
-                subtitle = subtitle,
-                pageState = pageState,
-            )
+    // Miuix 玻璃下拉菜单必须有它自己的 Scaffold 弹出宿主。
+    // 这里用透明、无 inset 的 Scaffold，只提供 popupHost，不改变现有排版。
+    //
+    // 玻璃菜单不能采样包含它自己的整页 backdrop，否则会递归采样、卡死 GPU。
+    // 给设置内容单独录一层 backdrop；弹出宿主在录层之外，只采样设置内容。
+    val settingsBackground = MiuixTheme.colorScheme.background
+    val settingsBackdrop = rememberLayerBackdrop {
+        drawRect(settingsBackground)
+        drawContent()
+    }
+    CompositionLocalProvider(LocalTeakBackdrop provides settingsBackdrop) {
+        Scaffold(
+            containerColor = Color.Transparent,
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        ) {
+            LazyColumn(
+                state = listState,
+                modifier = modifier
+                    .fillMaxSize()
+                    .layerBackdrop(settingsBackdrop)
+                    .statusBarsPadding(),
+                contentPadding = contentPadding,
+                verticalArrangement = verticalArrangement,
+            ) {
+                item(key = "teak_settings_header") {
+                    TeakLargeTitle(
+                        title = title,
+                        subtitle = subtitle,
+                        pageState = pageState,
+                    )
+                }
+                content()
+            }
         }
-        content()
     }
 }
 
-/** 设置分组卡片：可选的小标题 + 连续曲率圆角白 / 深色卡片。 */
+/** 设置分组卡片：保持原来的连续曲率圆角卡片，只让内部每一行使用统一行样式。 */
 @Composable
 fun TeakSettingsCard(
     title: String? = null,
@@ -189,28 +211,12 @@ fun TeakSettingsSwitchRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    val colors = MiuixTheme.colorScheme
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 13.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, color = colors.onBackground, fontSize = 16.sp)
-            if (description.isNotBlank()) {
-                Text(
-                    text = description,
-                    color = colors.onBackgroundVariant,
-                    fontSize = 12.5.sp,
-                    lineHeight = 17.sp,
-                    modifier = Modifier.padding(top = 3.dp),
-                )
-            }
-        }
-        Spacer(Modifier.width(12.dp))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
+    top.yukonga.miuix.kmp.preference.SwitchPreference(
+        title = title,
+        summary = description.takeIf { it.isNotBlank() },
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+    )
 }
 
 @Composable
@@ -219,16 +225,16 @@ fun TeakSettingsValueRow(
     value: String,
 ) {
     val colors = MiuixTheme.colorScheme
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(text = title, color = colors.onBackground, fontSize = 16.sp)
-        Spacer(Modifier.weight(1f))
-        Text(text = value, color = colors.onBackgroundVariant, fontSize = 13.5.sp)
-    }
+    top.yukonga.miuix.kmp.basic.BasicComponent(
+        title = title,
+        endActions = {
+            top.yukonga.miuix.kmp.basic.Text(
+                text = value,
+                color = colors.onSurfaceVariantActions,
+                fontSize = 14.sp,
+            )
+        },
+    )
 }
 
 @Composable
@@ -239,21 +245,22 @@ fun TeakSettingsActionRow(
     onClick: () -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(interactionSource = null, indication = null, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(text = title, color = color ?: colors.onBackground, fontSize = 16.sp)
-        Spacer(Modifier.weight(1f))
-        if (trailing.isNotBlank()) {
-            Text(text = trailing, color = colors.onBackgroundVariant, fontSize = 13.sp)
-            Spacer(Modifier.width(6.dp))
-        }
-        Text(text = "›", color = colors.onBackgroundVariant, fontSize = 21.sp)
-    }
+    top.yukonga.miuix.kmp.preference.ArrowPreference(
+        title = title,
+        titleColor = top.yukonga.miuix.kmp.basic.BasicComponentDefaults.titleColor(
+            color = color ?: colors.onBackground,
+        ),
+        endActions = {
+            if (trailing.isNotBlank()) {
+                top.yukonga.miuix.kmp.basic.Text(
+                    text = trailing,
+                    color = colors.onSurfaceVariantActions,
+                    fontSize = 13.sp,
+                )
+            }
+        },
+        onClick = onClick,
+    )
 }
 
 /**
@@ -275,106 +282,28 @@ fun TeakSettingsDropdownRow(
     closedValue: String? = null,
 ) {
     if (options.isEmpty()) return
-    val colors = MiuixTheme.colorScheme
-    val accent = accentColor ?: MaterialTheme.colorScheme.primary
-    // 字号 15sp；颜色仍用 bdFun 主题色。
-    val optionTextStyle = remember {
-        TextStyle(fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.Normal)
-    }
-    var open by remember { mutableStateOf(false) }
-    var rowSize by remember { mutableStateOf(IntSize.Zero) }
-    var rowPos by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
-    val anchorRect = remember(rowPos, rowSize) {
-        Rect(
-            left = rowPos.x,
-            top = rowPos.y,
-            right = rowPos.x + rowSize.width,
-            bottom = rowPos.y + rowSize.height,
-        )
-    }
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .onGloballyPositioned {
-                rowSize = it.size
-                rowPos = it.positionInWindow()
-            },
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(interactionSource = null, indication = null) { open = !open }
-                .padding(horizontal = 16.dp, vertical = 13.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = title, color = colors.onBackground, fontSize = 16.sp)
-                if (description.isNotBlank()) {
-                    Text(
-                        text = description,
-                        color = colors.onBackgroundVariant,
-                        fontSize = 12.5.sp,
-                        lineHeight = 17.sp,
-                        modifier = Modifier.padding(top = 3.dp),
-                    )
-                }
+    // 设置页的二级菜单统一使用玻璃版；没有可采样背景时由组件自己退化为纯色。
+    val backdrop = LocalTeakBackdrop.current
+    GlassDropdownPreference(
+        onSelectedIndexChange = onSelected,
+        items = options,
+        selectedIndex = selected.coerceIn(0, options.lastIndex),
+        title = title,
+        backdrop = backdrop,
+        modifier = modifier,
+        summary = description.takeIf { it.isNotBlank() },
+        showValue = true,
+        renderInRootScaffold = false,
+        onExpandedChange = { expanded ->
+            if (TeakDebugLog.enabled) {
+                TeakDebugLog.record(
+                    "MENU",
+                    "glass title=$title expanded=$expanded options=${options.size} " +
+                        "selected=$selected backdrop=${backdrop != null}",
+                )
             }
-            Spacer(Modifier.width(12.dp))
-            Text(
-                text = closedValue ?: options.getOrElse(selected) { options.first() },
-                color = colors.onBackgroundVariant,
-                fontSize = 14.sp,
-            )
-            Spacer(Modifier.width(6.dp))
-            TeakChevronUpDown(color = colors.onBackgroundVariant)
-        }
-
-        TeakDropdownPanel(
-            visible = open,
-            onDismiss = { open = false },
-            width = panelWidth,
-            anchorBounds = anchorRect,
-            anchorTopRatio = 0.36f,
-            anchorEndGap = 16.dp,
-            contentPadding = 6.dp,
-        ) {
-            val interactive = LocalTeakDropdownInteractive.current
-            options.forEachIndexed { index, option ->
-                val active = index == selected
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                        .clickable(
-                            interactionSource = null,
-                            indication = null,
-                            enabled = interactive,
-                        ) {
-                            onSelected(index)
-                            open = false
-                        }
-                        .padding(horizontal = 18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = option,
-                        style = optionTextStyle,
-                        color = if (active) accent else colors.onBackground,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    )
-                    Spacer(Modifier.weight(1f))
-                    if (active) {
-                        Text(
-                            text = "✓",
-                            style = optionTextStyle.copy(fontWeight = FontWeight.SemiBold),
-                            color = accent,
-                        )
-                    }
-                }
-            }
-        }
-    }
+        },
+    )
 }
 
 @Composable

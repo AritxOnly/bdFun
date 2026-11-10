@@ -30,7 +30,7 @@ import com.aritxonly.teak.common.chrome.TeakLargeTitle
 import com.kyant.shapes.Capsule
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-private val TERMS_SECTIONS = listOf(
+internal val TERMS_SECTIONS = listOf(
     "本项目为第三方非官方客户端，与哔哩哔哩（上海宽娱数码科技有限公司）及其关联方无任何隶属、授权或合作关系。",
     "一、项目性质与目的\n" +
         "1. 本项目系开发者个人出于学习、研究与技术交流目的而开发的开源项目，不以任何形式盈利。\n" +

@@ -40,17 +40,42 @@ object AppGraph {
         this.api = api
         this.settings = settings
         ThemePalette.style = settings.colorStyle
+        com.aritxonly.teak.common.settings.TeakDebugLog.enabled =
+            com.aritxonly.bdfun.BuildConfig.DEBUG
+        if (com.aritxonly.bdfun.BuildConfig.DEBUG) {
+            com.aritxonly.teak.common.settings.TeakDebugLog.sink = { tag, message ->
+                com.aritxonly.bdfun.data.LogCollector.record(tag, message)
+                if (tag == "MENU") com.aritxonly.bdfun.data.LogCollector.flushSync()
+            }
+        } else {
+            // release：不接 sink，不保留任何日志回调。
+            com.aritxonly.teak.common.settings.TeakDebugLog.sink = null
+        }
         if (context != null) {
             sentHistory = SentHistoryStore(context.applicationContext)
             VideoCacheManager.init(context.applicationContext)
             CdnAutoSelector.init(context.applicationContext)
             PlaybackProgressStore.init(context.applicationContext)
+            if (com.aritxonly.bdfun.BuildConfig.DEBUG) {
+                com.aritxonly.bdfun.data.FreezeWatchdog.start(context.applicationContext)
+            }
         }
         initialized = true
     }
 
     fun ensure(context: Context) {
         if (initialized) return
+        com.aritxonly.teak.common.settings.TeakDebugLog.enabled =
+            com.aritxonly.bdfun.BuildConfig.DEBUG
+        if (com.aritxonly.bdfun.BuildConfig.DEBUG) {
+            com.aritxonly.teak.common.settings.TeakDebugLog.sink = { tag, message ->
+                com.aritxonly.bdfun.data.LogCollector.record(tag, message)
+                if (tag == "MENU") com.aritxonly.bdfun.data.LogCollector.flushSync()
+            }
+        } else {
+            // release：不接 sink，不保留任何日志回调。
+            com.aritxonly.teak.common.settings.TeakDebugLog.sink = null
+        }
         val app = context.applicationContext
         settings = SettingsStore(app)
         api = BiliApi(app)
@@ -59,6 +84,9 @@ object AppGraph {
         CdnAutoSelector.init(app)
         PlaybackProgressStore.init(app)
         ThemePalette.style = settings.colorStyle
+        if (com.aritxonly.bdfun.BuildConfig.DEBUG) {
+            com.aritxonly.bdfun.data.FreezeWatchdog.start(app)
+        }
         initialized = true
     }
 }

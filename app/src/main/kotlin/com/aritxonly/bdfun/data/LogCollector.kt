@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import com.aritxonly.bdfun.BuildConfig
 import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.ArrayDeque
 import java.util.Date
@@ -31,13 +32,32 @@ object LogCollector {
     private var logFile: File? = null
     private var appContext: Context? = null
 
+    /** 待落盘的行。主线程只入队，文件写入交给专用线程批量做。 */
+    private val pending = java.util.concurrent.ConcurrentLinkedQueue<String>()
+    private val writerLock = Any()
+
+    @Volatile
+    private var writerStarted = false
+
     @Synchronized
     fun init(context: Context) {
+        // 生产包不初始化日志文件和崩溃处理器：这些只用于开发排查。
+        if (!BuildConfig.DEBUG) return
         if (initialized) return
         initialized = true
         appContext = context.applicationContext
         val dir = File(context.filesDir, "bdFun-logs").apply { mkdirs() }
-        logFile = File(dir, "current.log")
+        val file = File(dir, "current.log")
+        logFile = file
+        // 崩溃后重新进入时，内存缓冲是空的；先把上次落盘的内容读回来，
+        // 否则「日志抓取」页面会显示“暂无日志”。
+        runCatching {
+            if (file.isFile) {
+                file.readLines()
+                    .takeLast(MAX_MEMORY_LINES)
+                    .forEach { lines.addLast(it) }
+            }
+        }
         record(
             "APP",
             "start version=${BuildConfig.VERSION_NAME} code=${BuildConfig.VERSION_CODE} " +
@@ -46,17 +66,55 @@ object LogCollector {
         installCrashHandler()
     }
 
+    inline fun record(tag: String, message: String) {
+        if (!BuildConfig.DEBUG) return
+        recordInternal(tag, message)
+    }
+
     @Synchronized
-    fun record(tag: String, message: String) {
+    @PublishedApi
+    internal fun recordInternal(tag: String, message: String) {
         val line = "${timeFormat.format(Date())} [${Thread.currentThread().name}] [$tag] $message"
         lines.addLast(line)
         while (lines.size > MAX_MEMORY_LINES) lines.removeFirst()
-        runCatching {
-            val file = logFile ?: return@runCatching
-            if (file.length() > MAX_FILE_BYTES) {
-                file.writeText("")
+        ensureWriter()
+        pending.add(line)
+    }
+
+    /** 单线程批量落盘：避免每个播放器回调都在主线程打开/关闭文件。 */
+    private fun ensureWriter() {
+        if (writerStarted) return
+        synchronized(writerLock) {
+            if (writerStarted) return
+            writerStarted = true
+            Thread({
+                while (true) {
+                    val first = pending.poll()
+                    if (first == null) {
+                        runCatching { Thread.sleep(60L) }
+                        continue
+                    }
+                    val batch = StringBuilder(first).append('\n')
+                    var count = 1
+                    while (count < 200) {
+                        val next = pending.poll() ?: break
+                        batch.append(next).append('\n')
+                        count++
+                    }
+                    runCatching {
+                        val file = logFile ?: return@runCatching
+                        if (file.length() + batch.length > MAX_FILE_BYTES) {
+                            file.writeText("")
+                        }
+                        java.io.FileOutputStream(file, true).use { out ->
+                            out.write(batch.toString().toByteArray(Charsets.UTF_8))
+                        }
+                    }
+                }
+            }, "bdFun-log-writer").apply {
+                isDaemon = true
+                start()
             }
-            file.appendText(line + "\n")
         }
     }
 
@@ -125,6 +183,25 @@ object LogCollector {
         return "(logcat unavailable; app log only)"
     }
 
+    /** 崩溃前同步落盘：异步写入线程可能还没跑，进程就已经结束了。 */
+    @Synchronized
+    fun flushSync() {
+        if (!BuildConfig.DEBUG) return
+        val file = logFile ?: return
+        runCatching {
+            val batch = StringBuilder()
+            while (true) {
+                val next = pending.poll() ?: break
+                batch.append(next).append('\n')
+            }
+            if (batch.isNotEmpty()) {
+                FileOutputStream(file, true).use { out ->
+                    out.write(batch.toString().toByteArray(Charsets.UTF_8))
+                }
+            }
+        }
+    }
+
     private fun installCrashHandler() {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
@@ -134,6 +211,7 @@ object LogCollector {
                     "thread=${thread.name} ${throwable.javaClass.name}: ${throwable.message}\n" +
                         throwable.stackTraceToString(),
                 )
+                flushSync()
             }
             previous?.uncaughtException(thread, throwable)
         }

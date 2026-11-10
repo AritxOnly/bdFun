@@ -38,6 +38,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.DisposableEffect
+import com.aritxonly.bdfun.ui.ScrollTopButton
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,6 +48,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
@@ -60,6 +63,7 @@ import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.aritxonly.teak.common.navigation.TeakFloatingTabBar
+import com.aritxonly.teak.common.navigation.TeakFloatingTabBarDefaults
 import com.aritxonly.teak.common.navigation.TeakFloatingTabItem
 import com.aritxonly.teak.common.navigation.TeakFloatingTabLayout
 import com.aritxonly.teak.common.theme.TeakUiStyle
@@ -86,17 +90,19 @@ import com.aritxonly.bdfun.ui.MessageScreen
 import com.aritxonly.bdfun.ui.MineScreen
 import com.aritxonly.bdfun.ui.MySentScreen
 import com.aritxonly.bdfun.ui.SearchOverlay
-import com.aritxonly.bdfun.ui.SearchScreen
 import com.aritxonly.bdfun.ui.SettingsScreen
 import com.aritxonly.bdfun.ui.TabTopBar
 import com.aritxonly.bdfun.ui.TeakSplash
 import com.aritxonly.bdfun.ui.UiSwapDurationMs
-import com.aritxonly.bdfun.ui.UnfinishedNoticeOnce
 import com.aritxonly.bdfun.ui.VideoScreen
 import com.aritxonly.bdfun.ui.blockTouches
 import com.aritxonly.bdfun.ui.rememberDynamicFeedState
 import com.aritxonly.bdfun.ui.rememberHomeFeedState
 import com.aritxonly.bdfun.ui.rememberManualProgress
+import com.aritxonly.bdfun.ui.rememberSpringFloat
+import com.aritxonly.bdfun.ui.BackgroundPlayback
+import com.aritxonly.bdfun.ui.BackgroundPlayDisc
+import com.aritxonly.bdfun.ui.rememberDiscPlacement
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
@@ -211,6 +217,7 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
     }
 
     val view = LocalView.current
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     SideEffect {
         // 走 ContextWrapper 链找 Activity：直接强转在部分机型上会拿不到，图标就不跟着主题变
         val activity = view.context.findHostActivity()
@@ -253,6 +260,11 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
     // 首页数据放在 App 层：进视频/搜索/设置再返回时不会重新拉取，滚动位置也保留。
     val homeFeed = rememberHomeFeedState(api)
     val dynamicFeed = rememberDynamicFeedState(api)
+    // 首页 / 动态页各自注册回到顶部；其他底栏页不显示。
+    when (selected) {
+        0 -> com.aritxonly.bdfun.ui.RegisterScrollTop(homeFeed.gridState, "home")
+        1 -> com.aritxonly.bdfun.ui.RegisterScrollTop(dynamicFeed.listState, "dynamic")
+    }
     // 参考 HyperIsland 的做法：整屏一块 backdrop，录制时先铺一层 surface 再画内容
     val backdrop = rememberLayerBackdrop { drawRect(materialColors.background); drawContent() }
     // 搜索页自己一块：首页顶栏的渐变模糊和筛选菜单都采样它，复用同一套页面结构。
@@ -291,6 +303,14 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                     } else {
                         closeSearch()
                     }
+                }
+                // 后台播放时，从首页按返回不结束 App：整个任务收到后台，声音继续。
+                androidx.activity.compose.BackHandler(
+                    enabled = !showSearch &&
+                        settings.backgroundPlay &&
+                        BackgroundPlayback.active,
+                ) {
+                    context.findHostActivity()?.moveTaskToBack(true)
                 }
 
                 // 当前页面标识：用于页面过渡动画 + 返回键状态复位
@@ -361,6 +381,7 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
 
                     val pageFloat = (tabPagerState.currentPage + tabPagerState.currentPageOffsetFraction)
                         .coerceAtLeast(0f)
+                    ScrollTopButton(settings)
 
                     // 搜索页：搜索框保持不动，下面整块换成纯白页（搜索记录 + 热搜 / 结果）
                     if (showSearch || searchReveal > 0.01f) {
@@ -377,10 +398,12 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                                     settings = settings,
                                     submitted = searchSubmitted,
                                     reveal = searchReveal,
+                                    query = searchQuery,
                                     onPickKeyword = { word ->
                                         searchQuery = word
                                         settings.addSearchHistory(word)
                                         searchSubmitted = word
+                                        keyboard?.hide()
                                     },
                                     onOpenVideo = { TeakNavigator.openVideo(context, it) },
                                     onOpenUser = { TeakNavigator.openSpace(context, it.mid) },
@@ -411,6 +434,7 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                                 if (word.isNotEmpty()) {
                                     settings.addSearchHistory(word)
                                     searchSubmitted = word
+                                    keyboard?.hide()
                                 }
                             },
                             onCancelSearch = {
@@ -422,6 +446,13 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                                 showSearch = true
                                 searchQuery = ""
                                 searchSubmitted = null
+                            },
+                            searchResultsVisible = showSearch && searchSubmitted != null,
+                            onOpenSearchPage = {
+                                // 结果页再点搜索框：回到搜索首页（历史/联想），不要直接改当前结果。
+                                searchSubmitted = null
+                                searchQuery = ""
+                                keyboard?.show()
                             },
                             onOpenMessages = { TeakNavigator.openMessages(context) },
                             onOpenProfile = {
@@ -499,6 +530,40 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                         BrandPink
                     }
 
+                    val discVisible = settings.showDiscAfterVideo && BackgroundPlayback.active
+                    val discSlot = rememberSpringFloat(
+                        target = if (discVisible) 1f else 0f,
+                        stiffness = 300f,
+                        damping = 26f,
+                    )
+                    // 底部唱片出现时，底栏本身的高度和宽度完全不动，只是整体向左让位。
+                    //
+                    // 底栏不是满屏宽：三个 Tab 每个最多 80dp，所以它只有 240dp。
+                    // 有唱片时，底栏 + 8dp 缝隙 + 唱片作为“一组”整体居中，
+                    // 底栏离屏幕左边的距离 = 唱片离屏幕右边的距离。
+                    val windowWidthDp = LocalConfiguration.current.screenWidthDp.dp
+                    val tabBarWidth = minOf(
+                        TeakFloatingTabBarDefaults.MaximumWidth,
+                        TeakFloatingTabBarDefaults.MaximumItemWidth * destinations.size,
+                        (windowWidthDp - 32.dp).coerceAtLeast(0.dp),
+                    )
+                    val discWidth = TeakFloatingTabBarDefaults.Height
+                    val discPlacement = rememberDiscPlacement(destinations.size)
+                    val discGap = 8.dp
+                    // 整组居中后的左留白。
+                    val groupLeft = ((windowWidthDp - tabBarWidth - discGap - discWidth) / 2)
+                        .coerceAtLeast(0.dp)
+                    val discShift = if (TeakUiStyle.isClassic) {
+                        // 经典样式底栏是整条贴边，只能整体左移，让出唱片 + 右边距 + 缝隙。
+                        discWidth + 16.dp + discGap
+                    } else {
+                        // 底栏从“自己居中”变成“跟着唱片一起居中”，只往左让半个唱片位。
+                        (windowWidthDp - tabBarWidth) / 2 - groupLeft
+                    }
+                    // 所有页面的唱片位置统一由 rememberDiscPlacement 计算，保证和首页一致。
+                    val discEndPadding = discPlacement.endPadding
+                    val discBottomOffset = discPlacement.bottomOffset
+
                     if (tabBarAlpha > 0.01f) {
                         if (TeakUiStyle.isClassic) {
                             // 经典样式：底栏贴着屏幕底边，上方一条分割线，不做悬浮胶囊。
@@ -511,7 +576,10 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
                                     .fillMaxWidth()
-                                    .graphicsLayer { alpha = tabBarAlpha }
+                                    .graphicsLayer {
+                                        alpha = tabBarAlpha
+                                        translationX = -discSlot * discShift.toPx()
+                                    }
                                     .blockTouches(tabBarCovered)
                                     .navigationBarsPadding(),
                             )
@@ -520,7 +588,10 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
                                     .fillMaxWidth()
-                                    .graphicsLayer { alpha = tabBarAlpha }
+                                    .graphicsLayer {
+                                        alpha = tabBarAlpha
+                                        translationX = -discSlot * discShift.toPx()
+                                    }
                                     .blockTouches(tabBarCovered)
                                     .navigationBarsPadding()
                                     .padding(
@@ -543,6 +614,21 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                                     selectedContentColor = barSelectedColor,
                                 )
                             }
+                        }
+
+                        if (discSlot > 0.01f) {
+                            BackgroundPlayDisc(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .navigationBarsPadding()
+                                    .padding(end = discEndPadding)
+                                    .graphicsLayer {
+                                        alpha = discSlot
+                                        translationX = (1f - discSlot) * 70.dp.toPx()
+                                        translationY = discBottomOffset.toPx()
+                                    },
+                                size = TeakFloatingTabBarDefaults.Height,
+                            ) { TeakNavigator.openVideo(context, it) }
                         }
                     }
 

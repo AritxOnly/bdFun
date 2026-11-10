@@ -95,6 +95,9 @@ class DynamicDetailActivity : ComponentActivity() {
                 settings = settings,
                 onBack = { finish() },
                 title = "动态详情",
+                // 底部是评论输入栏，唱片抬到输入栏上方，右边距对准表情按钮。
+                discLift = 74.dp,
+                discEndPadding = 0.dp,
                 overlay = {
                     CommentReplyBar(
                         modifier = Modifier.align(Alignment.BottomCenter),
@@ -162,6 +165,7 @@ private fun DynamicDetailScreen(dynamic: DynamicItem, onBack: () -> Unit) {
                         liked = liked,
                         onOpen = {},
                         expanded = true,
+                        animatedOpen = false,
                         onOpenVideo = { TeakNavigator.openVideo(context, it) },
                         onOpenForwarded = { TeakNavigator.openDynamic(context, it) },
                         onLike = {

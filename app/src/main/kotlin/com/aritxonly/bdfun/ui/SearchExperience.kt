@@ -51,6 +51,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
@@ -127,6 +129,8 @@ fun SearchOverlay(
     api: BiliApi,
     settings: SettingsStore,
     submitted: String?,
+    /** 当前输入框里的词；未提交时用它拉搜索联想。 */
+    query: String = "",
     reveal: Float,
     onPickKeyword: (String) -> Unit,
     onOpenVideo: (VideoItem) -> Unit,
@@ -139,6 +143,7 @@ fun SearchOverlay(
     var users by remember { mutableStateOf<List<SearchUser>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
     // 请求真正回来之前不显示“没有找到”，避免搜索刚提交时先闪一下空结果。
     var loadedOnce by remember { mutableStateOf(false) }
     var tab by remember { mutableStateOf(0) }
@@ -154,6 +159,17 @@ fun SearchOverlay(
 
     LaunchedEffect(Unit) {
         if (settings.showHotSearch && hotKeywords.isEmpty()) hotKeywords = api.hotKeywords()
+    }
+
+    // 输入时防抖拉联想；提交结果页后不再拉。
+    LaunchedEffect(query, submitted) {
+        val word = query.trim()
+        if (submitted != null || word.isBlank()) {
+            suggestions = emptyList()
+            return@LaunchedEffect
+        }
+        delay(180)
+        suggestions = api.searchSuggest(word)
     }
 
     // 关键词或筛选条件变化都走同一个请求集合，避免两段 Effect 互相覆盖结果。
@@ -248,6 +264,8 @@ fun SearchOverlay(
                     SearchLanding(
                         history = history,
                         hot = if (settings.showHotSearch) hotKeywords else emptyList(),
+                        query = query,
+                        suggestions = suggestions,
                         onPickKeyword = { word ->
                             rememberKeyword(word)
                             onPickKeyword(word)
@@ -287,13 +305,56 @@ fun SearchOverlay(
 private fun SearchLanding(
     history: List<String>,
     hot: List<String>,
+    query: String,
+    suggestions: List<String>,
     onPickKeyword: (String) -> Unit,
     onClearHistory: () -> Unit,
 ) {
+    val colors = MiuixTheme.colorScheme
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, top = 14.dp, end = 16.dp, bottom = 32.dp),
     ) {
+        // 输入框有内容时，用联想词替代记录 / 热搜。
+        if (query.isNotBlank()) {
+            if (suggestions.isNotEmpty()) {
+                item(key = "suggest-title") {
+                    SectionHeader(title = "搜索建议", action = null, onAction = null)
+                }
+                item(key = "suggest-list") {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(colors.surface)
+                            .padding(horizontal = 14.dp, vertical = 4.dp),
+                    ) {
+                        suggestions.forEach { word ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { onPickKeyword(word) }
+                                    .padding(vertical = 12.dp, horizontal = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                SearchSuggestGlyph()
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    text = word,
+                                    color = colors.onBackground,
+                                    fontSize = 13.5.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            return@LazyColumn
+        }
+
         if (history.isNotEmpty()) {
             item(key = "history-title") {
                 SectionHeader(
@@ -308,7 +369,7 @@ private fun SearchLanding(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(18.dp))
-                        .background(MiuixTheme.colorScheme.surface)
+                        .background(colors.surface)
                         .padding(horizontal = 14.dp, vertical = 8.dp),
                 ) {
                     history.chunked(2).forEach { row ->
@@ -340,7 +401,7 @@ private fun SearchLanding(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(18.dp))
-                        .background(MiuixTheme.colorScheme.surface)
+                        .background(colors.surface)
                         .padding(horizontal = 14.dp, vertical = 6.dp),
                 ) {
                     hot.forEachIndexed { index, word ->
@@ -353,6 +414,29 @@ private fun SearchLanding(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SearchSuggestGlyph() {
+    val colors = MiuixTheme.colorScheme
+    androidx.compose.foundation.Canvas(modifier = Modifier.size(16.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.6.dp.toPx()
+        drawCircle(
+            color = colors.onBackgroundVariant.copy(alpha = 0.75f),
+            radius = w * 0.30f,
+            center = androidx.compose.ui.geometry.Offset(w * 0.42f, h * 0.42f),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(stroke),
+        )
+        drawLine(
+            color = colors.onBackgroundVariant.copy(alpha = 0.75f),
+            start = androidx.compose.ui.geometry.Offset(w * 0.64f, h * 0.64f),
+            end = androidx.compose.ui.geometry.Offset(w * 0.86f, h * 0.86f),
+            strokeWidth = stroke,
+            cap = androidx.compose.ui.graphics.StrokeCap.Round,
+        )
     }
 }
 
@@ -413,86 +497,103 @@ private fun SearchResults(
     }
     val videoListState = rememberLazyListState()
     val userListState = rememberLazyListState()
-    val activeList = if (pagerState.currentPage == 0) videoListState else userListState
-    val headerTravelPx = with(LocalDensity.current) { 48.dp.toPx() }
-    val headerScrollPx = if (activeList.firstVisibleItemIndex > 0) {
-        headerTravelPx
-    } else {
-        activeList.firstVisibleItemScrollOffset.toFloat().coerceIn(0f, headerTravelPx)
+    // 给结果内容单独录一层：Tab 栏是它的兄弟节点，不在录制范围内，
+    // 因此 Tab 的玻璃可以安全采样，不会形成自引用。
+    val colors = MiuixTheme.colorScheme
+    val tabBackdrop = rememberLayerBackdrop {
+        drawRect(colors.background)
+        drawContent()
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        CompositionLocalProvider(
-            LocalViewConfiguration provides rememberStricterSwipeConfiguration(),
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .layerBackdrop(tabBackdrop),
         ) {
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize(),
-                beyondViewportPageCount = 1,
-                overscrollEffect = null,
-            ) { page ->
-                val colors = MiuixTheme.colorScheme
-                LazyColumn(
-                    state = if (page == 0) videoListState else userListState,
+            CompositionLocalProvider(
+                LocalViewConfiguration provides rememberStricterSwipeConfiguration(),
+            ) {
+                HorizontalPager(
+                    state = pagerState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
-                        // 顶栏 + Tab 栏 + 一点间距
-                        top = HomeTopBarHeight + 54.dp,
-                        bottom = 32.dp,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    if (loading && results.isEmpty() && users.isEmpty()) {
-                        item(key = "loading") {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                TeakLoading()
+                    beyondViewportPageCount = 1,
+                    overscrollEffect = null,
+                ) { page ->
+                    val pageColors = MiuixTheme.colorScheme
+                    LazyColumn(
+                        state = if (page == 0) videoListState else userListState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            start = 16.dp,
+                            end = 16.dp,
+                            // 顶栏 + Tab 栏 + 一点间距
+                            top = HomeTopBarHeight + 54.dp,
+                            bottom = 32.dp,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        if (loading && results.isEmpty() && users.isEmpty()) {
+                            item(key = "loading") {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    TeakLoading()
+                                }
                             }
                         }
-                    }
-                    error?.let { message ->
-                        if (results.isEmpty() && users.isEmpty()) {
-                            item(key = "error") {
-                                Text(
-                                    text = message,
-                                    color = colors.onBackgroundVariant,
-                                    fontSize = 13.sp,
-                                    modifier = Modifier.padding(top = 24.dp),
-                                )
+                        error?.let { message ->
+                            if (results.isEmpty() && users.isEmpty()) {
+                                item(key = "error") {
+                                    Text(
+                                        text = message,
+                                        color = pageColors.onBackgroundVariant,
+                                        fontSize = 13.sp,
+                                        modifier = Modifier.padding(top = 24.dp),
+                                    )
+                                }
                             }
                         }
-                    }
 
-                    if (page == 0) {
-                        items(items = results, key = { "r" + it.bvid }) { video ->
-                            SearchResultRow(video = video, onClick = { onOpenVideo(video) })
-                        }
-                        if (loadedOnce && !loading && results.isEmpty() && error == null) {
-                            item(key = "empty-videos") {
-                                Text(
-                                    text = "没有找到相关视频",
-                                    color = colors.onBackgroundVariant,
-                                    fontSize = 13.sp,
-                                    modifier = Modifier.padding(top = 24.dp),
+                        if (page == 0) {
+                            items(items = results, key = { "r" + it.bvid }) { video ->
+                                val oneTake = rememberOneTakeAnchor()
+                                val itemContext = LocalContext.current
+                                val cardRadiusPx = with(LocalDensity.current) { 10.dp.toPx() }
+                                SearchResultRow(
+                                    video = video,
+                                    modifier = oneTake.modifier,
+                                    onClick = {
+                                        oneTake.open(itemContext, video, cardRadiusPx) {
+                                            onOpenVideo(video)
+                                        }
+                                    },
                                 )
                             }
-                        }
-                    } else {
-                        items(items = users, key = { "u" + it.mid }) { user ->
-                            SearchUserRow(user = user, onClick = { onOpenUser(user) })
-                        }
-                        if (loadedOnce && !loading && users.isEmpty() && error == null) {
-                            item(key = "empty-users") {
-                                Text(
-                                    text = "没有找到相关用户",
-                                    color = colors.onBackgroundVariant,
-                                    fontSize = 13.sp,
-                                    modifier = Modifier.padding(top = 24.dp),
-                                )
+                            if (loadedOnce && !loading && results.isEmpty() && error == null) {
+                                item(key = "empty-videos") {
+                                    Text(
+                                        text = "没有找到相关视频",
+                                        color = pageColors.onBackgroundVariant,
+                                        fontSize = 13.sp,
+                                        modifier = Modifier.padding(top = 24.dp),
+                                    )
+                                }
+                            }
+                        } else {
+                            items(items = users, key = { "u" + it.mid }) { user ->
+                                SearchUserRow(user = user, onClick = { onOpenUser(user) })
+                            }
+                            if (loadedOnce && !loading && users.isEmpty() && error == null) {
+                                item(key = "empty-users") {
+                                    Text(
+                                        text = "没有找到相关用户",
+                                        color = pageColors.onBackgroundVariant,
+                                        fontSize = 13.sp,
+                                        modifier = Modifier.padding(top = 24.dp),
+                                    )
+                                }
                             }
                         }
                     }
@@ -500,23 +601,23 @@ private fun SearchResults(
             }
         }
 
-        // 只做一份 Tab/筛选按钮：左右切换页面时它不跟着横向移动；
-        // 但纵向滚动时按当前列表的滚动量往上走，不是钉死在顶部。
-        ResultsTabHeader(
-            tab = tab,
-            onTabChange = onTabChange,
-            position = position,
-            filterOpen = filterOpen,
-            onFilterOpenChange = onFilterOpenChange,
-            filters = filters,
-            onFiltersChange = onFiltersChange,
-            onApplyFilters = onApplyFilters,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .padding(top = HomeTopBarHeight + 6.dp)
-                .graphicsLayer { translationY = -headerScrollPx },
-        )
+        // Tab / 筛选按钮固定不动，只跟随页面本身的滚动，不再随列表上移。
+        CompositionLocalProvider(LocalTeakBackdrop provides tabBackdrop) {
+            ResultsTabHeader(
+                tab = tab,
+                onTabChange = onTabChange,
+                position = position,
+                filterOpen = filterOpen,
+                onFilterOpenChange = onFilterOpenChange,
+                filters = filters,
+                onFiltersChange = onFiltersChange,
+                onApplyFilters = onApplyFilters,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .padding(top = HomeTopBarHeight + 6.dp),
+            )
+        }
     }
 }
 
@@ -533,6 +634,9 @@ private fun ResultsTabHeader(
     onApplyFilters: (SearchFilterState) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var filterAnchor by remember {
+        mutableStateOf(androidx.compose.ui.geometry.Rect.Zero)
+    }
     Box(
         modifier = modifier.height(42.dp),
     ) {
@@ -541,41 +645,41 @@ private fun ResultsTabHeader(
             selected = tab,
             onSelect = onTabChange,
             itemWidth = 64.dp,
-            backdrop = null,
-            plain = true,
             position = position,
             modifier = Modifier.align(Alignment.Center),
         )
-        TeakMenuAnchor(
-            expanded = filterOpen,
-            onExpandedChange = onFilterOpenChange,
-            panelWidth = 320.dp,
-            panelMaxHeight = 520.dp,
-            panelContentPadding = 0.dp,
+        // 漏斗：真正采样 Tab 后面的内容，和设置页二级菜单一样是 Miuix 玻璃。
+        Box(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 // 顶栏清空按钮的右边距也是 12dp，这里正好对齐。
-                .padding(end = 12.dp),
-            trigger = { onClick ->
-                // 和顶栏清空按钮同一套玻璃底，但不去采样 backdrop（去掉模糊）。
-                com.aritxonly.teak.common.material.TeakGlassIconButton(
-                    onClick = onClick,
-                    size = 40.dp,
-                    backdrop = null,
-                ) {
-                    FunnelGlyph()
-                }
-            },
-            panel = {
-                FilterMenu(
-                    value = filters,
-                    onChange = {
-                        onFiltersChange(it)
-                        onApplyFilters(it)
-                    },
-                )
-            },
-        )
+                .padding(end = 12.dp)
+                .onGloballyPositioned { filterAnchor = it.boundsInWindow() },
+        ) {
+            com.aritxonly.teak.common.material.TeakGlassIconButton(
+                onClick = { onFilterOpenChange(!filterOpen) },
+                size = 40.dp,
+                backdrop = LocalTeakBackdrop.current,
+            ) {
+                FunnelGlyph()
+            }
+        }
+        TeakGlassMenu(
+            visible = filterOpen,
+            onDismiss = { onFilterOpenChange(false) },
+            anchorInWindow = filterAnchor,
+            minWidth = 280.dp,
+            maxWidth = 340.dp,
+            maxHeight = 520.dp,
+        ) {
+            FilterMenu(
+                value = filters,
+                onChange = {
+                    onFiltersChange(it)
+                    onApplyFilters(it)
+                },
+            )
+        }
     }
 }
 
@@ -813,12 +917,16 @@ private fun SearchUserRow(user: SearchUser, onClick: () -> Unit) {
 
 /** 和视频详情页「相关推荐」同一套行布局：150dp 封面 + 两行标题 + 数据 + 底部 UP。 */
 @Composable
-private fun SearchResultRow(video: VideoItem, onClick: () -> Unit) {
+private fun SearchResultRow(
+    video: VideoItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = MiuixTheme.colorScheme
     val coverWidth = 150.dp
     val coverHeight = coverWidth * 9f / 16f
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(interactionSource = null, indication = null, onClick = onClick)
             .padding(vertical = 6.dp),

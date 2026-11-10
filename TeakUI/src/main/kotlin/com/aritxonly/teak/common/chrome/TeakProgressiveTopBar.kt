@@ -32,10 +32,8 @@ import top.yukonga.miuix.kmp.blur.progressiveTextureBlur
 import kotlin.math.ceil
 import kotlin.math.max
 
-val LocalImmersiveExperienceEnabled = staticCompositionLocalOf { false }
 val LocalImmersiveTopBarEnabled = staticCompositionLocalOf { false }
 val LocalProgressiveTopBarMaterialHosted = staticCompositionLocalOf { false }
-val LocalTopBarButtonMaterialProgress = staticCompositionLocalOf { 0f }
 val LocalTopBarScrollProgress = staticCompositionLocalOf<Float?> { null }
 
 private const val BlurRadiusDp = 8f

@@ -33,8 +33,8 @@ class HomeFeedState internal constructor(
 ) {
     val gridState = LazyGridState()
 
-    var videos by mutableStateOf<List<VideoItem>>(emptyList())
-        private set
+    // 用可观察列表原地追加，避免每次翻页都复制整张列表。
+    val videos = androidx.compose.runtime.mutableStateListOf<VideoItem>()
     var loading by mutableStateOf(true)
         private set
     var refreshing by mutableStateOf(false)
@@ -85,7 +85,7 @@ class HomeFeedState internal constructor(
                     val known = videos.mapTo(HashSet()) { it.bvid }
                     val fresh = list.filter { known.add(it.bvid) }
                     if (fresh.isNotEmpty()) {
-                        videos = fresh + videos
+                        videos.addAll(0, fresh)
                         endReached = false
                     }
                     // 刷新后新内容在最上面：把列表滚回顶部，否则按 key 锚定会停在旧内容
@@ -108,7 +108,7 @@ class HomeFeedState internal constructor(
                 if (fresh.isEmpty()) {
                     endReached = true
                 } else {
-                    videos = videos + fresh
+                    videos.addAll(fresh)
                     page = next
                 }
             }
@@ -126,7 +126,13 @@ class HomeFeedState internal constructor(
         runCatching { api.recommend(1, com.aritxonly.bdfun.AppGraph.settings.recommendWeb) }
             .onSuccess { list ->
                 if (list.isNotEmpty()) {
-                    videos = list.distinctBy { it.bvid }
+                    val distinct = list.distinctBy { it.bvid }
+                    val same = videos.size == distinct.size &&
+                        videos.indices.all { videos[it].bvid == distinct[it].bvid }
+                    if (!same) {
+                        videos.clear()
+                        videos.addAll(distinct)
+                    }
                     page = 1
                     endReached = false
                 } else if (videos.isEmpty()) {

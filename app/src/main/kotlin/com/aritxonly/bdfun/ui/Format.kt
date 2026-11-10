@@ -19,10 +19,18 @@ internal fun formatDuration(seconds: Int): String {
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
 }
 
+// SimpleDateFormat 不是线程安全的，按线程缓存一份，避免每条记录都新建。
+private val dateFormatter = ThreadLocal.withInitial {
+    SimpleDateFormat("yyyy-MM-dd", Locale.CHINA)
+}
+private val dateTimeFormatter = ThreadLocal.withInitial {
+    SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA)
+}
+
 /** 秒级时间戳 → yyyy-MM-dd。 */
 internal fun formatDate(epochSeconds: Long): String =
-    SimpleDateFormat("yyyy-MM-dd", Locale.CHINA).format(Date(epochSeconds * 1000))
+    dateFormatter.get()!!.format(Date(epochSeconds * 1000))
 
 /** 秒级时间戳 → yyyy-MM-dd HH:mm（详情页显示具体发布时间）。 */
 internal fun formatDateTime(epochSeconds: Long): String =
-    SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA).format(Date(epochSeconds * 1000))
+    dateTimeFormatter.get()!!.format(Date(epochSeconds * 1000))

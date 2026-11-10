@@ -6,7 +6,6 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -105,11 +104,6 @@ val EaseOutQuint: Easing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
 /** 果冻：终点冲过头约 12%，再回收。 */
 val JellyEasing: Easing = CubicBezierEasing(0.34f, 1.56f, 0.64f, 1f)
 
-/** 轻度回弹（用于菜单、弹窗淡入）。 */
-val SoftBackEasing: Easing = CubicBezierEasing(0.2f, 1.2f, 0.35f, 1f)
-
-val StandardEasing: Easing = FastOutSlowInEasing
-
 fun Context.showToast(message: String) {
     Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
 }
@@ -119,5 +113,3 @@ fun Context.copyToClipboard(label: String, text: String) {
     manager.setPrimaryClip(ClipData.newPlainText(label, text))
 }
 
-/** 解析评论/弹幕文本里的 B 站表情占位符（`[doge]`）——目前只用于插入，渲染保留原文本。 */
-fun String.appendEmote(emoteText: String): String = this + "[$emoteText]"

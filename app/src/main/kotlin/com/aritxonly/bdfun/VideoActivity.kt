@@ -139,15 +139,19 @@ class VideoActivity : ComponentActivity() {
                     ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                 }
                 if (requestedOrientation != wanted) {
-                    android.util.Log.d(
-                        "ROTDBG",
-                        "apply requestedOrientation=$wanted (angle=$orientation)",
-                    )
+                    if (BuildConfig.DEBUG) {
+                        android.util.Log.d(
+                            "ROTDBG",
+                            "apply requestedOrientation=$wanted (angle=$orientation)",
+                        )
+                    }
                     requestedOrientation = wanted
                 }
             }
         }.also { it.enable() }
-        android.util.Log.d("ROTDBG", "orientation listener enabled")
+        if (BuildConfig.DEBUG) {
+            android.util.Log.d("ROTDBG", "orientation listener enabled")
+        }
     }
 
     private fun stopOrientationTracking() {
@@ -186,6 +190,32 @@ class VideoActivity : ComponentActivity() {
         stopOrientationTracking()
     }
 
+    /** 退出视频：若设置选择「画中画」，先进入系统画中画；否则正常关闭并交给唱片。 */
+    private fun exitVideoPage() {
+        val s = AppGraph.settings
+        if (s.showDiscAfterVideo && s.exitVideoControl == 0) {
+            val ok = runCatching {
+                val params = android.app.PictureInPictureParams.Builder()
+                    .setAspectRatio(android.util.Rational(16, 9))
+                    .build()
+                enterPictureInPictureMode(params)
+            }.getOrDefault(false)
+            if (ok) return
+        }
+        finish()
+    }
+
+    override fun onDestroy() {
+        // 只有真正退出这个视频页才清相关推荐；从相关推荐进另一个视频时
+        // 这个 Activity 只是 stop、不会 finish，所以返回时不会重载。
+        if (isFinishing) {
+            com.aritxonly.bdfun.ui.clearRelatedMemory(
+                com.aritxonly.bdfun.ui.VideoPageBus.currentBvid,
+            )
+        }
+        super.onDestroy()
+    }
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
@@ -199,12 +229,14 @@ class VideoActivity : ComponentActivity() {
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
-        android.util.Log.d(
-            "ROTDBG",
-            "onConfigChanged orientation=${newConfig.orientation} rotation=${display?.rotation} " +
-                "size=${resources.displayMetrics.widthPixels}x${resources.displayMetrics.heightPixels} " +
-                "reqOri=$requestedOrientation",
-        )
+        if (BuildConfig.DEBUG) {
+            android.util.Log.d(
+                "ROTDBG",
+                "onConfigChanged orientation=${newConfig.orientation} rotation=${display?.rotation} " +
+                    "size=${resources.displayMetrics.widthPixels}x${resources.displayMetrics.heightPixels} " +
+                    "reqOri=$requestedOrientation",
+            )
+        }
     }
 
     /**
@@ -226,6 +258,8 @@ class VideoActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppGraph.ensure(applicationContext)
+        // 任何方式新开视频页，都先停掉后台播放器，避免两路声音。
+        com.aritxonly.bdfun.ui.BackgroundPlayback.stopDetached()
         applyStatusBarStyle(AppGraph.settings.videoImmersiveStatusBar)
         if (android.os.Build.VERSION.SDK_INT >= 33 && !AppGraph.settings.notifAsked) {
             val granted = checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
@@ -242,12 +276,20 @@ class VideoActivity : ComponentActivity() {
         }
         val api = AppGraph.api
         val settings = AppGraph.settings
-        // 调试用：adb 直接带 bvid 启动，方便在电脑上验证播放器
+        // 调试/消息跳转用：adb 带 bvid、消息页只给 64 位 aid 时都从这里异步补详情。
         val debugBvid = intent?.getStringExtra("bvid")
-        if (debugBvid != null && AppGraph.pendingVideo.value == null) {
+        val debugAid = intent?.getLongExtra("aid", 0L) ?: 0L
+        if (AppGraph.pendingVideo.value == null && (debugBvid != null || debugAid > 0L)) {
             Thread {
                 runCatching {
-                    val detail = kotlinx.coroutines.runBlocking { AppGraph.api.view(debugBvid) }
+                    val detail = kotlinx.coroutines.runBlocking {
+                        if (debugBvid != null) {
+                            AppGraph.api.view(debugBvid)
+                        } else {
+                            // 64 位新 av 号：只能问服务器要 BV，本地公式算不出来。
+                            AppGraph.api.viewByAid(debugAid)
+                        }
+                    }
                     AppGraph.pendingVideo.value = com.aritxonly.bdfun.data.VideoItem(
                         bvid = detail.bvid,
                         aid = detail.aid,
@@ -260,6 +302,7 @@ class VideoActivity : ComponentActivity() {
                         danmaku = detail.danmaku,
                         duration = detail.duration,
                         pubdate = detail.pubdate,
+                        cid = detail.cid,
                     )
                 }
             }.start()
@@ -300,7 +343,12 @@ class VideoActivity : ComponentActivity() {
             val pageFullscreen = PlayerUiState.fullscreen
             val pageOverlayAlpha = rememberManualProgress(if (pageFullscreen) 0f else 1f, 200f)
             var comments by remember { mutableStateOf<VideoDetail?>(null) }
-            val pager = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 2 })
+            // 从消息页进来时，消费一次「定位评论」请求，并直接打开评论页。
+            val commentRequest = remember { VideoPageBus.consumeCommentRequest() }
+            val pager = androidx.compose.foundation.pager.rememberPagerState(
+                initialPage = if (commentRequest.first > 0L) 1 else 0,
+                pageCount = { 2 },
+            )
             val scope = androidx.compose.runtime.rememberCoroutineScope()
             val screenWidthDp = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
             // 状态栏高度：隐藏状态栏时不变，首帧 insets 未下发时按系统资源兜底
@@ -323,8 +371,10 @@ class VideoActivity : ComponentActivity() {
             BackHandler(enabled = danmakuInputOpen) { danmakuInputOpen = false }
             TeakActivityScaffold(
                 settings = settings,
-                onBack = { finish() },
+                onBack = { exitVideoPage() },
                 backRevealed = false,
+                // 播放器页自己就是视频，不需要再叠后台唱片。
+                showBackgroundDisc = false,
                 // 返回键改由 overlay 自己画：半屏时和播放器控件一起显隐（平滑淡入淡出）
                 showBackButton = false,
                 overlay = {
@@ -343,10 +393,13 @@ class VideoActivity : ComponentActivity() {
                                 .fillMaxWidth()
                                 .padding(
                                     start = 16.dp,
-                                    top = playerTopInset + playerHeightDp + 6.dp,
                                     end = 16.dp,
                                 )
-                                .graphicsLayer { alpha = overlayAlpha },
+                                .graphicsLayer {
+                                    alpha = overlayAlpha
+                                    // 直接贴在播放器真实底边下面，不再各自算一套位置。
+                                    translationY = VideoPageBus.playerBottomPx + 6.dp.toPx()
+                                },
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             TeakPagerTabs(
@@ -487,10 +540,17 @@ class VideoActivity : ComponentActivity() {
                         video = loadedVideo,
                         defaultQuality = settings.qualityPreference,
                         onOpenComments = { comments = it },
-                        onBack = { finish() },
+                        onBack = { exitVideoPage() },
                         pager = pager,
                         autoRotate = settings.autoRotate,
                         immersiveStatusBar = settings.videoImmersiveStatusBar,
+                        // 从 Activity 根部读到的状态栏高度，避免页面内部读成 0。
+                        statusBarTop = statusBarDp,
+                        openedFromVideoPage =
+                            intent?.getBooleanExtra("fromVideoPage", false) == true,
+                        initialCommentRoot = commentRequest.first,
+                        initialCommentTarget = commentRequest.second,
+                        initialSeekMs = commentRequest.third,
                     )
                     // 视频底边的白色渐变放进页面录制层，Tab 玻璃采样时会把它和下方内容
                     // 当成同一张底片一起模糊，避免 Tab 内外一亮一白。
@@ -499,9 +559,12 @@ class VideoActivity : ComponentActivity() {
                         modifier = Modifier
                             .align(Alignment.TopStart)
                             .fillMaxWidth()
-                            .padding(top = playerTopInset + playerHeightDp)
                             .height(54.dp)
-                            .graphicsLayer { alpha = pageOverlayAlpha }
+                            .graphicsLayer {
+                                alpha = pageOverlayAlpha
+                                // 渐变紧贴播放器真实底边。
+                                translationY = VideoPageBus.playerBottomPx
+                            }
                             .background(
                                 Brush.verticalGradient(
                                     0f to fadeColor,

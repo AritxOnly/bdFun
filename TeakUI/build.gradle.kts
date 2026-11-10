@@ -35,9 +35,13 @@ dependencies {
     api(libs.compose.animation)
     api(libs.compose.material3)
     api(libs.miuix.ui)
+    api(libs.miuix.preference)
+    api(libs.miuix.glass)
+    api(libs.miuix.nav)
     api(libs.miuix.blur)
     api(libs.miuix.icons)
     api(libs.kyant.shapes)
 
     implementation(libs.coroutines.android)
+    implementation(libs.androidx.activity.compose)
 }

@@ -1,9 +1,14 @@
 ﻿package com.aritxonly.teak.common.settings
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.view.ViewTreeObserver
+import android.view.Window
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -35,15 +40,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.dropShadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
@@ -52,9 +65,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.aritxonly.teak.common.material.LocalTeakBackdrop
 import com.aritxonly.teak.common.material.LocalTeakMaterialSpec
 import com.aritxonly.teak.common.material.TeakGlassPanel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.flow.first
 import kotlin.coroutines.resume
@@ -107,22 +124,48 @@ fun TeakDropdownPanel(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     var mounted by remember { mutableStateOf(false) }
-    var openGen by remember { mutableStateOf(0) }
-    var readyGen by remember { mutableStateOf(-1) }
     var fullHeightPx by remember { mutableStateOf(0) }
-    val progress = remember { Animatable(0f) }
+    // 和 Miuix ListPopupDefaults 完全相同的两条进度：
+    // 缩放 / 裁剪展开用 spring(0.82, 362.5)，透明度进场 200ms、退场 150ms。
+    val fraction = remember { Animatable(0f) }
+    val alpha = remember { Animatable(0f) }
 
     LaunchedEffect(visible) {
         if (visible) {
             mounted = true
-            // 每次打开都换一代，避免上一次的 ready 状态让动画提前启动、吃掉开头。
-            openGen += 1
-            progress.snapTo(0f)
+            fraction.snapTo(0f)
+            alpha.snapTo(0f)
+            // 等真实高度量出来、并让首帧先画一次，再开始动画，避免开场被吃掉。
+            snapshotFlow { fullHeightPx }.first { it > 0 }
+            withFrameNanos { }
+            withFrameNanos { }
+            kotlinx.coroutines.coroutineScope {
+                launch {
+                    fraction.animateTo(
+                        targetValue = 1f,
+                        animationSpec = spring(
+                            dampingRatio = 0.82f,
+                            stiffness = 362.5f,
+                            visibilityThreshold = 0.0001f,
+                        ),
+                    )
+                }
+                alpha.animateTo(1f, tween(durationMillis = 200))
+            }
         } else if (mounted) {
-            progress.animateTo(
-                targetValue = 0f,
-                animationSpec = tween(durationMillis = 225, easing = FastOutLinearInEasing),
-            )
+            kotlinx.coroutines.coroutineScope {
+                launch {
+                    fraction.animateTo(
+                        targetValue = 0f,
+                        animationSpec = spring(
+                            dampingRatio = 0.82f,
+                            stiffness = 362.5f,
+                            visibilityThreshold = 0.0001f,
+                        ),
+                    )
+                }
+                alpha.animateTo(0f, tween(durationMillis = 150))
+            }
             mounted = false
         }
     }
@@ -168,68 +211,26 @@ fun TeakDropdownPanel(
         .coerceAtLeast(20.dp)
         .coerceAtMost((screenHeight - finalHeight - 20.dp).coerceAtLeast(20.dp))
 
-    // 起始窗口：右上角对齐最终窗口。
-    val startWidth = Dp(fullWidth.value * 0.69f)
-    val startHeight = Dp(startWidth.value * 0.34f)
-    val startRight = finalLeft + fullWidth
-    val startLeft = startRight - startWidth
-    val startTop = safeFinalTop
-    val startBottom = startTop + startHeight
-    val startCenterX = Dp((startLeft.value + startRight.value) / 2f)
-    val startCenterY = Dp((startTop.value + startBottom.value) / 2f)
-    val endCenterX = Dp(finalLeft.value + fullWidth.value / 2f)
-    val endCenterY = Dp(safeFinalTop.value + finalHeight.value / 2f)
-
-    // 必须等“这一代”的 Dialog 第一帧真正画出来，并且量到内容高度，才启动打开动画。
-    // 逐帧推进，单帧最多按 1/30 秒算：掉帧时宁可整体慢一点，也不许把开头那几帧直接跳过去。
-    LaunchedEffect(visible, openGen, readyGen) {
-        if (!visible || readyGen != openGen) return@LaunchedEffect
-        // 等第一次量到内容高度；用 snapshotFlow 而不是把高度当 key，
-        // 否则动画中途高度变化会让整段动画从 0 重放。
-        snapshotFlow { fullHeightPx }.first { it > 0 }
-        // 先空转两帧，保证起始的小卡片确实被显示过一次。
-        withFrameNanos { }
-        withFrameNanos { }
-        var elapsedNanos = 0L
-        var lastFrame = withFrameNanos { it }
-        while (true) {
-            val frame = withFrameNanos { it }
-            val raw = frame - lastFrame
-            lastFrame = frame
-            elapsedNanos += raw.coerceIn(0L, 33_000_000L)
-            val p = (elapsedNanos / 700_000_000f).coerceIn(0f, 1f)
-            progress.snapTo(p)
-            if (p >= 1f) break
-        }
-    }
-
-    val elapsedSec = progress.value * 0.7f
-    val fraction = if (visible) springStep(elapsedSec, 0.8f, 0.35f) else progress.value
-    val position = if (visible) springStep(elapsedSec, 0.8f, 0.22f) else progress.value
-
-    val currentWidth = Dp(startWidth.value + (fullWidth.value - startWidth.value) * fraction)
-    val startKgb = 0.34f
-    val endKgb = if (fullWidth.value == 0f) 0f else finalHeight.value / fullWidth.value
-    val kgb = startKgb + (endKgb - startKgb) * fraction
-    val currentHeight = Dp(currentWidth.value * kgb)
-    val currentCenterX = Dp(startCenterX.value + (endCenterX.value - startCenterX.value) * position)
-    val currentCenterY = Dp(startCenterY.value + (endCenterY.value - startCenterY.value) * position)
-    // 和测试程序一致：每一帧都夹在屏幕内，而不是只夹最终位置。
-    val currentLeft = (Dp(currentCenterX.value - currentWidth.value / 2f))
-        .coerceAtLeast(8.dp)
-        .coerceAtMost((screenWidth - currentWidth - 8.dp).coerceAtLeast(8.dp))
-    val currentTop = (Dp(currentCenterY.value - currentHeight.value / 2f))
-        .coerceAtLeast(20.dp)
-        .coerceAtMost((screenHeight - currentHeight - 20.dp).coerceAtLeast(20.dp))
-
+    // 和 Miuix ListPopupLayout 一致：面板始终按最终尺寸摆放，只做
+    // 0.15 → 1 的缩放、透明度渐入，以及从触发方向展开的裁剪。
+    val showBelow = anchorTop != null && anchorHeight != null &&
+        safeFinalTop >= anchorTop + anchorHeight
+    val showAbove = anchorTop != null && anchorHeight != null &&
+        safeFinalTop + finalHeight <= anchorTop
+    val transformOrigin = TransformOrigin(
+        pivotFractionX = 1f,
+        pivotFractionY = when {
+            showBelow -> 0f
+            showAbove -> 1f
+            else -> 0.5f
+        },
+    )
     val shape = RoundedCornerShape(24.dp)
-    // 关闭：225ms 线性回缩（比原来 250ms 快 10%），最后 63ms 淡出，整块模糊从 0 涨到 10dp。
-    val panelAlpha = if (visible) 1f else (progress.value * 225f / 63f).coerceIn(0f, 1f)
-    val blurDp = if (visible) 0f else (1f - progress.value.coerceIn(0f, 1f)) * 10f
-    val shadowAlpha = ((panelAlpha - 0.2f) / 0.8f).coerceIn(0f, 1f)
+    val panelAlpha = alpha.value
+    val shadowAlpha = alpha.value
 
     Dialog(
-        onDismissRequest = { if (progress.value > 0.55f) onDismiss() },
+        onDismissRequest = { if (alpha.value > 0.55f) onDismiss() },
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
             decorFitsSystemWindows = false,
@@ -237,6 +238,7 @@ fun TeakDropdownPanel(
         ),
     ) {
         val view = LocalView.current
+        val hostActivity = LocalContext.current.hostActivity()
         val dialogWindow = (view.parent as? DialogWindowProvider)?.window
         SideEffect {
             dialogWindow?.setDimAmount(0f)
@@ -244,51 +246,22 @@ fun TeakDropdownPanel(
                 android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT),
             )
             dialogWindow?.decorView?.elevation = 0f
-        }
-
-        LaunchedEffect(visible, openGen) {
-            if (!visible) return@LaunchedEffect
-            // 用“这一帧真的画完了”作为信号，而不是“即将画”：
-            // 设置页比较重，Dialog 窗口从创建到真正上屏可能比 demo 慢一两帧，
-            // 用 preDraw 会让动画在窗口还看不见的时候就开始跑，开场就被吃掉了。
-            suspendCancellableCoroutine<Unit> { continuation ->
-                val observer = view.viewTreeObserver
-                val fired = java.util.concurrent.atomic.AtomicBoolean(false)
-                val listener = object : ViewTreeObserver.OnDrawListener {
-                    override fun onDraw() {
-                        // onDraw 内部不允许移除监听，交回主线程队列，下一帧前处理。
-                        if (!fired.compareAndSet(false, true)) return
-                        view.post {
-                            if (observer.isAlive) {
-                                runCatching { observer.removeOnDrawListener(this) }
-                            }
-                            if (continuation.isActive) continuation.resume(Unit)
-                        }
-                    }
-                }
-                observer.addOnDrawListener(listener)
-                continuation.invokeOnCancellation {
-                    view.post {
-                        if (observer.isAlive) {
-                            runCatching { observer.removeOnDrawListener(listener) }
-                        }
-                    }
-                }
-            }
-            readyGen = openGen
+            // 二级菜单是独立窗口。不主动同步时，系统会按 Dialog 自己的默认值
+            // 重算状态栏图标明暗，看起来像整页“反色”。这里完全沿用原页面的状态。
+            matchSystemBars(dialogWindow, hostActivity?.window)
         }
 
         CompositionLocalProvider(
             LocalTeakBackdrop provides backdrop,
             LocalTeakMaterialSpec provides materialSpec,
-            LocalTeakDropdownInteractive provides (visible && progress.value >= 0.72f),
+            LocalTeakDropdownInteractive provides (visible && fraction.value >= 0.72f),
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .clickable(interactionSource = null, indication = null) {
-                            if (progress.value > 0.55f) onDismiss()
+                            if (alpha.value > 0.55f) onDismiss()
                         },
                 )
 
@@ -310,13 +283,19 @@ fun TeakDropdownPanel(
                     content()
                 }
 
-                // 阴影单独一层，跟随整体进度淡出。
+                // 阴影单独一层，跟着同一套缩放 / 透明度动画走。
                 Box(
                     modifier = Modifier
-                        .offsetInPx(currentLeft, currentTop)
-                        .width(currentWidth)
-                        .height(currentHeight)
-                        .graphicsLayer { alpha = shadowAlpha }
+                        .offsetInPx(finalLeft, safeFinalTop)
+                        .width(fullWidth)
+                        .height(finalHeight)
+                        .graphicsLayer {
+                            val scale = 0.15f + 0.85f * fraction.value
+                            scaleX = scale
+                            scaleY = scale
+                            this.alpha = shadowAlpha
+                            this.transformOrigin = transformOrigin
+                        }
                         .dropShadow(
                             shape = shape,
                             shadow = Shadow(radius = 16.dp, color = Color.Black, alpha = 0.13f),
@@ -324,20 +303,25 @@ fun TeakDropdownPanel(
                         .background(Color.White.copy(alpha = 0.001f), shape),
                 )
 
-                // 白底 + 玻璃 + 文字放在同一个模糊图层里。
+                // 白底 + 玻璃 + 文字：动画参数完全照 Miuix ListPopupContent。
                 Box(
                     modifier = Modifier
-                        .offsetInPx(currentLeft, currentTop)
-                        .width(currentWidth)
-                        .height(currentHeight)
+                        .offsetInPx(finalLeft, safeFinalTop)
+                        .width(fullWidth)
+                        .height(finalHeight)
                         .graphicsLayer {
-                            val radiusPx = blurDp.dp.toPx()
-                            renderEffect = if (radiusPx > 0.5f) {
-                                BlurEffect(radiusPx, radiusPx, TileMode.Decal)
-                            } else {
-                                null
-                            }
+                            val scale = 0.15f + 0.85f * fraction.value
+                            scaleX = scale
+                            scaleY = scale
+                            this.alpha = panelAlpha
+                            this.transformOrigin = transformOrigin
                         }
+                        .dropdownClipReveal(
+                            fraction = { fraction.value },
+                            showBelow = showBelow,
+                            showAbove = showAbove,
+                            corner = 24.dp,
+                        )
                         .clip(shape)
                         .background(Color.White),
                 ) {
@@ -364,6 +348,82 @@ fun TeakDropdownPanel(
     }
 }
 
+fun Context.hostActivity(): Activity? {
+    var ctx: Context? = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
+
+/** 让 Dialog 窗口的状态栏 / 导航栏图标明暗和宿主页面完全一致。 */
+fun matchSystemBars(dialogWindow: Window?, hostWindow: Window?) {
+    if (dialogWindow == null || hostWindow == null) return
+    runCatching {
+        val host = WindowCompat.getInsetsController(hostWindow, hostWindow.decorView)
+        val dialog = WindowCompat.getInsetsController(dialogWindow, dialogWindow.decorView)
+        dialog.isAppearanceLightStatusBars = host.isAppearanceLightStatusBars
+        dialog.isAppearanceLightNavigationBars = host.isAppearanceLightNavigationBars
+        // 视频页等隐藏状态栏的场景，菜单窗口也不要把它重新显示出来。
+        val hostInsets = ViewCompat.getRootWindowInsets(hostWindow.decorView)
+        if (hostInsets != null &&
+            !hostInsets.isVisible(WindowInsetsCompat.Type.statusBars())
+        ) {
+            dialog.hide(WindowInsetsCompat.Type.statusBars())
+        }
+    }
+}
+
+/**
+ * Miuix ListPopupContent 同款方向性裁剪：
+ * 从触发方向（按钮下方 / 上方 / 中间）把面板逐步展开，边缘按面板圆角裁切。
+ */
+private fun Modifier.dropdownClipReveal(
+    fraction: () -> Float,
+    showBelow: Boolean,
+    showAbove: Boolean,
+    corner: Dp,
+): Modifier = drawWithCache {
+    val path = Path()
+    val cornerPx = corner.toPx()
+    onDrawWithContent {
+        val p = fraction().coerceIn(0f, 1f)
+        if (p <= 0f) return@onDrawWithContent
+        val height = size.height
+        val visible = height * p
+        if (visible <= 0f) return@onDrawWithContent
+        val start = when {
+            showBelow -> 0f
+            showAbove -> height * (1f - p)
+            else -> height * (0.5f - 0.5f * p)
+        }
+        path.rewind()
+        path.addRoundRect(
+            RoundRect(
+                left = 0f,
+                top = 0f,
+                right = size.width,
+                bottom = visible,
+                cornerRadius = CornerRadius(cornerPx),
+            ),
+        )
+        if (start == 0f) {
+            clipPath(path) {
+                this@onDrawWithContent.drawContent()
+            }
+        } else {
+            translate(top = start) {
+                clipPath(path) {
+                    translate(top = -start) {
+                        this@onDrawWithContent.drawContent()
+                    }
+                }
+            }
+        }
+    }
+}
+
 private fun Modifier.offsetInPx(xDp: Dp, yDp: Dp) =
     this.then(
         Modifier.offset {
@@ -371,28 +431,3 @@ private fun Modifier.offsetInPx(xDp: Dp, yDp: Dp) =
         },
     )
 
-/**
- * 与 MIUI Folme `SpringInterpolator` 相同的单位阶跃响应：
- * ω = 2π / response，零初速度、目标 1。
- */
-private fun springStep(timeSec: Float, damping: Float, response: Float): Float {
-    if (timeSec <= 0f) return 0f
-    val zeta = damping.coerceIn(0.05f, 1.5f).toDouble()
-    val omega = 2.0 * PI / response.coerceAtLeast(0.02f).toDouble()
-    return if (zeta < 1.0 - 1e-4) {
-        val wd = omega * sqrt(1.0 - zeta * zeta)
-        val decay = exp(-zeta * omega * timeSec)
-        (1.0 - decay * (cos(wd * timeSec) + (zeta / sqrt(1.0 - zeta * zeta)) * sin(wd * timeSec)))
-            .toFloat()
-    } else if (abs(zeta - 1.0) <= 1e-4) {
-        val decay = exp(-omega * timeSec)
-        (1.0 - decay * (1.0 + omega * timeSec)).toFloat()
-    } else {
-        val s = sqrt(zeta * zeta - 1.0)
-        val r1 = -zeta * omega + omega * s
-        val r2 = -zeta * omega - omega * s
-        val c1 = r2 / (r1 - r2)
-        val c2 = -r1 / (r1 - r2)
-        (1.0 + c1 * exp(r1 * timeSec) + c2 * exp(r2 * timeSec)).toFloat()
-    }
-}

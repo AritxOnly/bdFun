@@ -247,7 +247,7 @@ fun CommentReplyBar(modifier: Modifier = Modifier) {
                                         Text(
                                             text = ReplyTarget.name?.let { "回复 @$it：" }
                                                 ?: "发一条友善的评论",
-                                            color = colors.outline,
+                                            color = colors.onBackgroundVariant,
                                             fontSize = 13.sp,
                                             maxLines = 1,
                                         )

@@ -68,6 +68,11 @@ import com.aritxonly.bdfun.BrandPinkDeep
 import com.aritxonly.bdfun.data.DynamicItem
 import com.aritxonly.bdfun.data.VideoItem
 import com.kyant.shapes.Capsule
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -135,10 +140,24 @@ fun DynamicScreen(
     LaunchedEffect(loggedIn, refreshTick) {
         if (refreshTick == handledTick) {
             state.ensureLoaded(loggedIn)
-        } else {
-            handledTick = refreshTick
-            state.refresh(loggedIn)
+            return@LaunchedEffect
         }
+        handledTick = refreshTick
+        if (state.refreshing || state.loading) return@LaunchedEffect
+        // 和首页再次点击底栏完全同一套：先回顶（不在顶部时和下拉动画并行），
+        // 再把下拉指示器拉到阈值，最后刷新。
+        val atTop = state.listState.firstVisibleItemIndex == 0 &&
+            state.listState.firstVisibleItemScrollOffset == 0
+        if (atTop) {
+            animatePullTo(thresholdPx, 200f)
+        } else {
+            kotlinx.coroutines.coroutineScope {
+                launch { state.listState.animateScrollToItem(0) }
+                launch { animatePullTo(thresholdPx, 260f) }
+            }
+        }
+        state.pullFraction = 1f
+        state.refresh(loggedIn)
     }
 
     LaunchedEffect(state.refreshing) {
@@ -191,10 +210,11 @@ fun DynamicScreen(
         }
     }
 
-    // 滚到底自动翻页
-    LaunchedEffect(state) {
+    // 滚到底自动翻页：全部动态和「只看某个 UP」各自分页。
+    LaunchedEffect(state, state.filterMid) {
         snapshotFlowLastIndex(state.listState).drop(1).collect { last ->
-            if (state.items.isNotEmpty() && last >= state.items.size - 3) {
+            val count = if (state.filterMid == null) state.items.size else state.userItems.size
+            if (count > 0 && last >= count - 2) {
                 state.loadMore(loggedIn)
             }
         }
@@ -212,9 +232,9 @@ fun DynamicScreen(
         }
 
         val filterMid = state.filterMid
-        val visible = remember(state.items, filterMid) {
-            if (filterMid == null) state.items else state.items.filter { it.mid == filterMid }
-        }
+        // 点某个 UP 头像后显示这个 UP 单独拉回来的动态；
+        // 不再只从已加载的关注流里筛，所以不会只剩一两条。
+        val visible = if (filterMid == null) state.items else state.userItems
 
         // 只在滚动停下来后判断：离屏幕中心最近的那条如果是视频，就静音自动播放。
         var autoPlayId by remember { mutableStateOf<String?>(null) }
@@ -327,7 +347,7 @@ fun DynamicScreen(
                     }
                 }
             }
-            if (state.loading) {
+            if (state.activeLoading) {
                 item(key = "loading") {
                     Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                         TeakLoading(size = 34.dp)
@@ -414,6 +434,7 @@ fun DynamicAvatarCard(
     modifier: Modifier = Modifier,
 ) {
     val colors = MiuixTheme.colorScheme
+    val scope = rememberCoroutineScope()
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -429,7 +450,7 @@ fun DynamicAvatarCard(
             item(key = "all-dynamics") {
                 AllDynamicAvatar(
                     selected = state.filterMid == null,
-                    onClick = { state.filterMid = null },
+                    onClick = { state.clearFilter() },
                 )
             }
             items(state.authors, key = { it.mid }) { author ->
@@ -440,7 +461,11 @@ fun DynamicAvatarCard(
                     selected = selected,
                     onClick = {
                         state.markSeen(author.mid)
-                        state.filterMid = if (selected) null else author.mid
+                        if (selected) {
+                            state.clearFilter()
+                        } else {
+                            scope.launch { state.filterTo(author.mid) }
+                        }
                     },
                 )
             }
@@ -618,6 +643,8 @@ internal fun DynamicCard(
     onToggleMute: () -> Unit = {},
     /** 详情页传 true：正文/标题不再截断，进入即完整展示。 */
     expanded: Boolean = false,
+    /** 点整张卡片是否走系统放大动画；详情页自己点自己时关掉。 */
+    animatedOpen: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     val colors = MiuixTheme.colorScheme
@@ -636,7 +663,13 @@ internal fun DynamicCard(
             .fillMaxWidth()
             .clip(shape)
             .background(colors.surface)
-            .clickable(interactionSource = null, indication = null, onClick = onOpen)
+            .clickable(interactionSource = null, indication = null) {
+                if (animatedOpen && item.mid > 0L) {
+                    oneTake.openDynamic(context, item, cardRadiusPx) { onOpen() }
+                } else {
+                    onOpen()
+                }
+            }
             .padding(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1145,13 +1178,56 @@ private fun DynamicImageViewer(
                             this.alpha = alpha
                         },
                 ) { page ->
+                    var scale by remember { mutableStateOf(1f) }
+                    var pan by remember { mutableStateOf(Offset.Zero) }
                     AsyncImage(
                         model = rememberImageRequest(images[page]),
                         contentDescription = null,
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 10.dp),
+                            .padding(horizontal = 10.dp)
+                            .pointerInput(Unit) {
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    var moved = false
+                                    var last = down.position
+                                    var maxPressed = 1
+                                    while (true) {
+                                        val event = awaitPointerEvent()
+                                        val pressedCount = event.changes.count { it.pressed }
+                                        maxPressed = maxOf(maxPressed, pressedCount)
+                                        val change = event.changes.firstOrNull()
+                                        if (change != null) {
+                                            if ((change.position - last).getDistance() > 12f) moved = true
+                                            last = change.position
+                                        }
+                                        val zoomChange = event.calculateZoom()
+                                        val panChange = event.calculatePan()
+                                        if (pressedCount >= 2) {
+                                            scale = (scale * zoomChange).coerceIn(1f, 4f)
+                                            pan = if (scale > 1f) pan + panChange else Offset.Zero
+                                            event.changes.forEach { it.consume() }
+                                        } else if (scale > 1.01f) {
+                                            pan += panChange
+                                            event.changes.forEach { it.consume() }
+                                        } else {
+                                            pan = Offset.Zero
+                                        }
+                                        if (event.changes.none { it.pressed }) break
+                                    }
+                                    // 没放大时点一下空白：关闭。
+                                    if (maxPressed <= 1 && !moved && scale <= 1.01f) {
+                                        dismissAnimated()
+                                    }
+                                }
+                            }
+                            .graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
+                                translationX = pan.x
+                                translationY = pan.y
+                            },
                     )
                 }
             }
@@ -1253,14 +1329,19 @@ private fun ForwardedDynamicBlock(
 ) {
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
+    val forwardedOneTake = rememberOneTakeAnchor()
+    val forwardedRadiusPx = with(LocalDensity.current) { 12.dp.toPx() }
     var viewerUrl by remember { mutableStateOf<String?>(null) }
     var viewerOrigin by remember { mutableStateOf<Rect?>(null) }
     Column(
         modifier = Modifier
+            .then(forwardedOneTake.modifier)
             .fillMaxWidth()
             .clip(ContinuousCornerShape(12.dp))
             .background(colors.surfaceContainerHigh)
-            .clickable(interactionSource = null, indication = null, onClick = onOpen)
+            .clickable(interactionSource = null, indication = null) {
+                forwardedOneTake.openDynamic(context, item, forwardedRadiusPx) { onOpen() }
+            }
             .padding(10.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

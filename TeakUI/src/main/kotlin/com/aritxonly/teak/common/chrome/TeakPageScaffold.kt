@@ -162,6 +162,8 @@ fun TeakTopBar(
     revealDurationMs: Float = TeakChromeDefaults.SmallTitleRevealDurationMs,
     /** 没有大标题的页面（如私信）强制常显小标题。 */
     titleAlwaysVisible: Boolean = false,
+    /** 顶栏渐变模糊的显隐：0 = 完全透明，1 = 正常显示。 */
+    barBlurFraction: Float = 1f,
 ) {
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val animatedShown = rememberManualProgress(
@@ -177,6 +179,7 @@ fun TeakTopBar(
         Box(
             modifier = Modifier
                 .matchParentSize()
+                .graphicsLayer { alpha = barBlurFraction.coerceIn(0f, 1f) }
                 .teakProgressiveBarBlur(),
         )
         if (shown > 0.01f) {
@@ -210,6 +213,9 @@ fun TeakLargeTitle(
     subtitle: String? = null,
     pageState: TeakPageScrollState = TeakPageChrome.state,
     topSpacer: Dp = TeakChromeDefaults.LargeTitleTopSpacer,
+    /** 头图上叠标题时传白色；普通页面默认跟随主题。 */
+    titleColor: Color = MiuixTheme.colorScheme.onBackground,
+    subtitleColor: Color = MiuixTheme.colorScheme.onBackgroundVariant,
 ) {
     val colors = MiuixTheme.colorScheme
     val p = (pageState.collapse / TeakChromeDefaults.CollapseFadeFraction).coerceIn(0f, 1f)
@@ -223,7 +229,7 @@ fun TeakLargeTitle(
         Text(
             text = title,
             modifier = Modifier.padding(start = TeakChromeDefaults.LargeTitleStartPadding),
-            color = colors.onBackground,
+            color = titleColor,
             fontSize = TeakChromeDefaults.LargeTitleFontSize,
             fontWeight = FontWeight.Normal,
         )
@@ -232,7 +238,7 @@ fun TeakLargeTitle(
             Text(
                 text = subtitle,
                 modifier = Modifier.padding(start = TeakChromeDefaults.SubtitleStartPadding),
-                color = colors.onBackgroundVariant,
+                color = subtitleColor,
                 fontSize = TeakChromeDefaults.SubtitleFontSize,
             )
         }
@@ -261,10 +267,14 @@ fun TeakPageScaffold(
     topBarLeading: @Composable RowScope.() -> Unit = {},
     topBarCenter: @Composable BoxScope.() -> Unit = {},
     topBarActions: @Composable RowScope.() -> Unit = {},
+    /** 顶栏三个图标的自定义颜色；null 时跟随主题。 */
+    topBarGlyphColor: Color? = null,
     overlay: @Composable BoxScope.() -> Unit = {},
     /** 画在顶栏按钮之上的浮层，给需要盖住顶栏的玻璃菜单用。 */
     menuOverlay: @Composable BoxScope.() -> Unit = {},
     titleAlwaysVisible: Boolean = false,
+    /** 顶栏渐变模糊的显隐：0 = 完全透明，1 = 正常显示。 */
+    barBlurFraction: Float = 1f,
     content: @Composable () -> Unit,
 ) {
     LaunchedEffect(pageState) { pageState.reset() }
@@ -292,6 +302,7 @@ fun TeakPageScaffold(
                     collapse = pageState.collapse,
                     modifier = Modifier.align(Alignment.TopCenter),
                     titleAlwaysVisible = titleAlwaysVisible,
+                    barBlurFraction = barBlurFraction,
                 )
             }
             Box(modifier = Modifier.fillMaxSize()) {
@@ -301,6 +312,7 @@ fun TeakPageScaffold(
                 revealed = backRevealed ?: pageState.backRevealed,
                 onBack = if (showBackButton) onBack else null,
                 light = backRevealed == false,
+                glyphColor = topBarGlyphColor,
                 leading = topBarLeading,
                 center = topBarCenter,
                 trailing = topBarActions,

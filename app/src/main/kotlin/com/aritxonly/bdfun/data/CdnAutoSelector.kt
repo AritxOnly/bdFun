@@ -37,7 +37,7 @@ object CdnAutoSelector {
     private const val ROUND_BYTES = 1024L * 1024L
     private const val MAX_ROUND_MS = 6_000L
 
-    private val client = OkHttpClient.Builder()
+    private val client = com.aritxonly.bdfun.data.HttpClients.base.newBuilder()
         .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(8, TimeUnit.SECONDS)
         .callTimeout(10, TimeUnit.SECONDS)

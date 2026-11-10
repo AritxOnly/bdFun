@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.shadow.Shadow
@@ -44,6 +45,8 @@ import com.aritxonly.teak.common.material.TeakGlassRecipes
 import com.aritxonly.teak.common.material.TeakGlassSurface
 import com.aritxonly.teak.common.material.LocalTeakBackdrop
 import com.aritxonly.teak.common.material.LocalTeakMaterialSpec
+import com.aritxonly.teak.common.settings.hostActivity
+import com.aritxonly.teak.common.settings.matchSystemBars
 import com.aritxonly.bdfun.BrandPink
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import com.kyant.shapes.Capsule
@@ -100,8 +103,13 @@ fun TeakActionSheet(
         ) {
             // Dialog 默认会 dimBehind，这里关掉，保持背景原样
             val view = androidx.compose.ui.platform.LocalView.current
+            val hostWindow = LocalContext.current.hostActivity()?.window
             val dialogWindow = (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
-            androidx.compose.runtime.SideEffect { dialogWindow?.setDimAmount(0f) }
+            androidx.compose.runtime.SideEffect {
+                dialogWindow?.setDimAmount(0f)
+                // 底部菜单同样是独立窗口，沿用原页面的状态栏图标明暗。
+                matchSystemBars(dialogWindow, hostWindow)
+            }
             Box(modifier = Modifier.fillMaxSize()) {
                 Box(
                     modifier = Modifier

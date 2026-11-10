@@ -36,8 +36,7 @@ class DynamicFeedState internal constructor(
 
     var type by mutableStateOf("all")
         private set
-    var items by mutableStateOf<List<DynamicItem>>(emptyList())
-        private set
+    val items = androidx.compose.runtime.mutableStateListOf<DynamicItem>()
     var loading by mutableStateOf(false)
         private set
     var refreshing by mutableStateOf(false)
@@ -52,6 +51,18 @@ class DynamicFeedState internal constructor(
 
     /** 顶栏头像筛选：null = 全部动态。放在 state 里让 App 层顶栏和列表共用。 */
     var filterMid by mutableStateOf<Long?>(null)
+        private set
+
+    /** 只看某个 UP 时，单独拉这个 UP 的动态，不再从关注流里筛。 */
+    val userItems = androidx.compose.runtime.mutableStateListOf<DynamicItem>()
+    var userLoading by mutableStateOf(false)
+        private set
+    private var userOffset = ""
+    private var userHasMore = true
+    private var userMid = 0L
+
+    val activeLoading: Boolean
+        get() = if (filterMid == null) loading else userLoading
 
     /** 本地点赞状态（dynId -> 是否已赞）。 */
     val liked = mutableStateMapOf<String, Boolean>()
@@ -61,12 +72,28 @@ class DynamicFeedState internal constructor(
 
     private var offset = ""
     private var started = false
+    private var serverHasMore = true
+    private val pending = ArrayDeque<DynamicItem>()
     private data class CachedPage(
         val items: List<DynamicItem>,
+        val pending: List<DynamicItem>,
         val offset: String,
         val hasMore: Boolean,
     )
     private val cache = mutableMapOf<String, CachedPage>()
+
+    /** 一次只放 15 条；服务端多出来的先留在 pending 里。 */
+    private fun drainPending(limit: Int = 15): Int {
+        var added = 0
+        while (pending.isNotEmpty() && added < limit) {
+            val item = pending.removeFirst()
+            if (items.none { it.id == item.id }) {
+                items.add(item)
+                added++
+            }
+        }
+        return added
+    }
 
     /**
      * 顶栏头像顺序。关键：选中/已读只记录到 [SeenDynamics]，不在这里立刻重排；
@@ -102,6 +129,40 @@ class DynamicFeedState internal constructor(
         SeenDynamics.mark(mid)
     }
 
+    fun clearFilter() {
+        filterMid = null
+        userMid = 0L
+        userItems.clear()
+        userOffset = ""
+        userHasMore = true
+        userLoading = false
+    }
+
+    /** 点头像：单独进入这个 UP 的动态列表，从第一页重新拉。 */
+    suspend fun filterTo(mid: Long) {
+        if (mid <= 0L) return
+        filterMid = mid
+        userMid = mid
+        userItems.clear()
+        userOffset = ""
+        userHasMore = true
+        userLoading = false
+        loadUserMore()
+    }
+
+    private suspend fun loadUserMore() {
+        if (userMid <= 0L || userLoading || !userHasMore) return
+        userLoading = true
+        runCatching { api.userDynamics(userMid, userOffset) }
+            .onSuccess { page ->
+                val known = userItems.mapTo(HashSet()) { it.id }
+                userItems.addAll(page.items.filter { known.add(it.id) })
+                userOffset = page.offset
+                userHasMore = page.hasMore
+            }
+        userLoading = false
+    }
+
     suspend fun ensureLoaded(loggedIn: Boolean) {
         // 首帧登录态可能还是 false；不要先占住 started，否则登录态回来后永远不会加载
         if (!loggedIn || started) return
@@ -112,18 +173,25 @@ class DynamicFeedState internal constructor(
 
     suspend fun switchTo(next: String, loggedIn: Boolean) {
         if (next == type) return
+        if (filterMid != null) clearFilter()
         type = next
         val cached = cache[next]
         if (cached != null) {
-            items = cached.items
+            items.clear()
+            items.addAll(cached.items)
+            pending.clear()
+            pending.addAll(cached.pending)
             offset = cached.offset
-            hasMore = cached.hasMore
+            serverHasMore = cached.hasMore
+            hasMore = serverHasMore || pending.isNotEmpty()
             error = null
             rebuildAuthors()
         } else {
-            items = emptyList()
+            items.clear()
+            pending.clear()
             authors = emptyList()
             offset = ""
+            serverHasMore = true
             hasMore = true
             fetch(loggedIn)
         }
@@ -135,16 +203,34 @@ class DynamicFeedState internal constructor(
     }
 
     suspend fun loadMore(loggedIn: Boolean) {
-        if (!loggedIn || loading || refreshing || !hasMore) return
+        if (filterMid != null) {
+            loadUserMore()
+            return
+        }
+        if (!loggedIn || loading || refreshing) return
+        if (!serverHasMore && pending.isEmpty()) {
+            hasMore = false
+            return
+        }
         loading = true
-        runCatching { api.dynamicPage(type, offset) }
-            .onSuccess { page ->
-                items = (items + page.items).distinctBy { it.id }
-                offset = page.offset
-                hasMore = page.hasMore
-                cache[type] = CachedPage(items, offset, hasMore)
-                appendAuthors()
+        var added = drainPending(15)
+        // 服务端一页大约 20 条；如果 pending 不足 15，再补一页，保证一次至少放满一批。
+        while (added < 15 && serverHasMore) {
+            val page = runCatching { api.dynamicPage(type, offset) }.getOrNull() ?: break
+            offset = page.offset
+            serverHasMore = page.hasMore
+            val known = items.mapTo(HashSet()) { it.id }
+            val fresh = page.items.filter {
+                known.add(it.id) && pending.none { p -> p.id == it.id }
             }
+            if (fresh.isEmpty() && !page.hasMore) break
+            pending.addAll(fresh)
+            added += drainPending(15 - added)
+            if (page.items.isEmpty()) break
+        }
+        hasMore = serverHasMore || pending.isNotEmpty()
+        cache[type] = CachedPage(items.toList(), pending.toList(), offset, serverHasMore)
+        appendAuthors()
         loading = false
     }
 
@@ -156,10 +242,14 @@ class DynamicFeedState internal constructor(
         if (page == null) {
             if (items.isEmpty()) error = "动态加载失败，稍后再试"
         } else {
-            items = page.items
+            items.clear()
+            pending.clear()
             offset = page.offset
-            hasMore = page.hasMore
-            cache[type] = CachedPage(items, offset, hasMore)
+            serverHasMore = page.hasMore
+            pending.addAll(page.items)
+            drainPending(15)
+            hasMore = serverHasMore || pending.isNotEmpty()
+            cache[type] = CachedPage(items.toList(), pending.toList(), offset, serverHasMore)
             // 刷新后才重新按已读状态排头像
             rebuildAuthors()
             // 刷新后不要用 key 把旧的第一条锚在原位，否则新动态会出现在它上面看不见。

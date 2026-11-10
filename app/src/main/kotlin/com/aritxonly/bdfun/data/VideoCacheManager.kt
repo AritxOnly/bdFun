@@ -128,7 +128,7 @@ object VideoCacheManager {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val jobs = ConcurrentHashMap<String, Job>()
     private val cancelledIds = ConcurrentHashMap.newKeySet<String>()
-    private val client = OkHttpClient.Builder()
+    private val client = com.aritxonly.bdfun.data.HttpClients.base.newBuilder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)

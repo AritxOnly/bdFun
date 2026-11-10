@@ -1,6 +1,9 @@
 package com.aritxonly.bdfun.ui
 
 import com.aritxonly.teak.common.chrome.TeakChromeDefaults
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.More
+import top.yukonga.miuix.kmp.icon.extended.Search
 import com.aritxonly.teak.common.chrome.TeakLargeTitle
 import com.aritxonly.teak.common.chrome.TeakTopGlassButton
 import com.aritxonly.teak.common.chrome.TrackTeakPageScroll
@@ -32,6 +35,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -51,6 +55,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -222,211 +227,22 @@ fun LibraryBatchOverlay() {
  */
 @Composable
 private fun LibrarySearchGlyph() {
-    val color = teakGlassGlyphColor()
-    androidx.compose.foundation.Canvas(modifier = Modifier.size(21.dp)) {
-        val w = size.width
-        val stroke = w * 0.085f
-        val radius = w * 0.29f
-        val center = Offset(w * 0.43f, w * 0.43f)
-        drawCircle(
-            color = color,
-            radius = radius,
-            center = center,
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke),
-        )
-        val start = radius * 0.72f
-        drawLine(
-            color = color,
-            start = Offset(center.x + start, center.y + start),
-            end = Offset(w * 0.87f, w * 0.87f),
-            strokeWidth = stroke,
-            cap = androidx.compose.ui.graphics.StrokeCap.Round,
-        )
-    }
+    top.yukonga.miuix.kmp.basic.Icon(
+        imageVector = top.yukonga.miuix.kmp.icon.MiuixIcons.Search,
+        contentDescription = "搜索",
+        tint = teakGlassGlyphColor(),
+        modifier = Modifier.size(22.dp),
+    )
 }
 
 @Composable
 private fun LibraryThreeDotsGlyph() {
-    val color = teakGlassGlyphColor()
-    androidx.compose.foundation.Canvas(modifier = Modifier.size(21.dp)) {
-        val r = size.width * 0.07f
-        listOf(0.2f, 0.5f, 0.8f).forEach { y ->
-            drawCircle(color, r, Offset(size.width * 0.5f, size.height * y))
-        }
-    }
-}
-
-/**
- * 与设置页二级下拉菜单同一套材质和动效：
- * 18dp 圆角磨砂玻璃、右上角为原点的缩放弹簧、内容由模糊变清晰、
- * 200ms 渐显 / 240ms 收起，退场期间保留 Dialog 避免闪烁。
- */
-@Composable
-private fun LibraryMoreMenu(visible: Boolean, onDismiss: () -> Unit) {
-    var mounted by remember { mutableStateOf(false) }
-    var dismissArmed by remember { mutableStateOf(false) }
-    LaunchedEffect(visible) {
-        if (visible) {
-            mounted = true
-            dismissArmed = false
-            kotlinx.coroutines.delay(220)
-            dismissArmed = true
-        } else {
-            dismissArmed = false
-            kotlinx.coroutines.delay(240)
-            mounted = false
-        }
-    }
-    if (!mounted) return
-
-    val motionEnabled = com.aritxonly.teak.common.chrome.TeakMotion.enabled
-    val transitionState = remember { androidx.compose.animation.core.MutableTransitionState(false) }
-    transitionState.targetState = visible
-    val transition = androidx.compose.animation.core.rememberTransition(
-        transitionState,
-        label = "libraryMoreMenu",
+    top.yukonga.miuix.kmp.basic.Icon(
+        imageVector = top.yukonga.miuix.kmp.icon.MiuixIcons.More,
+        contentDescription = "更多",
+        tint = teakGlassGlyphColor(),
+        modifier = Modifier.size(22.dp),
     )
-    val fraction by transition.animateFloat(
-        transitionSpec = {
-            when {
-                !motionEnabled -> androidx.compose.animation.core.snap()
-                targetState -> spring(
-                    dampingRatio = 0.76f,
-                    stiffness = 350f,
-                    visibilityThreshold = 1e-4f,
-                )
-                else -> tween(240, easing = FastOutSlowInEasing)
-            }
-        },
-        label = "fraction",
-    ) { state -> if (state) 1f else 0f }
-    val fade by transition.animateFloat(
-        transitionSpec = {
-            if (!motionEnabled) {
-                androidx.compose.animation.core.snap()
-            } else if (targetState) {
-                tween(200)
-            } else {
-                tween(220)
-            }
-        },
-        label = "alpha",
-    ) { state -> if (state) 1f else 0f }
-
-    androidx.compose.ui.window.Dialog(
-        onDismissRequest = { if (dismissArmed) onDismiss() },
-        properties = androidx.compose.ui.window.DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false,
-            dismissOnClickOutside = false,
-        ),
-    ) {
-        val view = androidx.compose.ui.platform.LocalView.current
-        val dialogWindow = (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
-        androidx.compose.runtime.SideEffect { dialogWindow?.setDimAmount(0f) }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding(),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable(interactionSource = null, indication = null) {
-                        if (dismissArmed) onDismiss()
-                    },
-            )
-            // 省略号按钮本身也是“收回菜单”的点击区：Dialog 盖住了底下的按钮，
-            // 这里在原位置补一个透明点击区，点它就能关掉，而不是只能点空白。
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 4.dp, end = 8.dp)
-                    .size(44.dp)
-                    .zIndex(2f)
-                    .clip(CircleShape)
-                    .clickable(interactionSource = null, indication = null) {
-                        if (dismissArmed) onDismiss()
-                    },
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 36.dp, end = 28.dp)
-                    .width(196.dp),
-            ) {
-                // 阴影层：与设置页一致，透明度比面板升得更快、退得更快，
-                // 面板层只负责缩放和内容模糊，避免展开时阴影“闪一下”。
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .graphicsLayer {
-                            val t = fraction.coerceAtLeast(0f)
-                            val a = fade.coerceIn(0f, 1f)
-                            alpha = if (visible) {
-                                (a * 6f).coerceIn(0f, 1f)
-                            } else {
-                                (a * a).coerceIn(0f, 1f)
-                            }
-                            val s = 0.15f + 0.85f * t
-                            scaleX = s
-                            scaleY = s
-                            transformOrigin = TransformOrigin(1f, 0f)
-                        }
-                        .dropShadow(
-                            shape = RoundedCornerShape(18.dp),
-                            shadow = androidx.compose.ui.graphics.shadow.Shadow(
-                                radius = 8.dp,
-                                color = Color.Black,
-                                alpha = 0.10f,
-                            ),
-                        )
-                        .background(Color.White.copy(alpha = 0.001f), RoundedCornerShape(18.dp)),
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .graphicsLayer {
-                            val t = fraction.coerceAtLeast(0f)
-                            alpha = fade.coerceIn(0f, 1f)
-                            val s = 0.15f + 0.85f * t
-                            scaleX = s
-                            scaleY = s
-                            transformOrigin = TransformOrigin(1f, 0f)
-                            val blurDp = ((1f - t.coerceIn(0f, 1f)) * 6f /
-                                s.coerceAtLeast(0.2f)).coerceAtMost(10f)
-                            renderEffect = if (blurDp > 0.05f) {
-                                val r = blurDp.dp.toPx()
-                                androidx.compose.ui.graphics.BlurEffect(
-                                    radiusX = r,
-                                    radiusY = r,
-                                    edgeTreatment = androidx.compose.ui.graphics.TileMode.Decal,
-                                )
-                            } else {
-                                null
-                            }
-                        },
-                ) {
-                    com.aritxonly.teak.common.material.TeakGlassPanel(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
-                        tintAlpha = 0.3f,
-                    ) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                            LibraryMenuRow("回到顶部") {
-                                LibraryPageBus.requestScrollTop()
-                                onDismiss()
-                            }
-                            LibraryMenuRow("批量管理") {
-                                LibraryPageBus.requestBatch()
-                                onDismiss()
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 @Composable
@@ -486,6 +302,7 @@ fun LibraryScreen(
     // 历史 / 稍后再看
     var historyEntries by remember { mutableStateOf<List<HistoryItem>>(emptyList()) }
     var watchLaterEntries by remember { mutableStateOf<List<HistoryItem>>(emptyList()) }
+    var watchLaterVisibleCount by remember { mutableIntStateOf(20) }
 
     val loadingTabs = remember { mutableStateMapOf<Int, Boolean>() }
     val errorTabs = remember { mutableStateMapOf<Int, String?>() }
@@ -646,6 +463,7 @@ fun LibraryScreen(
         watchLaterEntries = runCatching { api.watchLater() }
             .onFailure { errorTabs[2] = it.message ?: "稍后再看加载失败" }
             .getOrDefault(emptyList())
+        watchLaterVisibleCount = 20
         loadingTabs[2] = false
     }
 
@@ -863,7 +681,7 @@ fun LibraryScreen(
             folderIndex = folderIndex,
             folderVideos = visibleVideos,
             historyEntries = visibleEntries(historyEntries),
-            watchLaterEntries = visibleEntries(watchLaterEntries),
+            watchLaterEntries = visibleEntries(watchLaterEntries).take(watchLaterVisibleCount),
             loading = loadingTabs[mode] == true,
             error = errorTabs[mode],
             batchMode = batchMode,
@@ -892,12 +710,14 @@ fun LibraryScreen(
                 when (mode) {
                     0 -> scope.launch { loadMoreFolders() }
                     1 -> scope.launch { loadMoreHistory() }
+                    2 -> watchLaterVisibleCount = (watchLaterVisibleCount + 20)
+                        .coerceAtMost(watchLaterEntries.size)
                 }
             },
             canLoadMore = when (mode) {
                 0 -> folderHasMore
                 1 -> historyHasMore
-                else -> false
+                else -> watchLaterVisibleCount < watchLaterEntries.size
             },
         )
     }
@@ -912,7 +732,7 @@ fun LibraryScreen(
             folderIndex = folderIndex,
             folderVideos = visibleVideos,
             historyEntries = visibleEntries(historyEntries),
-            watchLaterEntries = visibleEntries(watchLaterEntries),
+            watchLaterEntries = visibleEntries(watchLaterEntries).take(watchLaterVisibleCount),
             loading = loadingTabs[currentMode] == true,
             error = errorTabs[currentMode],
             onClearHistory = {
@@ -973,11 +793,18 @@ fun LibraryScreen(
 }
 
 @Composable
-private fun LibraryCardEntrance(index: Int, content: @Composable () -> Unit) {
-    var started by remember { mutableStateOf(false) }
-    LaunchedEffect(index) {
-        kotlinx.coroutines.delay(kotlin.math.min(index / 2, 6) * 70L)
-        started = true
+private fun LibraryCardEntrance(
+    index: Int,
+    itemKey: String,
+    content: @Composable () -> Unit,
+) {
+    val isNew = remember(itemKey) { LibraryEntranceMemory.seen.add(itemKey) }
+    var started by remember(itemKey) { mutableStateOf(!isNew) }
+    LaunchedEffect(itemKey, isNew) {
+        if (isNew) {
+            kotlinx.coroutines.delay(kotlin.math.min(index / 2, 6) * 70L)
+            started = true
+        }
     }
     val progress = rememberManualProgress(if (started) 1f else 0f, 140f)
     Box(
@@ -988,6 +815,10 @@ private fun LibraryCardEntrance(index: Int, content: @Composable () -> Unit) {
     ) {
         content()
     }
+}
+
+private object LibraryEntranceMemory {
+    val seen = HashSet<String>()
 }
 
 @Composable
@@ -1024,6 +855,7 @@ private fun LibraryModePage(
 ) {
     val colors = MiuixTheme.colorScheme
     val gridState = rememberLazyGridState()
+    RegisterScrollTop(gridState, "library")
     if (isActive) TrackTeakPageScroll(gridState)
     if (isActive) {
         LaunchedEffect(gridState) {
@@ -1104,7 +936,7 @@ private fun LibraryModePage(
                     val oneTake = rememberOneTakeAnchor()
                     val itemContext = LocalContext.current
                     val cardRadiusPx = with(LocalDensity.current) { 16.dp.toPx() }
-                    LibraryCardEntrance(index) {
+                    LibraryCardEntrance(index, "0-${video.bvid}") {
                     VideoGridCard(
                         video = video,
                         modifier = oneTake.modifier,
@@ -1128,7 +960,7 @@ private fun LibraryModePage(
                     val oneTake = rememberOneTakeAnchor()
                     val itemContext = LocalContext.current
                     val cardRadiusPx = with(LocalDensity.current) { 16.dp.toPx() }
-                    LibraryCardEntrance(index) {
+                    LibraryCardEntrance(index, "${mode}-${entry.bvid}") {
                     VideoGridCard(
                         video = video,
                         modifier = oneTake.modifier,
@@ -1218,206 +1050,57 @@ internal fun HistoryItem.toVideoItem(): VideoItem = VideoItem(
     pubdate = viewedAt,
 )
 
-/** 收藏夹分类：与首页底栏同一套玻璃胶囊；指示器是一条会滑动的灰色胶囊。 */
+/** 收藏夹分类：与个人页投稿页「合集与系列」同款胶囊。 */
 @Composable
 private fun LibraryFolderBar(
     folders: List<FavoriteFolder>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
 ) {
-    val colors = MiuixTheme.colorScheme
-    val scrollState = rememberScrollState()
-    // 每个收藏夹在横向内容里的位置和宽度，用它来算滑动指示器的目标。
-    var metrics by remember { mutableStateOf<Map<Int, Pair<Float, Float>>>(emptyMap()) }
-
-    val targetX = metrics[selectedIndex]?.first ?: 0f
-    val targetWidth = metrics[selectedIndex]?.second ?: 0f
-    val pillX by animateFloatAsState(
-        targetValue = targetX,
-        animationSpec = spring(dampingRatio = 0.82f, stiffness = 420f),
-        label = "folderIndicatorX",
-    )
-    val pillWidth by animateFloatAsState(
-        targetValue = targetWidth,
-        animationSpec = spring(dampingRatio = 0.82f, stiffness = 420f),
-        label = "folderIndicatorW",
-    )
-
-    LaunchedEffect(selectedIndex, folders.size, metrics[selectedIndex]) {
-        val x = metrics[selectedIndex]?.first ?: return@LaunchedEffect
-        val width = metrics[selectedIndex]?.second ?: 0f
-        val viewport = scrollState.viewportSize
-        if (viewport > 0) {
-            scrollState.animateScrollTo(
-                (x - (viewport - width) / 2f).coerceAtLeast(0f)
-                    .toInt()
-                    .coerceAtMost(scrollState.maxValue),
+    val listState = rememberLazyListState()
+    LaunchedEffect(selectedIndex, folders.size) {
+        if (selectedIndex in folders.indices) {
+            runCatching { listState.animateScrollToItem(selectedIndex) }
+        }
+    }
+    LazyRow(
+        state = listState,
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        itemsIndexed(folders) { index, folder ->
+            LibraryFolderChip(
+                text = "${folder.title} ${folder.count}",
+                selected = index == selectedIndex,
+                onClick = { onSelect(index) },
             )
         }
     }
-
-    TeakGlassSurface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = Capsule(),
-        recipe = TeakGlassRecipes.floatingNavigation(LocalTeakMaterialSpec.current.fineTuning),
-        backdrop = null,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(40.dp)
-                .padding(5.dp)
-                .horizontalScroll(scrollState),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // 指示器和文字放在同一个滚动容器里，横向滚动时一起走。
-            Box {
-                if (pillWidth > 1f) {
-                    Box(
-                        modifier = Modifier
-                            .offset { androidx.compose.ui.unit.IntOffset(pillX.roundToInt(), 0) }
-                            .width(with(androidx.compose.ui.platform.LocalDensity.current) {
-                                pillWidth.toDp()
-                            })
-                            .height(30.dp)
-                            .clip(Capsule())
-                            .background(Color.Black.copy(alpha = 0.075f)),
-                    )
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    folders.forEachIndexed { index, folder ->
-                        val active = index == selectedIndex
-                        Box(
-                            modifier = Modifier
-                                .height(30.dp)
-                                .onGloballyPositioned { coords ->
-                                    val x = coords.positionInParent().x
-                                    val w = coords.size.width.toFloat()
-                                    val old = metrics[index]
-                                    if (old == null ||
-                                        kotlin.math.abs(old.first - x) > 0.5f ||
-                                        kotlin.math.abs(old.second - w) > 0.5f
-                                    ) {
-                                        metrics = metrics + (index to (x to w))
-                                    }
-                                }
-                                .clip(Capsule())
-                                .clickable(interactionSource = null, indication = null) { onSelect(index) }
-                                .padding(horizontal = 14.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = "${folder.title} ${folder.count}",
-                                color = if (active) colors.primary else colors.onBackgroundVariant,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Normal,
-                                maxLines = 1,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
+/** 与个人页 SubmissionChip 完全一致：选中粉底白字，未选中白底黑字。 */
 @Composable
-private fun LibrarySearchField(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    onClose: () -> Unit,
-) {
+private fun LibraryFolderChip(text: String, selected: Boolean, onClick: () -> Unit) {
     val colors = MiuixTheme.colorScheme
-    TeakGlassSurface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        recipe = TeakGlassRecipes.floatingNavigation(LocalTeakMaterialSpec.current.fineTuning),
-        backdrop = null,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(42.dp)
-                .padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            androidx.compose.foundation.Canvas(modifier = Modifier.size(15.dp)) {
-                val c = colors.onBackgroundVariant
-                drawCircle(
-                    color = c,
-                    radius = size.width * 0.29f,
-                    center = Offset(size.width * 0.43f, size.height * 0.43f),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(
-                        width = size.width * 0.085f,
-                    ),
-                )
-                drawLine(
-                    color = c,
-                    start = Offset(size.width * 0.64f, size.height * 0.64f),
-                    end = Offset(size.width * 0.87f, size.height * 0.87f),
-                    strokeWidth = size.width * 0.085f,
-                    cap = androidx.compose.ui.graphics.StrokeCap.Round,
-                )
-            }
-            Spacer(Modifier.width(9.dp))
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                if (query.isEmpty()) {
-                    Text(
-                        text = "搜索当前列表",
-                        color = colors.onBackgroundVariant,
-                        fontSize = 13.sp,
-                    )
-                }
-                BasicTextField(
-                    value = query,
-                    onValueChange = onQueryChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    textStyle = TextStyle(color = colors.onBackground, fontSize = 13.sp),
-                    cursorBrush = SolidColor(colors.primary),
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .clickable(interactionSource = null, indication = null, onClick = onClose)
-                    .padding(horizontal = 4.dp, vertical = 6.dp),
-            ) {
-                Text(text = "取消", color = colors.primary, fontSize = 12.sp)
-            }
-        }
-    }
-}
-
-@Composable
-private fun LibraryBatchBar(
-    count: Int,
-    onSelectAll: () -> Unit,
-    onDelete: () -> Unit,
-    onCancel: () -> Unit,
-) {
-    val colors = MiuixTheme.colorScheme
-    Row(
+    Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 4.dp, bottom = 2.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .clip(RoundedCornerShape(50))
+            .background(if (selected) colors.primary else colors.surface)
+            .border(
+                width = if (selected) 1.dp else 0.dp,
+                color = if (selected) Color.White.copy(alpha = 0.45f) else Color.Transparent,
+                shape = RoundedCornerShape(50),
+            )
+            .clickable(interactionSource = null, indication = null, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 6.dp),
     ) {
         Text(
-            text = "已选 $count 项",
-            color = colors.onBackground,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Normal,
+            text = text,
+            color = if (selected) Color.White else colors.onBackground,
+            fontSize = 12.sp,
+            maxLines = 1,
         )
-        Spacer(Modifier.weight(1f))
-        LibraryBatchAction("全选", colors.primary, onClick = onSelectAll)
-        Spacer(Modifier.width(12.dp))
-        LibraryBatchAction("删除", Color(0xFFE5484D), enabled = count > 0, onClick = onDelete)
-        Spacer(Modifier.width(12.dp))
-        LibraryBatchAction("取消", colors.onBackgroundVariant, onClick = onCancel)
     }
 }
 

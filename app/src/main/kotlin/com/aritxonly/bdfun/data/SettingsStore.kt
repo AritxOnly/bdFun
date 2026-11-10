@@ -8,6 +8,19 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import com.aritxonly.teak.common.chrome.TeakMotion
 
+/** 「回到顶部」按钮可以单独开 / 关的页面。key 同时用于设置存储和页面注册。 */
+object ScrollTopPages {
+    val entries = listOf(
+        "home" to "首页",
+        "dynamic" to "动态页",
+        "space" to "个人空间",
+        "library" to "收藏 / 历史 / 稍后再看",
+        "message" to "消息页",
+        "message_detail" to "消息详情页",
+    )
+    val all: Set<String> = entries.map { it.first }.toSet()
+}
+
 class SettingsStore(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
@@ -44,6 +57,13 @@ class SettingsStore(context: Context) {
         if (!prefs.getBoolean("quality_migrated_37", false)) {
             val editor = prefs.edit().putBoolean("quality_migrated_37", true)
             if (prefs.getInt("quality", 80) == 80) editor.putInt("quality", 0)
+            editor.apply()
+        }
+        // preview-4.3：不再提供 720P 以下的选项，老用户存过的 480P(32) 及更低档迁到 720P。
+        if (!prefs.getBoolean("quality_migrated_43", false)) {
+            val editor = prefs.edit().putBoolean("quality_migrated_43", true)
+            val stored = prefs.getInt("quality", 0)
+            if (stored in 1..63) editor.putInt("quality", 64)
             editor.apply()
         }
         // 3.7 起动态视频自动播放默认开启；没动过开关的用户直接置为开。
@@ -93,6 +113,13 @@ class SettingsStore(context: Context) {
     /** 首页卡片样式：0 = 双排小卡，1 = 大卡（动态页视频卡同款）。 */
     private val homeCardStyleState = mutableStateOf(prefs.getInt("home_card_style", 0))
     private val shadowsState = mutableStateOf(prefs.getBoolean("shadows", true))
+    private val scrollTopEnabledState = mutableStateOf(prefs.getBoolean("scroll_top_enabled", true))
+    /** 回到顶部按钮位置：0 = 左侧，1 = 右侧。 */
+    private val scrollTopSideState = mutableStateOf(prefs.getInt("scroll_top_side", 1))
+    /** 在哪些页面显示回到顶部按钮；没存过时默认全部页面。 */
+    private val scrollTopPagesState = mutableStateOf(
+        prefs.getStringSet("scroll_top_pages", null) ?: ScrollTopPages.all,
+    )
     private val blurState = mutableStateOf(prefs.getBoolean("blur", true))
     private val danmakuScaleState = mutableStateOf(prefs.getFloat("danmaku_scale", 1f))
     private val danmakuSpeedState = mutableStateOf(prefs.getFloat("danmaku_speed", 1f))
@@ -136,6 +163,15 @@ class SettingsStore(context: Context) {
     )
 
     private val backgroundPlayState = mutableStateOf(prefs.getBoolean("background_play", true))
+    private val showDiscAfterVideoState =
+        mutableStateOf(prefs.getBoolean("show_disc_after_video", true))
+    /** 退出视频后控件的形态：0 = 画中画，1 = 唱片。 */
+    private val exitVideoControlState =
+        mutableStateOf(prefs.getInt("exit_video_control", 1))
+    private val discBreathEnabledState =
+        mutableStateOf(prefs.getBoolean("disc_breath_enabled", false))
+    private val discBreathCoverColorState =
+        mutableStateOf(prefs.getBoolean("disc_breath_cover_color", false))
 
     /** 进入视频是否自动播放（默认开）。 */
     private val autoPlayState = mutableStateOf(prefs.getBoolean("auto_play", true))
@@ -269,10 +305,12 @@ class SettingsStore(context: Context) {
         }
 
     var qualityPreference: Int
-        get() = qualityState.value
+        get() = qualityState.value.let { if (it in 1..63) 64 else it }
         set(value) {
-            qualityState.value = value
-            prefs.edit().putInt("quality", value).apply()
+            // 0 = 自动；其余最低 720P(64)，避免别处写进 480P 以下。
+            val normalized = if (value in 1..63) 64 else value
+            qualityState.value = normalized
+            prefs.edit().putInt("quality", normalized).apply()
         }
 
     var lowPower: Boolean
@@ -318,6 +356,37 @@ class SettingsStore(context: Context) {
             shadowsState.value = value
             prefs.edit().putBoolean("shadows", value).apply()
         }
+
+    /** 列表页的「回到顶部」按钮，默认开启、默认右侧。 */
+    var scrollTopEnabled: Boolean
+        get() = scrollTopEnabledState.value
+        set(value) {
+            scrollTopEnabledState.value = value
+            prefs.edit().putBoolean("scroll_top_enabled", value).apply()
+        }
+
+    /** 0 = 左侧，1 = 右侧。 */
+    var scrollTopSide: Int
+        get() = scrollTopSideState.value
+        set(value) {
+            scrollTopSideState.value = value.coerceIn(0, 1)
+            prefs.edit().putInt("scroll_top_side", scrollTopSideState.value).apply()
+        }
+
+    /** 当前允许显示回到顶部按钮的页面集合。 */
+    var scrollTopPages: Set<String>
+        get() = scrollTopPagesState.value
+        set(value) {
+            scrollTopPagesState.value = value
+            prefs.edit().putStringSet("scroll_top_pages", value).apply()
+        }
+
+    fun isScrollTopPageEnabled(page: String): Boolean = page in scrollTopPagesState.value
+
+    fun setScrollTopPageEnabled(page: String, enabled: Boolean) {
+        if (page !in ScrollTopPages.all) return
+        scrollTopPages = if (enabled) scrollTopPages + page else scrollTopPages - page
+    }
 
     var blurEnabled: Boolean
         get() = blurState.value
@@ -524,6 +593,38 @@ class SettingsStore(context: Context) {
             prefs.edit().putBoolean("background_play", value).apply()
         }
 
+    /** 退出视频后是否继续播放（显示唱片或进入画中画）。与“App 进入后台是否继续播放”解耦。 */
+    var showDiscAfterVideo: Boolean
+        get() = showDiscAfterVideoState.value
+        set(value) {
+            showDiscAfterVideoState.value = value
+            prefs.edit().putBoolean("show_disc_after_video", value).apply()
+        }
+
+    /** 退出视频后使用哪种控件：0 = 画中画，1 = 唱片（默认）。 */
+    var exitVideoControl: Int
+        get() = exitVideoControlState.value
+        set(value) {
+            exitVideoControlState.value = value
+            prefs.edit().putInt("exit_video_control", value).apply()
+        }
+
+    /** 唱片呼吸灯。 */
+    var discBreathEnabled: Boolean
+        get() = discBreathEnabledState.value
+        set(value) {
+            discBreathEnabledState.value = value
+            prefs.edit().putBoolean("disc_breath_enabled", value).apply()
+        }
+
+    /** 呼吸灯颜色是否跟随封面取色（关闭时默认白色）。 */
+    var discBreathCoverColor: Boolean
+        get() = discBreathCoverColorState.value
+        set(value) {
+            discBreathCoverColorState.value = value
+            prefs.edit().putBoolean("disc_breath_cover_color", value).apply()
+        }
+
     var autoPlay: Boolean
         get() = autoPlayState.value
         set(value) {
@@ -601,6 +702,11 @@ class SettingsStore(context: Context) {
             autoCheckUpdateState.value = value
             prefs.edit().putBoolean("auto_check_update", value).apply()
         }
+
+    /** 新版开始页是否已经看过；装了这个版本的所有人都先看一次。 */
+    var onboardingAcked: Boolean
+        get() = prefs.getBoolean("onboarding_acked_v4", false)
+        set(value) = prefs.edit().putBoolean("onboarding_acked_v4", value).apply()
 
     /** 已同意使用须知的版本；版本变化后重新提示一次。 */
     var termsAckedVersion: String
@@ -760,25 +866,37 @@ class SettingsStore(context: Context) {
             prefs.edit().putString("cdn_service", value).apply()
         }
 
+    /**
+     * 搜索历史用 JSON 数组保存，保证顺序。
+     * 旧版本用 StringSet 存，首次读取时兼容迁移一次。
+     */
     val searchHistory: List<String>
-        get() = prefs.getStringSet("search_history", emptySet()).orEmpty().toList()
+        get() {
+            val raw = prefs.getString("search_history_json", null)
+            if (!raw.isNullOrBlank()) {
+                return runCatching {
+                    val array = org.json.JSONArray(raw)
+                    buildList {
+                        for (i in 0 until array.length()) {
+                            val item = array.optString(i)
+                            if (item.isNotBlank()) add(item)
+                        }
+                    }
+                }.getOrDefault(emptyList())
+            }
+            return prefs.getStringSet("search_history", emptySet()).orEmpty().toList()
+        }
 
     fun addSearchHistory(keyword: String) {
         if (keyword.isBlank()) return
         val next = (listOf(keyword) + searchHistory.filterNot { it == keyword }).take(12)
-        prefs.edit().putStringSet("search_history", next.toSet()).apply()
+        prefs.edit()
+            .putString("search_history_json", org.json.JSONArray(next).toString())
+            .remove("search_history")
+            .apply()
     }
 
     fun clearSearchHistory() {
-        prefs.edit().remove("search_history").apply()
-    }
-
-    fun isDynamicRead(mid: Long): Boolean =
-        prefs.getStringSet("dynamic_read", emptySet()).orEmpty().contains(mid.toString())
-
-    fun markDynamicRead(mid: Long) {
-        val current = prefs.getStringSet("dynamic_read", emptySet()).orEmpty().toMutableSet()
-        current.add(mid.toString())
-        prefs.edit().putStringSet("dynamic_read", current).apply()
+        prefs.edit().remove("search_history_json").remove("search_history").apply()
     }
 }

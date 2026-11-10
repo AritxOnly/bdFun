@@ -655,14 +655,22 @@ private fun sameChatDay(a: Long, b: Long): Boolean {
         ca.get(Calendar.DAY_OF_YEAR) == cb.get(Calendar.DAY_OF_YEAR)
 }
 
+// 按线程缓存，避免每条聊天记录都新建 formatter。
+private val chatTimeThisYear = ThreadLocal.withInitial {
+    SimpleDateFormat("M月d日 HH:mm", Locale.CHINA)
+}
+private val chatTimeOtherYear = ThreadLocal.withInitial {
+    SimpleDateFormat("yyyy年M月d日 HH:mm", Locale.CHINA)
+}
+
 private fun formatChatTime(seconds: Long): String {
     if (seconds <= 0L) return ""
     val now = Calendar.getInstance()
     val then = Calendar.getInstance().apply { timeInMillis = seconds * 1000L }
-    val pattern = if (now.get(Calendar.YEAR) == then.get(Calendar.YEAR)) {
-        "M月d日 HH:mm"
+    val formatter = if (now.get(Calendar.YEAR) == then.get(Calendar.YEAR)) {
+        chatTimeThisYear.get()!!
     } else {
-        "yyyy年M月d日 HH:mm"
+        chatTimeOtherYear.get()!!
     }
-    return SimpleDateFormat(pattern, Locale.CHINA).format(Date(seconds * 1000L))
+    return formatter.format(Date(seconds * 1000L))
 }

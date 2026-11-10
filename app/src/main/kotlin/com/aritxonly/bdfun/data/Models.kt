@@ -89,6 +89,12 @@ data class DanmakuItem(
     val color: Int,
     val size: Float,
     val text: String,
+    /** 服务端弹幕 id，用于热门弹幕去重 / 点赞。 */
+    val id: Long = 0L,
+    /** 服务端点赞数（分段弹幕接口 like 字段）。 */
+    val likeCount: Long = 0L,
+    /** 服务端合并的重复弹幕数量（count 字段）。 */
+    val count: Int = 0,
     /** 自己刚发送的弹幕：渲染时加圆角底。 */
     val self: Boolean = false,
 )
@@ -141,6 +147,14 @@ data class CommentItem(
     val isVip: Boolean = false,
     /** 评论附图（content.pictures，已转成可直接加载的地址）。 */
     val pictures: List<String> = emptyList(),
+    /** 评论里 @ 到的人（content.members），用来染色并跳到对方主页。 */
+    val mentions: List<CommentMention> = emptyList(),
+)
+
+/** 评论正文里被 @ 的用户。 */
+data class CommentMention(
+    val mid: Long,
+    val name: String,
 )
 
 /** 评论表情（B 站表情包，插入时用 `[文本]`）。 */
@@ -171,9 +185,14 @@ data class UserProfile(
     val likes: Long = 0,
     /** 空间头图。 */
     val banner: String = "",
-    /** 空间页资料：IP 属地 / 认证标题 / 等级经验（接口没有时为空 / 0）。 */
-    val ipLocation: String = "",
+    /** 空间页资料：认证标题 / 等级经验（接口没有时为空 / 0）。 */
     val officialTitle: String = "",
+    val officialDesc: String = "",
+    val officialType: Int = 0,
+    val fansMedalName: String = "",
+    val fansMedalLevel: Int = 0,
+    val fansMedalColor: Int = 0,
+    val chargingCount: Long = 0,
     val levelExp: Long = 0,
     val nextLevelExp: Long = 0,
 )
@@ -284,6 +303,41 @@ data class SpaceInfo(
     val isFollowed: Boolean = false,
 )
 
+/** 空间页合集 / 系列。 */
+data class SpaceSeason(
+    val id: Long,
+    val title: String,
+    val cover: String,
+    val total: Int = 0,
+    val isSeries: Boolean = false,
+)
+
+/** 空间页追番。 */
+data class SpaceBangumi(
+    val seasonId: Long,
+    val title: String,
+    val cover: String,
+    val progress: String = "",
+    val total: Int = 0,
+)
+
+data class SpaceShopItem(
+    val title: String,
+    val cover: String = "",
+    val price: String = "",
+    val source: String = "",
+    val url: String = "",
+)
+
+/** 空间页图文投稿。 */
+data class SpaceArticle(
+    val id: Long,
+    val title: String,
+    val cover: String = "",
+    val view: Long = 0,
+    val publishTime: Long = 0,
+)
+
 data class MessageItem(
     val id: String,
     val title: String,
@@ -292,14 +346,37 @@ data class MessageItem(
     val name: String,
     val avatar: String,
     val bvid: String = "",
-    /** 通知动作文案，如「回复了我的评论」。 */
-    val action: String = "",
+    /** 通知动作文案，如「回复了我的评论」。 */    val action: String = "",
     /** 被回复/点赞的原内容摘要。 */
     val source: String = "",
     val userMid: Long = 0L,
     val followed: Boolean = false,
     val likeNames: List<String> = emptyList(),
     val likeCount: Int = 0,
+    /** 原视频 aid：点消息直接回到对应评论。 */
+    val aid: Long = 0L,
+    /** 评论根 / 被回复 / 这条回复的 rpid；动态评论也能用。 */
+    val rootRpid: Long = 0L,
+    val targetRpid: Long = 0L,
+    val sourceRpid: Long = 0L,
+    /** 1 = 视频评论，11/17 = 动态等。 */
+    val businessId: Int = 0,
+    /** 原生链接里带的播放时间（毫秒），没有就是 0。 */
+    val seekMs: Long = 0L,
+    /** 消息卡片底部的浅色引用：我在这条楼中楼里发过的话。 */
+    val quote: String = "",
+    /** 消息卡片右侧显示的文字（层主评论 / 我的评论）。 */
+    val subjectText: String = "",
+    /** 消息卡片右侧显示的视频封面。 */
+    val subjectCover: String = "",
+    /** 右侧是视频封面，而不是文字。 */
+    val videoSubject: Boolean = false,
+    /** 这条回复来自视频 UP 主。 */
+    val isUp: Boolean = false,
+    /** 「@我」消息。 */
+    val atMe: Boolean = false,
+    /** 别人在我的视频下发了评论。 */
+    val commentOnMyVideo: Boolean = false,
 )
 
 /** 私信会话里的一条消息。 */
@@ -324,6 +401,8 @@ data class MessageSession(
     val unread: Int,
     val isSystem: Boolean,
     val maxSeqno: Long = 0L,
+    /** 原始 session_ts（微秒），用于消息列表翻页。 */
+    val sessionTs: Long = 0L,
 )
 
 /** 官方字幕轨（`/x/player/v2` 的 subtitle.subtitles）。 */
@@ -339,14 +418,4 @@ data class SubtitleCue(
     val fromMs: Long,
     val toMs: Long,
     val text: String,
-)
-
-/** 进度条预览用的官方视频缩略图（精灵图）。 */
-data class VideoShot(
-    val images: List<String>,
-    val cols: Int,
-    val rows: Int,
-    val frameWidth: Int,
-    val frameHeight: Int,
-    val timesSec: List<Int>,
 )

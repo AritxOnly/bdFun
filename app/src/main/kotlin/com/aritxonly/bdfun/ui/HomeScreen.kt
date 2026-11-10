@@ -110,6 +110,16 @@ fun HomeScreen(
     val thresholdPx = with(density) { RefreshThreshold.toPx() }
     val maxPullPx = with(density) { MaxPull.toPx() }
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        if (com.aritxonly.bdfun.BuildConfig.DEBUG) {
+            com.aritxonly.bdfun.data.LiveCounters.homeInstances++
+        }
+        onDispose {
+            if (com.aritxonly.bdfun.BuildConfig.DEBUG) {
+                com.aritxonly.bdfun.data.LiveCounters.homeInstances--
+            }
+        }
+    }
 
     // 下拉/刷新时的内容位移（px）。这里刻意不用 Animatable：
     // 1) 每次滚动事件都 launch{snapTo} 会排队竞态；2) spring 回弹会冲过 0 点再弹回来，
@@ -349,6 +359,8 @@ internal fun VideoGridCard(
     selected: Boolean = false,
     /** 历史页：统计行先占位，避免补数据时整行突然出现 */
     reserveMeta: Boolean = false,
+    /** 个人主页等场景不需要最下面的 UP 行。 */
+    showOwner: Boolean = true,
 ) {
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
@@ -477,38 +489,40 @@ internal fun VideoGridCard(
                 modifier = Modifier.heightIn(min = TitleBlockHeight),
             )
 
-            Spacer(Modifier.height(5.dp))
+            if (showOwner) {
+                Spacer(Modifier.height(5.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // UP 名称可点：进 UP 空间页（点击被这里消费，不会触发整卡进视频）
                 Row(
-                    modifier = Modifier
-                        .clip(Capsule())
-                        .clickable(interactionSource = null, indication = null) {
-                            TeakNavigator.openSpace(
-                                context,
-                                video.ownerMid,
-                            )
-                        }
-                        .padding(vertical = 2.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    UpBadge()
-                    if (video.isFollowed) {
-                        Spacer(Modifier.width(4.dp))
-                        FollowedBadge()
+                    // UP 名称可点：进 UP 空间页（点击被这里消费，不会触发整卡进视频）
+                    Row(
+                        modifier = Modifier
+                            .clip(Capsule())
+                            .clickable(interactionSource = null, indication = null) {
+                                TeakNavigator.openSpace(
+                                    context,
+                                    video.ownerMid,
+                                )
+                            }
+                            .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        UpBadge()
+                        if (video.isFollowed) {
+                            Spacer(Modifier.width(4.dp))
+                            FollowedBadge()
+                        }
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            text = video.ownerName,
+                            color = colors.onBackgroundVariant,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
-                    Spacer(Modifier.width(5.dp))
-                    Text(
-                        text = video.ownerName,
-                        color = colors.onBackgroundVariant,
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
                 }
             }
         }

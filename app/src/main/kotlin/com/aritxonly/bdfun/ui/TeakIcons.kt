@@ -35,7 +35,6 @@ internal object TeakIcon {
     val Like = R.drawable.act_like
     val Dislike = R.drawable.act_dislike
     val LikeOutline = R.drawable.act_like_outline
-    val DislikeOutline = R.drawable.act_dislike_outline
     val Coin = R.drawable.act_coin
     val Star = R.drawable.act_star
     val Share = R.drawable.act_share
@@ -63,9 +62,6 @@ internal object TeakIcon {
     val PlayerComment = R.drawable.fs_comment
     val PlayerStar = R.drawable.fs_star
     val PlayerShare = R.drawable.fs_share
-    val SeekNormal = R.drawable.fs_seek_normal
-    val SeekLeft = R.drawable.fs_seek_left
-    val SeekRight = R.drawable.fs_seek_right
 
     val Send = R.drawable.ic_send
     val Image = R.drawable.ic_image

@@ -141,13 +141,6 @@ fun DanmakuSettingsContent(
                 checked = DanmakuSettings.subtitleGuard,
                 onInteract = onInteract,
             ) { DanmakuSettings.subtitleGuard = it }
-
-            DmSwitchRow(
-                title = "人像防挡",
-                description = "人像不被弹幕遮挡，部分视频生效",
-                checked = DanmakuSettings.portraitGuard,
-                onInteract = onInteract,
-            ) { DanmakuSettings.portraitGuard = it }
         }
 
         Spacer(Modifier.height(8.dp))

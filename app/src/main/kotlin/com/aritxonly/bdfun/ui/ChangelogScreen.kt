@@ -37,6 +37,23 @@ private data class ChangelogVersion(
 
 private val CHANGELOG = listOf(
     ChangelogVersion(
+        version = "preview-5.0",
+        changes = listOf(
+            "新增 唱片控件",
+            "新增 视频暂停后收起",
+            "新增 合集列表控件",
+            "新增 动态接入一镜到底",
+            "新增 链接跳转",
+            "重构 消息页功能",
+            "焕新 个人空间页",
+            "优化 弹幕计数样式",
+            "优化 底层代码",
+            "优化 部分界面显示",
+            "修复 选择个别动态时，动态列表仅有一条动态的问题",
+            "修复 大量Bug（忘记修了哪些了）",
+        ),
+    ),
+    ChangelogVersion(
         version = "preview-4.3",
         changes = listOf(
             "新增 HyperOS 4 一镜到底转场动画",

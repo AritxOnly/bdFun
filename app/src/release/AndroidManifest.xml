@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- release 包不带日志页：LogCollector / FreezeWatchdog 在 release 里也不会启动。 -->
+    <application>
+        <activity
+            android:name=".LogActivity"
+            tools:node="remove" />
+    </application>
+
+</manifest>

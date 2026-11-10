@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,13 +29,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.aritxonly.bdfun.BuildConfig
+import com.aritxonly.bdfun.R
 import com.aritxonly.bdfun.data.CdnAutoSelector
 import com.aritxonly.bdfun.data.CdnServices
+import com.aritxonly.bdfun.data.ScrollTopPages
 import com.aritxonly.bdfun.data.SettingsStore
 import com.aritxonly.teak.common.settings.TeakSettingsActionRow
 import com.aritxonly.teak.common.settings.TeakSettingsCard
@@ -133,6 +138,27 @@ fun SettingsScreen(
                     onCheckedChange = { settings.blurEnabled = it },
                 )
                 TeakSettingsSwitchRow(
+                    title = "回到顶部控件",
+                    checked = settings.scrollTopEnabled,
+                    onCheckedChange = { settings.scrollTopEnabled = it },
+                )
+                if (settings.scrollTopEnabled) {
+                    TeakSettingsDropdownRow(
+                        title = "回到顶部控件位置",
+                        options = listOf("左侧", "右侧"),
+                        selected = settings.scrollTopSide,
+                        onSelected = { settings.scrollTopSide = it },
+                    )
+                    // 每个页面单独开关；默认全部打开。
+                    ScrollTopPages.entries.forEach { (key, label) ->
+                        TeakSettingsSwitchRow(
+                            title = label,
+                            checked = settings.isScrollTopPageEnabled(key),
+                            onCheckedChange = { settings.setScrollTopPageEnabled(key, it) },
+                        )
+                    }
+                }
+                TeakSettingsSwitchRow(
                     title = "减弱动态效果",
                     checked = !settings.animationsEnabled,
                     onCheckedChange = { settings.animationsEnabled = !it },
@@ -181,7 +207,7 @@ fun SettingsScreen(
                     onCheckedChange = { settings.resumePlayback = it },
                 )
                 TeakSettingsSwitchRow(
-                    title = "亮度/音量滑动手势",
+                    title = "亮度/音量划动手势",
                     checked = settings.gestureBrightnessVolume,
                     onCheckedChange = { settings.gestureBrightnessVolume = it },
                 )
@@ -298,6 +324,33 @@ fun SettingsScreen(
 
         item(key = "home") {
             TeakSettingsCard(title = "首页") {
+                TeakSettingsSwitchRow(
+                    title = "退出视频后继续播放",
+                    checked = settings.showDiscAfterVideo,
+                    onCheckedChange = { settings.showDiscAfterVideo = it },
+                )
+                if (settings.showDiscAfterVideo) {
+                    TeakSettingsDropdownRow(
+                        title = "播放控件",
+                        options = listOf("画中画", "唱片"),
+                        selected = settings.exitVideoControl.coerceIn(0, 1),
+                        onSelected = { settings.exitVideoControl = it },
+                    )
+                }
+                TeakSettingsSwitchRow(
+                    title = "唱片呼吸灯",
+                    description = "唱片周围出现一圈缓慢呼吸的光效",
+                    checked = settings.discBreathEnabled,
+                    onCheckedChange = { settings.discBreathEnabled = it },
+                )
+                if (settings.discBreathEnabled) {
+                    TeakSettingsSwitchRow(
+                        title = "呼吸灯跟随封面取色",
+                        description = "关闭时为白色",
+                        checked = settings.discBreathCoverColor,
+                        onCheckedChange = { settings.discBreathCoverColor = it },
+                    )
+                }
                 TeakSettingsDropdownRow(
                     title = "卡片样式",
                     options = listOf("双排", "大卡"),
@@ -387,6 +440,21 @@ fun SettingsScreen(
             }
         }
 
+        item(key = "developers") {
+            TeakSettingsCard(title = "开发者") {
+                DeveloperRow(
+                    name = "Artix",
+                    avatar = R.drawable.dev_artix,
+                    url = "https://github.com/AritxOnly",
+                )
+                DeveloperRow(
+                    name = "Teak",
+                    avatar = R.drawable.dev_teak,
+                    url = "https://github.com/QxTeak",
+                )
+            }
+        }
+
         item(key = "about") {
             val aboutContext = LocalContext.current
             TeakSettingsCard(title = "关于") {
@@ -394,11 +462,17 @@ fun SettingsScreen(
                     title = "版本",
                     value = BuildConfig.VERSION_NAME,
                 )
-                TeakSettingsActionRow(title = "加入讨论组", trailing = "QQ 群 $QQ_GROUP") {
-                    openQqGroup(aboutContext)
+                TeakSettingsActionRow(title = "加入讨论组", trailing = "Telegram 群") {
+                    openTelegramGroup(aboutContext)
                 }
                 TeakSettingsActionRow(title = "更新日志") {
                     com.aritxonly.bdfun.TeakNavigator.openChangelog(aboutContext)
+                }
+                TeakSettingsActionRow(title = "帮助中心") {
+                    com.aritxonly.bdfun.TeakNavigator.openHelp(aboutContext)
+                }
+                TeakSettingsActionRow(title = "查看开始页") {
+                    com.aritxonly.bdfun.TeakNavigator.openOnboarding(aboutContext)
                 }
                 TeakSettingsActionRow(title = "捐赠") {
                     com.aritxonly.bdfun.TeakNavigator.openDonation(aboutContext)
@@ -418,7 +492,7 @@ fun SettingsScreen(
                 }
                 if (BuildConfig.DEBUG) {
                     TeakSettingsActionRow(title = "日志抓取", trailing = "调试") {
-                        com.aritxonly.bdfun.TeakNavigator.openLogs(aboutContext)
+                        com.aritxonly.bdfun.openLogs(aboutContext)
                     }
                 }
             }
@@ -438,8 +512,8 @@ fun SettingsScreen(
     }
 }
 
-private val QUALITY_LABELS = listOf("自动", "HDR", "4K", "1080P+", "1080P", "720P", "480P")
-private val QUALITY_VALUES = listOf(0, 125, 120, 112, 80, 64, 32)
+private val QUALITY_LABELS = listOf("自动", "HDR", "4K", "1080P+", "1080P", "720P")
+private val QUALITY_VALUES = listOf(0, 125, 120, 112, 80, 64)
 private val LATENCY_VALUES = listOf(50, 100, 150, 200, 250, 300)
 private val PLAYBACK_SPEED_VALUES = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f, 2.5f, 3f)
 private val PLAYBACK_SPEED_LABELS = PLAYBACK_SPEED_VALUES.map {
@@ -492,71 +566,77 @@ private val CODEC_LABELS = listOf(
 
 private val CODEC_VALUES = listOf("auto", "avc", "hevc", "av1", "dvh1")
 
-private const val QQ_GROUP = "852442572"
+/** 和帮助中心同一个 Telegram 群链接，避免两处入口指向不同地方。 */
+private const val TELEGRAM_GROUP = "https://t.me/+tQrDYf-hb702ZjM1"
 
-/** 加入讨论组：优先拉起 QQ 群卡片，没有 QQ 时复制群号并提示。 */
-private fun openQqGroup(context: android.content.Context) {
-    val intent = android.content.Intent(
-        android.content.Intent.ACTION_VIEW,
-        android.net.Uri.parse(
-            "mqqapi://card/show_pslcard?src_type=internal&version=1" +
-                "&uin=$QQ_GROUP&card_type=group&source=qrcode",
-        ),
-    ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-    if (runCatching { context.startActivity(intent) }.isSuccess) return
-    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
-        as? android.content.ClipboardManager
-    clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("QQ群号", QQ_GROUP))
-    context.showToast("未检测到 QQ，已复制群号 $QQ_GROUP")
+/** 加入讨论组：直接打开 Telegram 群；没装 Telegram 时退回系统浏览器。 */
+private fun openTelegramGroup(context: android.content.Context) {
+    val uri = android.net.Uri.parse(TELEGRAM_GROUP)
+    val telegram = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
+        .setPackage("org.telegram.messenger")
+        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+    if (runCatching { context.startActivity(telegram) }.isSuccess) return
+    runCatching {
+        context.startActivity(
+            android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }.onFailure { context.showToast("无法打开链接") }
 }
 
-/** 全局字号：默认 100%，只缩放文字 sp，不改控件尺寸。 */
+/** 开发者行：左边圆形头像，右边名字；点击打开 GitHub 主页。 */
+@Composable
+private fun DeveloperRow(
+    name: String,
+    avatar: Int,
+    url: String,
+) {
+    val context = LocalContext.current
+    val colors = MiuixTheme.colorScheme
+    top.yukonga.miuix.kmp.preference.ArrowPreference(
+        title = name,
+        startAction = {
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(avatar),
+                contentDescription = name,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(colors.surfaceContainerHigh),
+            )
+        },
+        onClick = {
+            runCatching {
+                context.startActivity(
+                    android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse(url),
+                    ),
+                )
+            }.onFailure { context.showToast("无法打开链接") }
+        },
+    )
+}
+
+/** 全局字号：默认 100%，只缩放文字 sp，不改控件尺寸；使用 Miuix 原生滑条行。 */
 @Composable
 private fun GlobalFontScaleRow(value: Float, onValueChange: (Float) -> Unit) {
-    val colors = MiuixTheme.colorScheme
     val min = 0.8f
     val max = 1.2f
     var sliderValue by remember(value) { mutableFloatStateOf(value) }
-    val fraction = ((sliderValue - min) / (max - min)).coerceIn(0f, 1f)
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = "全局字号", color = colors.onBackground, fontSize = 16.sp)
-            Spacer(Modifier.weight(1f))
-            Text(
-                text = "${(sliderValue * 100).toInt()}%",
-                color = colors.onBackgroundVariant,
-                fontSize = 13.5.sp,
-            )
-        }
-        Spacer(Modifier.height(6.dp))
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Slider(
-                value = sliderValue,
-                onValueChange = {
-                    sliderValue = if (kotlin.math.abs(it - 1f) < 0.025f) 1f else it
-                },
-                modifier = Modifier.fillMaxWidth(),
-                valueRange = min..max,
-                steps = 0,
-                onValueChangeFinished = { onValueChange(sliderValue) },
-                showKeyPoints = false,
-                keyPoints = listOf(1f),
-                magnetThreshold = 0.035f,
-            )
-            if (kotlin.math.abs(fraction - 0.5f) > 0.02f) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(5.dp)
-                        .clip(CircleShape)
-                        .background(colors.onBackground.copy(alpha = 0.22f)),
-                )
-            }
-        }
-    }
+    top.yukonga.miuix.kmp.preference.SliderPreference(
+        value = sliderValue,
+        onValueChange = {
+            sliderValue = if (kotlin.math.abs(it - 1f) < 0.025f) 1f else it
+        },
+        title = "全局字号",
+        valueText = "${(sliderValue * 100).toInt()}%",
+        valueRange = min..max,
+        keyPoints = listOf(1f),
+        showKeyPoints = false,
+        magnetThreshold = 0.035f,
+        onValueChangeFinished = { onValueChange(sliderValue) },
+    )
 }
+

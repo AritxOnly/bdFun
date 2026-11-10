@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.aritxonly.teak.common.settings.TeakSettingsCard
 import com.aritxonly.teak.common.settings.TeakSettingsPage
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.icon.basic.ArrowRight
 
 private data class CreditProject(
     val name: String,
@@ -32,6 +34,8 @@ private val CreditProjects = listOf(
     CreditProject("HyperIsland", "https://github.com/1812z/HyperIsland"),
     CreditProject("Miuix", "https://github.com/compose-miuix-ui/miuix"),
     CreditProject("PiliPlus", "https://github.com/bggRGjQaUbCoE/PiliPlus"),
+    CreditProject("Guiyuan", "https://github.com/CHS-Haple/Guiyuan"),
+    CreditProject("BiliPai", "https://github.com/jay3-yy/BiliPai"),
     CreditProject("bilibili-API-collect", "https://github.com/SocialSisterYi/bilibili-API-collect"),
     CreditProject("AndroidX / Jetpack Compose", "https://github.com/androidx/androidx"),
     CreditProject("Media3 / ExoPlayer", "https://github.com/androidx/media"),
@@ -73,34 +77,35 @@ fun CreditsScreen() {
     }
 }
 
+/** 与设置页箭头行同一套 Miuix 行：标题 + 灰色链接 + 右侧箭头。 */
 @Composable
 private fun CreditRow(project: CreditProject, onClick: () -> Unit) {
     val colors = MiuixTheme.colorScheme
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    top.yukonga.miuix.kmp.basic.BasicComponent(
+        onClick = onClick,
+        endActions = {
+            top.yukonga.miuix.kmp.basic.Icon(
+                imageVector = top.yukonga.miuix.kmp.icon.MiuixIcons.Basic.ArrowRight,
+                contentDescription = null,
+                tint = colors.onSurfaceVariantActions,
+                modifier = Modifier.size(width = 10.dp, height = 16.dp),
+            )
+        },
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = project.name,
-                color = colors.onBackground,
-                fontSize = 16.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(3.dp))
-            Text(
-                text = project.url,
-                color = colors.onBackgroundVariant,
-                fontSize = 11.5.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Spacer(Modifier.width(8.dp))
-        Text(text = "›", color = colors.onBackgroundVariant, fontSize = 16.sp)
+        top.yukonga.miuix.kmp.basic.Text(
+            text = project.name,
+            fontSize = MiuixTheme.textStyles.headline1.fontSize,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+            color = colors.onBackground,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        top.yukonga.miuix.kmp.basic.Text(
+            text = project.url,
+            fontSize = MiuixTheme.textStyles.body2.fontSize,
+            color = colors.onSurfaceVariantSummary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }

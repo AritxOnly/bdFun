@@ -249,47 +249,6 @@ internal fun DanmakuSettingGlyph(tint: Color = Color.White) {
     }
 }
 
-/** 长按加速按钮上的「6s」后退图标。 */
-@Composable
-internal fun Rewind6Glyph(tint: Color = Color.White) {
-    Canvas(Modifier.size(30.dp)) {
-        val s = size.width
-        val stroke = 1.7.dp.toPx()
-        drawArc(
-            tint,
-            startAngle = 140f,
-            sweepAngle = 250f,
-            useCenter = false,
-            style = Stroke(stroke, cap = StrokeCap.Round),
-            topLeft = Offset(s * 0.16f, s * 0.16f),
-            size = Size(s * 0.68f, s * 0.68f),
-        )
-        drawLine(
-            tint,
-            Offset(s * 0.34f, s * 0.08f),
-            Offset(s * 0.16f, s * 0.24f),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round,
-        )
-        drawLine(
-            tint,
-            Offset(s * 0.16f, s * 0.24f),
-            Offset(s * 0.34f, s * 0.34f),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round,
-        )
-        drawIntoCanvas { canvas ->
-            val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                color = tint.toArgb()
-                textSize = 9.sp.toPx()
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
-                textAlign = android.graphics.Paint.Align.CENTER
-            }
-            canvas.nativeCanvas.drawText("6s", s / 2f, s * 0.62f, paint)
-        }
-    }
-}
-
 @Composable
 internal fun DislikeGlyph(tint: Color = Color.White, sizeDp: androidx.compose.ui.unit.Dp = 24.dp) {
     Canvas(Modifier.size(sizeDp)) {

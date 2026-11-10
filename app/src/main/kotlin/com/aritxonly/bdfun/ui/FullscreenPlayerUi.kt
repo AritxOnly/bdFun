@@ -2,10 +2,6 @@ package com.aritxonly.bdfun.ui
 
 import android.content.Context
 import android.graphics.BitmapFactory
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
-import android.os.BatteryManager
-import android.telephony.TelephonyManager
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -125,7 +121,7 @@ internal enum class FullscreenPanel {
     Cache,
 }
 
-internal val FullscreenSpeeds = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
+internal val FullscreenSpeeds = listOf(2f, 1.5f, 1.25f, 1f, 0.75f, 0.5f)
 
 internal data class FullscreenPlayerInfo(
     val title: String,
@@ -782,23 +778,10 @@ private fun ComposerChip(text: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun FullscreenStatusLine(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
     val clock by produceState(initialValue = clockText()) {
         while (true) {
             value = clockText()
             delay(15_000)
-        }
-    }
-    val battery by produceState(initialValue = batteryPercent(context)) {
-        while (true) {
-            value = batteryPercent(context)
-            delay(30_000)
-        }
-    }
-    val network by produceState(initialValue = networkLabel(context)) {
-        while (true) {
-            value = networkLabel(context)
-            delay(8_000)
         }
     }
     Box(modifier = modifier.height(19.dp)) {
@@ -1442,52 +1425,6 @@ private fun QuickAction(
 }
 
 @Composable
-private fun MoreSwitchRow(label: String, checked: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(interactionSource = null, indication = null, onClick = onClick)
-            .padding(vertical = 11.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label, color = Color.White, fontSize = 14.sp)
-        Spacer(Modifier.weight(1f))
-        Box(
-            modifier = Modifier
-                .width(38.dp)
-                .height(21.dp)
-                .clip(Capsule())
-                .background(if (checked) BrandPink else Color.White.copy(alpha = 0.18f)),
-        ) {
-            Box(
-                modifier = Modifier
-                    .offset(x = if (checked) 19.dp else 2.dp, y = 2.dp)
-                    .size(17.dp)
-                    .clip(Capsule())
-                    .background(Color.White),
-            )
-        }
-    }
-}
-
-@Composable
-private fun MoreChoiceRow(label: String, value: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(interactionSource = null, indication = null, onClick = onClick)
-            .padding(vertical = 13.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label, color = Color.White, fontSize = 14.sp)
-        Spacer(Modifier.weight(1f))
-        Text(value, color = Color.White.copy(alpha = 0.58f), fontSize = 12.sp)
-        Spacer(Modifier.width(6.dp))
-        ChevronRightGlyph()
-    }
-}
-
-@Composable
 private fun DanmakuPanel(
     info: FullscreenPlayerInfo,
     onClose: () -> Unit,
@@ -1503,100 +1440,6 @@ private fun DanmakuPanel(
                 onInteract = {},
                 danmakuItems = info.danmakuItems,
             )
-        }
-    }
-}
-
-@Composable
-private fun PanelSettingSwitch(
-    label: String,
-    checked: Boolean,
-    onChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(interactionSource = null, indication = null) { onChange(!checked) }
-            .padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label, color = Color.White, fontSize = 13.sp)
-        Spacer(Modifier.weight(1f))
-        Box(
-            modifier = Modifier
-                .width(36.dp)
-                .height(20.dp)
-                .clip(Capsule())
-                .background(if (checked) BrandPink else Color.White.copy(alpha = 0.2f)),
-        ) {
-            Box(
-                modifier = Modifier
-                    .offset(x = if (checked) 18.dp else 2.dp, y = 2.dp)
-                    .size(16.dp)
-                    .clip(Capsule())
-                    .background(Color.White),
-            )
-        }
-    }
-}
-
-@Composable
-private fun PanelSettingSlider(
-    label: String,
-    value: Float,
-    range: ClosedFloatingPointRange<Float>,
-    format: (Float) -> String,
-    onChange: (Float) -> Unit,
-) {
-    var pressed by remember { mutableStateOf(false) }
-    Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-        Row {
-            Text(label, color = Color.White.copy(alpha = 0.86f), fontSize = 12.sp)
-            Spacer(Modifier.weight(1f))
-            Text(format(value), color = Color.White.copy(alpha = 0.55f), fontSize = 11.sp)
-        }
-        Spacer(Modifier.height(4.dp))
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(26.dp)
-                .then(
-                    Modifier.clickable(
-                        interactionSource = null,
-                        indication = null,
-                    ) {
-                        // 点击轨道直接跳到对应比例；拖动由 pointerInput 处理
-                    },
-                ),
-        ) {
-            androidx.compose.foundation.Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(22.dp)
-                    .padding(vertical = 8.dp)
-                    .pointerInputSlider(
-                        value = value,
-                        range = range,
-                        onPressed = { pressed = it },
-                        onChange = onChange,
-                    ),
-            ) {
-                val ratio = ((value - range.start) / (range.endInclusive - range.start))
-                    .coerceIn(0f, 1f)
-                val h = if (pressed) 6.dp.toPx() else 4.dp.toPx()
-                drawRoundRect(
-                    color = Color.White.copy(alpha = 0.18f),
-                    topLeft = Offset(0f, (size.height - h) / 2f),
-                    size = Size(size.width, h),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(h / 2f),
-                )
-                drawRoundRect(
-                    color = BrandPink,
-                    topLeft = Offset(0f, (size.height - h) / 2f),
-                    size = Size(size.width * ratio, h),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(h / 2f),
-                )
-            }
         }
     }
 }
@@ -1790,7 +1633,13 @@ private fun QualityPanel(
                     )
                     if (playback.autoQuality) CheckGlyph(BrandPink)
                 }
-                playback.qualities.forEach { item ->
+                playback.qualities
+                    .let { list ->
+                        // 和半屏播放器一致：不列 720P 以下的档位；
+                        // 视频本身最高不到 720P 时退回完整列表，避免菜单空掉。
+                        list.filter { it.id >= 64 }.ifEmpty { list }
+                    }
+                    .forEach { item ->
                     val active = !playback.autoQuality && item.id == playback.qualityId
                     Row(
                         modifier = Modifier
@@ -1852,7 +1701,9 @@ private fun CachePanel(
             )
         }
         Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-            playback.qualities.forEach { item ->
+            playback.qualities
+                .let { list -> list.filter { it.id >= 64 }.ifEmpty { list } }
+                .forEach { item ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1887,56 +1738,6 @@ private fun CachePanel(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun CacheGlyph(tint: Color = Color.White) {
-    Canvas(modifier = Modifier.size(22.dp)) {
-        val stroke = size.width * 0.09f
-        val cx = size.width * 0.5f
-        drawLine(
-            tint,
-            Offset(cx, size.height * 0.12f),
-            Offset(cx, size.height * 0.58f),
-            stroke,
-            StrokeCap.Round,
-        )
-        drawLine(
-            tint,
-            Offset(cx, size.height * 0.58f),
-            Offset(size.width * 0.32f, size.height * 0.4f),
-            stroke,
-            StrokeCap.Round,
-        )
-        drawLine(
-            tint,
-            Offset(cx, size.height * 0.58f),
-            Offset(size.width * 0.68f, size.height * 0.4f),
-            stroke,
-            StrokeCap.Round,
-        )
-        drawLine(
-            tint,
-            Offset(size.width * 0.18f, size.height * 0.72f),
-            Offset(size.width * 0.18f, size.height * 0.86f),
-            stroke,
-            StrokeCap.Round,
-        )
-        drawLine(
-            tint,
-            Offset(size.width * 0.18f, size.height * 0.86f),
-            Offset(size.width * 0.82f, size.height * 0.86f),
-            stroke,
-            StrokeCap.Round,
-        )
-        drawLine(
-            tint,
-            Offset(size.width * 0.82f, size.height * 0.86f),
-            Offset(size.width * 0.82f, size.height * 0.72f),
-            stroke,
-            StrokeCap.Round,
-        )
     }
 }
 
@@ -2528,78 +2329,6 @@ private fun SlidersGlyph() {
 }
 
 @Composable
-private fun NetworkGlyph(label: String, tint: Color) {
-    if (label == "WiFi") {
-        Canvas(modifier = Modifier.size(14.dp)) {
-            val stroke = size.width * 0.1f
-            drawArc(
-                tint,
-                startAngle = 215f,
-                sweepAngle = 110f,
-                useCenter = false,
-                topLeft = Offset(size.width * 0.08f, size.height * 0.18f),
-                size = Size(size.width * 0.84f, size.height * 0.84f),
-                style = Stroke(stroke, cap = StrokeCap.Round),
-            )
-            drawArc(
-                tint,
-                startAngle = 215f,
-                sweepAngle = 110f,
-                useCenter = false,
-                topLeft = Offset(size.width * 0.28f, size.height * 0.38f),
-                size = Size(size.width * 0.44f, size.height * 0.44f),
-                style = Stroke(stroke, cap = StrokeCap.Round),
-            )
-            drawCircle(tint, radius = size.width * 0.08f, center = Offset(size.width * 0.5f, size.height * 0.82f))
-        }
-    } else {
-        Canvas(modifier = Modifier.size(14.dp)) {
-            val stroke = size.width * 0.1f
-            listOf(0.26f, 0.5f, 0.74f).forEachIndexed { index, fraction ->
-                val h = size.height * (0.24f + index * 0.2f)
-                drawLine(
-                    tint,
-                    Offset(size.width * fraction, size.height * 0.82f),
-                    Offset(size.width * fraction, size.height * 0.82f - h),
-                    stroke,
-                    StrokeCap.Round,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun BatteryGlyph(percent: Int, tint: Color) {
-    Canvas(modifier = Modifier.size(width = 14.dp, height = 8.dp)) {
-        val stroke = 1.dp.toPx()
-        drawRoundRect(
-            color = tint,
-            topLeft = Offset(0f, 0f),
-            size = Size(size.width * 0.88f, size.height),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx()),
-            style = Stroke(stroke),
-        )
-        drawRoundRect(
-            color = tint,
-            topLeft = Offset(size.width * 0.91f, size.height * 0.3f),
-            size = Size(size.width * 0.06f, size.height * 0.4f),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(1.dp.toPx()),
-        )
-        val inset = 1.dp.toPx()
-        drawRoundRect(
-            color = tint,
-            topLeft = Offset(inset, inset),
-            size = Size(
-                (size.width * 0.88f - inset * 2f) * (percent.coerceIn(0, 100) / 100f),
-                size.height - inset * 2f,
-            ),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(1.dp.toPx()),
-        )
-    }
-}
-
-@Composable
 private fun HeadphoneGlyph(tint: Color = Color.White) {
     Canvas(modifier = Modifier.size(24.dp)) {
         val stroke = size.width * 0.09f
@@ -2714,54 +2443,6 @@ private fun trimSpeed(value: Float): String {
 
 private fun clockText(): String =
     SimpleDateFormat("HH:mm", Locale.CHINA).format(Date())
-
-private fun batteryPercent(context: Context): Int {
-    val manager = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
-    val direct = manager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
-    if (direct in 0..100) return direct
-    val intent = runCatching {
-        context.registerReceiver(
-            null,
-            android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED),
-        )
-    }.getOrNull()
-    val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-    val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
-    return if (level >= 0 && scale > 0) level * 100 / scale else 0
-}
-
-private fun networkLabel(context: Context): String {
-    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-        ?: return "WiFi"
-    val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return "WiFi"
-    if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) return "WiFi"
-    if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
-        val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
-        val type = runCatching { tm?.dataNetworkType ?: 0 }.getOrDefault(0)
-        return when (type) {
-            TelephonyManager.NETWORK_TYPE_NR -> "5G"
-            TelephonyManager.NETWORK_TYPE_LTE -> "4G"
-            TelephonyManager.NETWORK_TYPE_HSPAP,
-            TelephonyManager.NETWORK_TYPE_HSDPA,
-            TelephonyManager.NETWORK_TYPE_HSUPA,
-            TelephonyManager.NETWORK_TYPE_UMTS,
-            TelephonyManager.NETWORK_TYPE_EVDO_0,
-            TelephonyManager.NETWORK_TYPE_EVDO_A,
-            TelephonyManager.NETWORK_TYPE_EVDO_B,
-            -> "3G"
-            TelephonyManager.NETWORK_TYPE_GPRS,
-            TelephonyManager.NETWORK_TYPE_EDGE,
-            TelephonyManager.NETWORK_TYPE_CDMA,
-            TelephonyManager.NETWORK_TYPE_1xRTT,
-            -> "2G"
-            else -> "4G"
-        }
-    }
-    return when {
-        caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "WiFi"
-        else -> "WiFi"
-    }
-}
 
 /** 字幕层：控件自动隐藏后仍然显示当前句。 */
 @Composable

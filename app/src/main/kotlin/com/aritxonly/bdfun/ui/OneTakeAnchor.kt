@@ -49,6 +49,18 @@ class OneTakeAnchor internal constructor() {
         val color = if (backgroundColor != 0) backgroundColor else this.backgroundColor
         TeakOneTake.openVideo(context, video, rect, radiusPx, color, fallback)
     }
+
+    /** 从整张动态卡片放大到动态详情。 */
+    fun openDynamic(
+        context: Context,
+        dynamic: com.aritxonly.bdfun.data.DynamicItem,
+        radiusPx: Float,
+        backgroundColor: Int = 0,
+        fallback: () -> Unit,
+    ) {
+        val color = if (backgroundColor != 0) backgroundColor else this.backgroundColor
+        TeakOneTake.openDynamic(context, dynamic, rect, radiusPx, color, fallback)
+    }
 }
 
 @Composable
