@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.teak.common.chrome.centeredListWidth
+import com.aritxonly.teak.common.chrome.TrackTeakPageScroll
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -311,8 +313,11 @@ private fun SearchLanding(
     onClearHistory: () -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
+    val listState = rememberLazyListState()
+    TrackTeakPageScroll(listState)
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        state = listState,
+        modifier = Modifier.fillMaxSize().centeredListWidth(scrollState = listState),
         contentPadding = PaddingValues(start = 16.dp, top = 14.dp, end = 16.dp, bottom = 32.dp),
     ) {
         // 输入框有内容时，用联想词替代记录 / 热搜。
@@ -497,6 +502,7 @@ private fun SearchResults(
     }
     val videoListState = rememberLazyListState()
     val userListState = rememberLazyListState()
+    TrackTeakPageScroll(if (pagerState.currentPage == 0) videoListState else userListState)
     // 给结果内容单独录一层：Tab 栏是它的兄弟节点，不在录制范围内，
     // 因此 Tab 的玻璃可以安全采样，不会形成自引用。
     val colors = MiuixTheme.colorScheme
@@ -523,7 +529,9 @@ private fun SearchResults(
                     val pageColors = MiuixTheme.colorScheme
                     LazyColumn(
                         state = if (page == 0) videoListState else userListState,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().centeredListWidth(
+                            scrollState = if (page == 0) videoListState else userListState,
+                        ),
                         contentPadding = PaddingValues(
                             start = 16.dp,
                             end = 16.dp,

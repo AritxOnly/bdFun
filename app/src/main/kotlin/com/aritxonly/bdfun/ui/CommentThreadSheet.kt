@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -99,6 +100,7 @@ internal fun CommentThreadSheet(
     minTopPx: Float = 0f,
     /** 视频页播放器当前底边；直接传值可避免总线状态晚一帧导致的上下不贴合。 */
     playerBottomDp: androidx.compose.ui.unit.Dp? = null,
+    paneWidth: androidx.compose.ui.unit.Dp? = null,
 ) {
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
@@ -324,17 +326,23 @@ internal fun CommentThreadSheet(
         // 窗口位置在组合提交阶段直接设置，和播放器同一帧更新；
         // 只在数值真的变化时才重写窗口参数，避免列表滚动时每帧都改窗口。
         val panelTopInt = panelTopPx.toInt()
-        val lastPanelTop = remember { intArrayOf(Int.MIN_VALUE) }
+        val paneWidthPx = paneWidth?.let { with(density) { it.roundToPx() } }
+            ?: android.view.ViewGroup.LayoutParams.MATCH_PARENT
+        val paneEndPx = if (paneWidth != null) WindowInsets.safeDrawing.getRight(
+            density, androidx.compose.ui.unit.LayoutDirection.Ltr,
+        ) else 0
+        val panelHeightPx = (screenHeightPx - panelTopPx).toInt().coerceAtLeast(1)
+        val lastPanelGeometry = remember { intArrayOf(Int.MIN_VALUE, 0, 0, 0) }
         androidx.compose.runtime.SideEffect {
-            if (lastPanelTop[0] == panelTopInt) return@SideEffect
-            lastPanelTop[0] = panelTopInt
+            val geometry = intArrayOf(panelTopInt, paneWidthPx, panelHeightPx, paneEndPx)
+            if (lastPanelGeometry.contentEquals(geometry)) return@SideEffect
+            geometry.copyInto(lastPanelGeometry)
             val window = dialogWindow ?: return@SideEffect
             val lp = window.attributes ?: return@SideEffect
-            lp.gravity = android.view.Gravity.TOP
-            lp.width = android.view.ViewGroup.LayoutParams.MATCH_PARENT
-            lp.height = (screenHeightPx - panelTopPx)
-                .toInt()
-                .coerceAtLeast(1)
+            lp.gravity = android.view.Gravity.TOP or android.view.Gravity.RIGHT
+            lp.width = paneWidthPx
+            lp.height = panelHeightPx
+            lp.x = paneEndPx
             lp.y = panelTopInt
             window.attributes = lp
         }

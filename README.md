@@ -9,7 +9,7 @@
   <a href="https://github.com/QxTeak/bdFun/releases"><img src="https://img.shields.io/github/downloads/QxTeak/bdFun/total?label=downloads&color=4CAF50&style=flat-square" alt="downloads"></a>
   <img src="https://img.shields.io/github/license/QxTeak/bdFun?label=license&color=FFA500&style=flat-square" alt="license">
   <img src="https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white&style=flat-square" alt="platform">
-  <img src="https://img.shields.io/badge/Kotlin-2.4.20-7F52FF?logo=kotlin&logoColor=white&style=flat-square" alt="kotlin">
+  <img src="https://img.shields.io/badge/Kotlin-2.4.21-7F52FF?logo=kotlin&logoColor=white&style=flat-square" alt="kotlin">
   <img src="https://img.shields.io/badge/Compose-Jetpack-4285F4?logo=jetpackcompose&logoColor=white&style=flat-square" alt="compose">
   <img src="https://img.shields.io/badge/build-Gradle-02303A?logo=gradle&logoColor=white&style=flat-square" alt="build">
 </p>
@@ -57,6 +57,7 @@ gradlew.bat :app:assembleDebug
 > Note: this project builds against a local Miuix source snapshot.
 > Place it at `../miuix-src/miuix-45645854cd46c32275c5666e3aafa9980d8f104e`
 > or set the `MIUIX_SOURCE` environment variable to the Miuix repo path.
+> The app uses AGP 9.5.1, Kotlin 2.4.21 and Compose 1.12.2 to match this snapshot; composite builds cannot mix AGP versions.
 
 Release：
 

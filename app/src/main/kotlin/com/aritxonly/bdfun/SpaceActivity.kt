@@ -213,6 +213,7 @@ private fun SpaceScreen(
     onBarBlurFractionChange: (Float) -> Unit,
     onBannerDarkChange: (Boolean) -> Unit,
 ) {
+    val pageChrome = com.aritxonly.teak.common.chrome.LocalTeakPageScrollState.current
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -472,9 +473,9 @@ private fun SpaceScreen(
     var headerHeightPx by remember { mutableIntStateOf(0) }
     var headerCollapsePx by remember { mutableFloatStateOf(0f) }
     val blurDensity = LocalDensity.current
-    val bannerHeightPx = with(blurDensity) {
-        (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp * 0.625f).toPx()
-    }
+    val windowWidth = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+    val contentWidth = if (windowWidth >= 600.dp) minOf(windowWidth * 0.7f, 680.dp) else windowWidth
+    val bannerHeightPx = with(blurDensity) { (contentWidth * 0.625f).toPx() }
     val statusBarPx = with(blurDensity) {
         WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx()
     }
@@ -511,7 +512,7 @@ private fun SpaceScreen(
         val headerDone = maxCollapse > 0f && headerCollapsePx >= maxCollapse - 1f
         val extra = if (headerDone) listState.firstVisibleItemScrollOffset.toFloat() else 0f
         val index = if (headerDone && listState.firstVisibleItemIndex > 0) 1 else 0
-        TeakPageChrome.state.update(index, headerCollapsePx + extra)
+        pageChrome.update(index, headerCollapsePx + extra, density = blurDensity.density)
     }
 
     // 1 = 新页从右边进，-1 = 从左边进。点 Tab 和左右滑都走同一套。

@@ -50,7 +50,8 @@ fun TeakGlassBackButton(
     val recipe = TeakGlassRecipes.floatingNavigation(advancedMaterial.fineTuning)
     val glyph = glyphColor ?: if (light) Color.White else teakGlassGlyphColor()
     // 固定速率淡入/淡出（300ms），与页面滚动速度无关。
-    val reveal = rememberManualProgress(if (revealed) 1f else 0f, 300f)
+    val fallbackReveal = rememberManualProgress(if (revealed) 1f else 0f, 300f)
+    val reveal = if (LocalProgressiveTopBarMaterialHosted.current) LocalTopBarButtonMaterialProgress.current else fallbackReveal
 
     Box(modifier = modifier.size(size)) {
         if (reveal > 0.01f) {
@@ -65,14 +66,13 @@ fun TeakGlassBackButton(
                         .clickable(interactionSource = null, indication = null, onClick = onClick),
                 )
             } else {
-                Box(modifier = Modifier.matchParentSize().graphicsLayer { alpha = reveal }) {
-                    TeakGlassIconButton(
-                        onClick = onClick,
-                        size = size,
-                        recipe = recipe,
-                        backdrop = LocalTeakBackdrop.current,
-                    ) {}
-                }
+                TeakGlassIconButton(
+                    onClick = onClick,
+                    size = size,
+                    recipe = recipe,
+                    backdrop = LocalTeakBackdrop.current,
+                    materialAlpha = reveal,
+                ) {}
             }
         }
         // 统一使用 Miuix 的 ChevronBackward 图标，替代原来手画的折线。

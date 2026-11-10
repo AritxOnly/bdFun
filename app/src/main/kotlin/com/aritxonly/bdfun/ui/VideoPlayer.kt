@@ -940,10 +940,12 @@ internal fun VideoPlayer(
         }
     }
 
+    var inlineOrientation by remember { mutableIntStateOf(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) }
     DisposableEffect(fullscreen, immersiveStatusBar) {
         val window = activity?.window
         val controller = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
         if (fullscreen) {
+            inlineOrientation = activity?.requestedOrientation ?: ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             controller?.apply {
                 systemBarsBehavior =
                     WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -963,12 +965,15 @@ internal fun VideoPlayer(
             } else {
                 controller?.show(WindowInsetsCompat.Type.systemBars())
             }
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         }
         onDispose {
             controller?.show(WindowInsetsCompat.Type.systemBars())
-            if (fullscreen) {
-                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            if (fullscreen && activity?.requestedOrientation !in listOf(
+                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
+                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT,
+                    ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT,
+                )) {
+                activity?.requestedOrientation = inlineOrientation
             }
         }
     }

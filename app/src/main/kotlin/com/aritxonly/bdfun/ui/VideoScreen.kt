@@ -20,6 +20,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -164,6 +165,7 @@ private fun VideoDetail.playerPages(): List<VideoPage> {
 fun VideoScreen(
     api: BiliApi,
     video: VideoItem,
+    paneLayout: VideoPaneLayout,
     defaultQuality: Int = 80,
     onOpenComments: (VideoDetail) -> Unit = {},
     onBack: () -> Unit,
@@ -221,7 +223,7 @@ fun VideoScreen(
     // ---- 播放器随浏览收起：完全照搬 BiliPai 的共享位移模型 ----
     // offsetPx 是唯一的状态，播放器高度、缩放、页面内边距都由它推导。
     val collapseDensity = LocalDensity.current
-    val screenWidthForPlayer = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+    val screenWidthForPlayer = paneLayout.widthDp.dp
     val videoAspectHeight = screenWidthForPlayer * 9f / 16f
     val collapseState = rememberInlinePlayerCollapseState(activeBvid)
     // 「上滑收起播放器」设置已删除，固定按原来的「关闭」模式运行。
@@ -235,7 +237,7 @@ fun VideoScreen(
         isPlaybackPaused = pausedForInlineLayout,
         isCommentThreadVisible = commentThreadVisible,
     )
-    val collapseEnabled = shouldEnableInlinePortraitScrollTransform(
+    val collapseEnabled = !paneLayout.isSplit && shouldEnableInlinePortraitScrollTransform(
         collapseMode = collapseMode,
         selectedTabIndex = pager.currentPage,
         isVerticalVideo = isVerticalVideo,
@@ -1073,22 +1075,24 @@ fun VideoScreen(
         onDispose { VideoPageBus.danmakuSender = null }
     }
 
-    // 全屏状态共享给 Activity（用于让顶栏/tab/回复栏在横屏时隐藏）
+    // 独占全屏状态共享给 Activity；横屏分栏保留 tab / 回复栏。
     LaunchedEffect(fullscreen) { PlayerUiState.fullscreen = fullscreen }
-    // 横屏（全屏）时把投币/收藏这些弹层提前收回，不在横屏里出现
+    // 独占全屏时收回投币 / 收藏弹层。
     LaunchedEffect(fullscreen) {
         if (fullscreen) {
             coinSheet = false
             favSheet = false
         }
     }
-    // 根据屏幕方向自动进入/退出全屏
+    // 横屏页面布局和播放器独占全屏分别管理。
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val landscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    // 横屏即全屏，竖屏即退出全屏（视频页强制跟随传感器方向）
+    // Rotation opens the two-pane page. Fullscreen is a separate, explicit player action.
+    // Rotating back to portrait still leaves fullscreen; entering it while portrait can rotate first.
     LaunchedEffect(landscape) {
-        fullscreen = landscape
+        if (!landscape) fullscreen = false
     }
+    val splitPanes = paneLayout.isSplit && !fullscreen
 
     val qualities = playInfo?.qualities.orEmpty()
     val activeQuality = if (autoQuality) {
@@ -1170,6 +1174,7 @@ fun VideoScreen(
                 portraitContentSize.width > 0 && portraitContentSize.height > 0
             BoxWithConstraints(
                 modifier = Modifier
+                    .align(Alignment.TopEnd)
                     .then(
                         if (freezePortrait) {
                             with(density) {
@@ -1178,6 +1183,8 @@ fun VideoScreen(
                                     portraitContentSize.height.toDp(),
                                 )
                             }
+                        } else if (splitPanes) {
+                            Modifier.width(paneLayout.detailsWidthDp.dp).fillMaxHeight()
                         } else {
                             Modifier.fillMaxSize()
                         },
@@ -1204,7 +1211,7 @@ fun VideoScreen(
                             state = listState,
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(
-                                top = playerBlockHeight + 52.dp,
+                                top = (if (splitPanes) expandedTopInset else playerBlockHeight) + 52.dp,
                                 bottom = 32.dp,
                             ),
                         ) {
@@ -1613,9 +1620,11 @@ fun VideoScreen(
                                 onBack = {},
                                 bvid = d.bvid,
                                 bare = true,
-                                topInset = playerBlockHeight + 14.dp +
+                                topInset = if (splitPanes) 52.dp else playerBlockHeight + 14.dp +
                                     (if (immersiveStatusBar) 36.dp else 0.dp),
-                                threadPlayerBottom = playerBlockHeight,
+                                threadPlayerBottom = if (splitPanes) expandedTopInset + 52.dp else playerBlockHeight,
+                                threadPaneWidth = if (splitPanes) paneLayout.detailsWidthDp.dp else null,
+                                playerFullscreen = fullscreen,
                                 focusRootRpid = initialCommentRoot,
                                 focusTargetRpid = initialCommentTarget,
                             )
@@ -1637,7 +1646,7 @@ fun VideoScreen(
 
         // 收起进度、顶部避让全部由共享位移推导（BiliPai 同款）。
         val collapseRangeDp = (expandedPlayerHeight - collapsedPlayerHeight).coerceAtLeast(0.dp)
-        val collapseProgress = if (fullscreen || collapseRangeDp.value <= 0f) {
+        val collapseProgress = if (fullscreen || splitPanes || collapseRangeDp.value <= 0f) {
             0f
         } else {
             ((expandedPlayerHeight.value - animatedPlayerHeight) / collapseRangeDp.value)
@@ -1653,6 +1662,13 @@ fun VideoScreen(
         Box(
             modifier = if (fullscreen) {
                 Modifier.fillMaxSize()
+            } else if (splitPanes) {
+                Modifier.align(Alignment.TopStart)
+                    .width(paneLayout.playerWidthDp.dp).fillMaxHeight()
+                    .background(Color.Black)
+                    .navigationBarsPadding()
+                    .padding(top = expandedTopInset, bottom = 56.dp)
+                    .clipToBounds()
             } else {
                 Modifier
                     .fillMaxWidth()
