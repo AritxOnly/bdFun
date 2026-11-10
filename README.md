@@ -1,4 +1,4 @@
-﻿# bdFun
+# bdFun
 
 <p align="center">
   <img src="docs/icon.png" width="260" alt="bdFun">
@@ -14,28 +14,33 @@
   <img src="https://img.shields.io/badge/build-Gradle-02303A?logo=gradle&logoColor=white&style=flat-square" alt="build">
 </p>
 
-bdFun 鏄竴涓涓夋柟鍝斿摡鍝斿摡 Android 瀹㈡埛绔紝浣跨敤 Kotlin + Jetpack Compose 缂栧啓锛岃嚧鍔涗簬杞诲揩銆佹祦鐣呫€佺畝娲併€佺編瑙傜殑浣跨敤浣撻獙銆?
-> 鏈」鐩负绗笁鏂归潪瀹樻柟瀹㈡埛绔紝涓庡摂鍝╁摂鍝╋紙涓婃捣瀹藉ū鏁扮爜绉戞妧鏈夐檺鍏徃锛夊強鍏跺叧鑱旀柟鏃犱换浣曢毝灞炪€佹巿鏉冩垨鍚堜綔鍏崇郴銆傞」鐩粎鐢ㄤ簬瀛︿範銆佺爺绌朵笌鎶€鏈氦娴侊紝涓嶆彁渚涖€佷笉鍖呭惈銆佷笉浼犳挱浠讳綍鐮磋В鍐呭銆佷粯璐瑰唴瀹圭粫杩囨満鍒舵垨浼氬憳鏉冪泭鐮磋В鍔熻兘銆?
-## 鐣岄潰棰勮
+bdFun 是一个第三方哔哩哔哩 Android 客户端，使用 Kotlin + Jetpack Compose 编写，致力于轻快、流畅、简洁、美观的使用体验。
+
+> 本项目为第三方非官方客户端，与哔哩哔哩（上海宽娱数码科技有限公司）及其关联方无任何隶属、授权或合作关系。项目仅用于学习、研究与技术交流，不提供、不包含、不传播任何破解内容、付费内容绕过机制或会员权益破解功能。
+
+## 界面预览
 
 <p align="center">
-  <img src="docs/preview.jpg" width="100%" alt="bdFun 鐣岄潰棰勮">
+  <img src="docs/preview.jpg" width="100%" alt="bdFun 界面预览">
 </p>
 
-閲囩敤 HyperOS 4 鐨勮璁￠鏍笺€?
-## 瀹夎
+采用 HyperOS 4 的设计风格。
 
-绯荤粺瑕佹眰锛欰ndroid 13+
+## 安装
 
-## 鍙嶉
+系统要求：Android 13+
 
-娆㈣繋閫氳繃 Issue 鍙嶉闂銆佹彁鍑哄缓璁紝涔熷彲浠ュ姞鍏ユ垜浠殑 [Telegram 缇ょ粍](https://t.me/+tQrDYf-hb702ZjM1)銆?
-## 鏋勫缓
+## 反馈
 
-鐜锛?
+欢迎通过 Issue 反馈问题、提出建议，也可以加入我们的 [Telegram 群组](https://t.me/+tQrDYf-hb702ZjM1)。
+
+## 构建
+
+环境：
+
 - JDK 21
 - Android SDK Platform 37 / Build Tools 37.0.0
-- Gradle Wrapper锛堜粨搴撹嚜甯︼級
+- Gradle Wrapper（仓库自带）
 
 ```bash
 # Linux / macOS
@@ -49,43 +54,66 @@ gradlew.bat :app:assembleDebug
 > Place it at `../miuix-src/miuix-45645854cd46c32275c5666e3aafa9980d8f104e`
 > or set the `MIUIX_SOURCE` environment variable to the Miuix repo path.
 
-Release锛?
+Release：
+
 ```bash
 ./gradlew :app:assembleRelease
 ```
 
-濡傛灉鏈満娌℃湁閰嶇疆 Android SDK锛岃鍦ㄩ」鐩牴鐩綍鍒涘缓 `local.properties`锛?
+如果本机没有配置 Android SDK，请在项目根目录创建 `local.properties`：
+
 ```properties
 sdk.dir=/path/to/Android/Sdk
 ```
 
-## 椤圭洰缁撴瀯
+## 项目结构
 
 ```text
-app/              涓诲簲鐢紙鍖呭悕 com.aritxonly.bdfun锛?TeakUI/           Compose 椤甸潰鏁堟灉缁勪欢搴?danmaku-engine/   鍩轰簬 BiliPai / bytedance DanmakuRenderEngine 鐨勫脊骞曟覆鏌撴ā鍧?```
+app/              主应用（包名 com.aritxonly.bdfun）
+TeakUI/           Compose 页面效果组件库
+danmaku-engine/   基于 BiliPai / bytedance DanmakuRenderEngine 的弹幕渲染模块
+```
 
-TeakUI 鏄负鏂逛究寮€鍙戣€屾娊鍑虹殑 Compose UI 缁勪欢搴擄細鎶婇〉闈㈤鏋躲€佺幓鐠冩潗璐ㄣ€侀《閮ㄧ粍浠跺拰鍔ㄦ晥缁熶竴鏀舵暃鎴愪竴濂楃粍浠讹紝寮€鍙戞椂鐩存帴璋冪敤锛岄伩鍏嶆瘡涓〉闈㈤噸澶嶅疄鐜般€傚畠鍖呭惈鍩轰簬 Hyper-PiliPlus 鐨?HyperOS 4 椋庢牸 Tab 鏍忋€侀《閮ㄧ幓鐠冪粍浠跺姩鐢伙紝浠ュ強鍩轰簬 Miuix 鐨勭粺涓€椤甸潰鑳藉姏锛屽寘鎷笎杩涘紡妯＄硦銆佸ぇ/灏忔爣棰樻姌鍙犲姩鐢荤瓑銆?
-`danmaku-engine` 鏄?4.0 寮曞叆鐨勭嫭绔嬪脊骞曟覆鏌撴ā鍧楋紝璐熻矗寮瑰箷瑙ｆ瀽銆佽建閬撹绠楀拰缁樺埗锛屼繚鐣欎笂娓?Apache-2.0 鐗堟潈涓庤鍙鏄庛€?
-鏇村椤甸潰瑙勮寖瑙?`TeakUI/docs/PAGE_CHROME_SPEC.md`锛岀涓夋柟鏉ユ簮娓呭崟瑙?`TeakUI/docs/PROVENANCE.md`銆?
-## 鑷磋阿
+TeakUI 是为方便开发而抽出的 Compose UI 组件库：把页面骨架、玻璃材质、顶部组件和动效统一收敛成一套组件，开发时直接调用，避免每个页面重复实现。它包含基于 Hyper-PiliPlus 的 HyperOS 4 风格 Tab 栏、顶部玻璃组件动画，以及基于 Miuix 的统一页面能力，包括渐进式模糊、大/小标题折叠动画等。
 
-bdFun 浣跨敤浜?/ 鍙傝€冧簡浠ヤ笅椤圭洰锛屾劅璋綔鑰呭拰绀惧尯鐨勫伐浣滐細
+`danmaku-engine` 是 4.0 引入的独立弹幕渲染模块，负责弹幕解析、轨道计算和绘制，保留上游 Apache-2.0 版权与许可说明。
 
-- [Hyper-PiliPlus](https://github.com/AritxOnly/Hyper-PiliPlus)锛圼@AritxOnly](https://github.com/AritxOnly)锛宖ork [@Mutx163](https://github.com/Mutx163)锛夛細鐜荤拑鏉愯川銆佹姌灏勩€侀槾褰便€佸簳鏍忓脊绨с€丳rogressiveTopBar 绛?- [HyperIsland](https://github.com/1812z/HyperIsland)锛圼@1812z](https://github.com/1812z)锛夛細娓愯繘妯＄硦鍙傛暟涓庤鎰熷弬鑰?- [PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus)锛圼@bggRGjQaUbCoE](https://github.com/bggRGjQaUbCoE)锛夛細鍔熻兘涓庝氦浜掑弬鑰?- [Miuix](https://github.com/compose-miuix-ui/miuix)锛圼@compose-miuix-ui](https://github.com/compose-miuix-ui)锛夛細Compose UI / 鐜荤拑 blur 渚濊禆
-- [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)锛圼@SocialSisterYi](https://github.com/SocialSisterYi)锛夛細鍝斿摡鍝斿摡鎺ュ彛璧勬枡
-- [BiliPai](https://github.com/jay3-yy/BiliPai) / [bytedance DanmakuRenderEngine](https://github.com/bytedance/DanmakuRenderEngine)锛氬脊骞曟覆鏌撴ā鍧椼€佸脊骞曠┖闄嶅姪鎵嬨€佸脊骞曡鏁板疄鐜扮Щ妞嶏紝姘存淮鍔ㄧ敾
-- [FodFluidRipple](https://github.com/Leaf-lsgtky)锛圼@Leaf-lsgtky](https://github.com/Leaf-lsgtky)锛夛細姘存尝绾瑰姩鐢?- [Guiyuan](https://github.com/CHS-Haple/Guiyuan)锛圼@CHS-Haple](https://github.com/CHS-Haple)锛夛細寮€濮嬮〉绉绘
-- HyperOS 4锛氫竴闀滃埌搴曞姩鏁?- AndroidX / Jetpack Compose銆丮edia3 / ExoPlayer銆丱kHttp銆丆oil銆並otlin / kotlinx.coroutines銆乑Xing
+更多页面规范见 `TeakUI/docs/PAGE_CHROME_SPEC.md`，第三方来源清单见 `TeakUI/docs/PROVENANCE.md`。
 
-鎰熻阿鎵€鏈変笂娓搁」鐩綔鑰呬笌璐＄尞鑰呫€?
-## 璁稿彲璇?
-鏈」鐩互 **GNU General Public License v3.0** 鍙戝竷锛屽畬鏁存枃鏈 [LICENSE](LICENSE)銆?
+## 致谢
+
+bdFun 使用了 / 参考了以下项目，感谢作者和社区的工作：
+
+- [Hyper-PiliPlus](https://github.com/AritxOnly/Hyper-PiliPlus)（[@AritxOnly](https://github.com/AritxOnly)，fork [@Mutx163](https://github.com/Mutx163)）：玻璃材质、折射、阴影、底栏弹簧、ProgressiveTopBar 等
+- [HyperIsland](https://github.com/1812z/HyperIsland)（[@1812z](https://github.com/1812z)）：渐进模糊参数与观感参考
+- [PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus)（[@bggRGjQaUbCoE](https://github.com/bggRGjQaUbCoE)）：功能与交互参考
+- [Miuix](https://github.com/compose-miuix-ui/miuix)（[@compose-miuix-ui](https://github.com/compose-miuix-ui)）：Compose UI / 玻璃 blur 依赖
+- [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)（[@SocialSisterYi](https://github.com/SocialSisterYi)）：哔哩哔哩接口资料
+- [BiliPai](https://github.com/jay3-yy/BiliPai) / [bytedance DanmakuRenderEngine](https://github.com/bytedance/DanmakuRenderEngine)：弹幕渲染模块、弹幕空降助手、弹幕计数实现移植，水滴动画
+- [FodFluidRipple](https://github.com/Leaf-lsgtky)（[@Leaf-lsgtky](https://github.com/Leaf-lsgtky)）：水波纹动画
+- [Guiyuan](https://github.com/CHS-Haple/Guiyuan)（[@CHS-Haple](https://github.com/CHS-Haple)）：开始页移植
+- HyperOS 4：一镜到底动效
+- AndroidX / Jetpack Compose、Media3 / ExoPlayer、OkHttp、Coil、Kotlin / kotlinx.coroutines、ZXing
+
+感谢所有上游项目作者与贡献者。
+
+## 许可证
+
+本项目以 **GNU General Public License v3.0** 发布，完整文本见 [LICENSE](LICENSE)。
+
 Copyright (C) 2026 bdFun contributors
 
-浣犲彲浠ヨ嚜鐢变娇鐢ㄣ€佷慨鏀广€佸啀鍒嗗彂锛屼絾闇€瑕侊細
+你可以自由使用、修改、再分发，但需要：
 
-1. 淇濈暀 `LICENSE`銆乣THIRD_PARTY_NOTICES.md`銆乣TeakUI/docs/PROVENANCE.md`锛?2. 瀵瑰鍒嗗彂淇敼鐗堟椂锛屾寜 GPL-3.0 鎻愪緵瀵瑰簲瀹屾暣婧愮爜锛?3. 涓嶉澶栨坊鍔犱笌 GPL-3.0 鍐茬獊鐨勯檺鍒躲€?
-绗笁鏂逛緷璧栦笌璁稿彲璇存槑瑙?[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)銆?
-## 鍏嶈矗澹版槑
+1. 保留 `LICENSE`、`THIRD_PARTY_NOTICES.md`、`TeakUI/docs/PROVENANCE.md`；
+2. 对外分发修改版时，按 GPL-3.0 提供对应完整源码；
+3. 不额外添加与 GPL-3.0 冲突的限制。
 
-- 鏈」鐩寜鈥滅幇鐘垛€濇彁渚涳紝涓嶅绋冲畾鎬с€佸彲鐢ㄦ€с€佸畨鍏ㄦ€т綔浠讳綍淇濊瘉銆?- 鎵€鏈夎棰戙€侀煶棰戙€佸浘鐗囥€佸脊骞曠瓑鍐呭鐗堟潈褰掑摂鍝╁摂鍝╁強鐩稿簲鏉冨埄浜烘墍鏈夛紝鏈」鐩笉涓诲紶浠讳綍鍐呭鏉冨埄銆?- 鍥犲畼鏂规帴鍙ｅ彉鏇淬€佺瓥鐣ヨ皟鏁存垨涓嶅彲鎶楀姏瀵艰嚧鐨勫姛鑳藉け鏁堟垨鎹熷け锛屽紑鍙戣€呬笉鎵挎媴璐ｄ换銆?- 浣跨敤鏈」鐩嵆琛ㄧず浣犲凡闃呰骞跺悓鎰忓畬鏁寸殑浣跨敤椤荤煡锛涘涓嶅悓鎰忥紝璇峰仠姝娇鐢ㄥ苟鍒犻櫎鏈」鐩€?
+第三方依赖与许可说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+## 免责声明
+
+- 本项目按“现状”提供，不对稳定性、可用性、安全性作任何保证。
+- 所有视频、音频、图片、弹幕等内容版权归哔哩哔哩及相应权利人所有，本项目不主张任何内容权利。
+- 因官方接口变更、策略调整或不可抗力导致的功能失效或损失，开发者不承担责任。
+- 使用本项目即表示你已阅读并同意完整的使用须知；如不同意，请停止使用并删除本项目。
