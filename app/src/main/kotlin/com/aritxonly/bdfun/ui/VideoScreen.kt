@@ -32,6 +32,10 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -1185,6 +1189,7 @@ fun VideoScreen(
                             }
                         } else if (splitPanes) {
                             Modifier.width(paneLayout.detailsWidthDp.dp).fillMaxHeight()
+                                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End))
                         } else {
                             Modifier.fillMaxSize()
                         },
@@ -1303,45 +1308,37 @@ fun VideoScreen(
                     }
                     }
                     Spacer(Modifier.height(4.dp))
-                    // 播放 / 弹幕 / 日期（各元素间距统一 8dp）
+                    // Keep each statistic atomic so narrow panes wrap whole items, not digits.
                     StaggerLine(metaReady, 2) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        MetricGlyph(play = true, color = colors.onBackgroundVariant, size = 14.dp)
-                        Spacer(Modifier.width(3.dp))
-                        Text(
-                            text = formatCount(detail?.play ?: video.play.toLong()),
-                            color = colors.onBackgroundVariant,
-                            fontSize = 12.sp,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        MetricGlyph(play = false, color = colors.onBackgroundVariant, size = 14.dp)
-                        Spacer(Modifier.width(3.dp))
-                        Text(
-                            text = formatCount(detail?.danmaku ?: video.danmaku.toLong()),
-                            color = colors.onBackgroundVariant,
-                            fontSize = 12.sp,
-                        )
-                        detail?.pubdate?.takeIf { it > 0 }?.let {
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = formatDateTime(it),
-                                color = colors.onBackgroundVariant,
-                                fontSize = 12.sp,
-                            )
+                        androidx.compose.foundation.layout.FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                MetricGlyph(play = true, color = colors.onBackgroundVariant, size = 14.dp)
+                                Spacer(Modifier.width(3.dp))
+                                Text(formatCount(detail?.play ?: video.play.toLong()),
+                                    color = colors.onBackgroundVariant, fontSize = 12.sp, maxLines = 1)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                MetricGlyph(play = false, color = colors.onBackgroundVariant, size = 14.dp)
+                                Spacer(Modifier.width(3.dp))
+                                Text(formatCount(detail?.danmaku ?: video.danmaku.toLong()),
+                                    color = colors.onBackgroundVariant, fontSize = 12.sp, maxLines = 1)
+                            }
+                            detail?.pubdate?.takeIf { it > 0 }?.let {
+                                Text(formatDateTime(it), color = colors.onBackgroundVariant,
+                                    fontSize = 12.sp, maxLines = 1)
+                            }
+                            if (onlineCount > 0 || onlineText.isNotBlank()) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    PersonGlyph(color = colors.onBackgroundVariant, size = 12.dp)
+                                    Spacer(Modifier.width(3.dp))
+                                    Text("${onlineText.ifBlank { formatCount(onlineCount) }} 人",
+                                        color = colors.onBackgroundVariant, fontSize = 12.sp, maxLines = 1)
+                                }
+                            }
                         }
-                        if (onlineCount > 0 || onlineText.isNotBlank()) {
-                            Spacer(Modifier.width(8.dp))
-                            PersonGlyph(color = colors.onBackgroundVariant, size = 12.dp)
-                            Spacer(Modifier.width(3.dp))
-                            Text(
-                                text = "${onlineText.ifBlank { formatCount(onlineCount) }} 人",
-                                color = colors.onBackgroundVariant,
-                                fontSize = 12.sp,
-                            )
-                        }
-                    }
                     }
                     val descText = detail?.desc?.takeIf { it.isNotBlank() }
                     val descProgress = rememberManualProgress(
@@ -1449,10 +1446,11 @@ fun VideoScreen(
                     // 五宫格：点赞 / 不喜欢 / 币 / 收藏 / 分享
                     StaggerLine(metaReady, 6) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         ActionStat(
+                            modifier = Modifier.weight(1f),
                             label = "点赞",
                             value = likedCount,
                             kind = ActionKind.ThumbUp,
@@ -1461,6 +1459,7 @@ fun VideoScreen(
                             onLongPress = { tripleAction() },
                         )
                         ActionStat(
+                            modifier = Modifier.weight(1f),
                             label = "不喜欢",
                             value = 0,
                             kind = ActionKind.ThumbDown,
@@ -1468,6 +1467,7 @@ fun VideoScreen(
                             onClick = { toggleDislike() },
                         )
                         ActionStat(
+                            modifier = Modifier.weight(1f),
                             label = "投币",
                             value = coinCount,
                             kind = ActionKind.Coin,
@@ -1475,6 +1475,7 @@ fun VideoScreen(
                             onClick = { giveCoin() },
                         )
                         ActionStat(
+                            modifier = Modifier.weight(1f),
                             label = "收藏",
                             value = favoriteCount,
                             kind = ActionKind.Star,
@@ -1482,6 +1483,7 @@ fun VideoScreen(
                             onClick = { toggleFavorite() },
                         )
                         ActionStat(
+                            modifier = Modifier.weight(1f),
                             label = "分享",
                             value = shareCount,
                             kind = ActionKind.Share,
@@ -1623,7 +1625,7 @@ fun VideoScreen(
                                 topInset = if (splitPanes) 52.dp else playerBlockHeight + 14.dp +
                                     (if (immersiveStatusBar) 36.dp else 0.dp),
                                 threadPlayerBottom = if (splitPanes) expandedTopInset + 52.dp else playerBlockHeight,
-                                threadPaneWidth = if (splitPanes) paneLayout.detailsWidthDp.dp else null,
+                                threadPaneWidth = if (splitPanes) maxWidth else null,
                                 playerFullscreen = fullscreen,
                                 focusRootRpid = initialCommentRoot,
                                 focusTargetRpid = initialCommentTarget,
@@ -1667,7 +1669,8 @@ fun VideoScreen(
                     .width(paneLayout.playerWidthDp.dp).fillMaxHeight()
                     .background(Color.Black)
                     .navigationBarsPadding()
-                    .padding(top = expandedTopInset, bottom = 56.dp)
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Start))
+                    .padding(top = expandedTopInset)
                     .clipToBounds()
             } else {
                 Modifier
@@ -1864,6 +1867,7 @@ fun VideoScreen(
 
 @Composable
 private fun ActionStat(
+    modifier: Modifier = Modifier,
     label: String,
     value: Long,
     kind: ActionKind,
@@ -1977,7 +1981,7 @@ private fun ActionStat(
     }
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .width(58.dp)
             // 不要 clip：外扩的圆环需要画出 36dp 图标框之外
             .pointerInput(Unit) {
@@ -2043,6 +2047,8 @@ private fun ActionStat(
             text = if (value > 0) formatCount(value) else label,
             color = animatedTint,
             fontSize = 11.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }

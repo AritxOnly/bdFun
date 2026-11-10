@@ -27,3 +27,12 @@ The new general button and FAB are reusable library components; existing app con
 ## Validation
 
 Run `:app:assembleDebug :app:testDebugUnitTest :TeakUI:testDebugUnitTest`. Host tests cover wide/fold boundaries, density-independent reveal, top reset and independent tab states, and video pane minimum-width/ratio/compact-window boundaries. Emulator checks and any limitations are recorded in the PR.
+
+### 2026-11-11 宽屏反馈修正
+
+- 宽屏主页保留横向浮动 Tab，左下对齐；右下独立搜索按钮打开同一搜索状态。移除侧边导航占位；宽屏不显示后台播放黑胶。搜索框靠左，宽度为窗口的 45%，限制在 280–480dp。
+- 首页玻璃顶栏的 material progress 固定为 1，保留原材质参数；搜索结果与其他页面的滚动渐显仍保持原有行为。
+- 推荐网格按 180–260dp 卡片宽度自适应（常见展开宽度四列），窄屏保留原卡片样式设置。
+- 宽折叠顶栏 Actions 使用和窄屏相同的 12dp 右侧安全区内边距、8dp 按钮间距；正文限宽不作用于顶栏。消息操作图标使用固定 Miuix 源码中的 `MiuixIcons.Delete`，保留原有全部已读行为。
+- 播放页背景铺满窗口，安全区只约束内容与控件；右侧详情延伸至状态栏，弹幕输入入口与开关放在简介/评论右侧。窄栏统计按整项换行，五个互动操作等分可用宽度。
+- 非全屏播放采用系统用户方向策略，旋转/折叠变化不会留下强制竖屏限制；分栏按当前测量约束更新。Manifest 显式关闭系统 Activity embedding override，由应用维护自己的分栏，参见 [Android activity embedding](https://developer.android.com/develop/ui/views/layout/activity-embedding)。这不宣称能覆盖所有厂商自定义的平行视窗实现。

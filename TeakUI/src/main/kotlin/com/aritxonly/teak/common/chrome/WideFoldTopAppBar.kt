@@ -70,7 +70,7 @@ fun WideFoldTopAppBar(
         Row(
             Modifier.fillMaxWidth().heightIn(min = TopAppBarDefaults.CollapsedHeight)
                 .padding(start = TopAppBarDefaults.NavigationIconPadding,
-                    end = TopAppBarDefaults.ActionIconPadding),
+                    end = TeakChromeDefaults.TopOverlayHorizontalPadding),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             navigationIcon?.invoke()
@@ -83,7 +83,8 @@ fun WideFoldTopAppBar(
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, content = actions)
+            Row(horizontalArrangement = Arrangement.spacedBy(TeakChromeDefaults.TopOverlayItemSpacing),
+                verticalAlignment = Alignment.CenterVertically, content = actions)
         }
         bottomContent()
     }

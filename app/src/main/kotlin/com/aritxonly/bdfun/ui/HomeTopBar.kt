@@ -92,6 +92,11 @@ fun HomeTopBar(
     searchResultsVisible: Boolean = false,
     onOpenSearchPage: () -> Unit = {},
 ) {
+    val windowSize = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val wide = with(density) { windowSize.width.toDp() >= 600.dp } &&
+        com.aritxonly.teak.common.chrome.isWideFoldTopBar()
+    val searchWidth = with(density) { (windowSize.width.toDp() * 0.45f).coerceIn(280.dp, 480.dp) }
     val advancedMaterial = LocalTeakMaterialSpec.current
     val recipe = TeakGlassRecipes.floatingNavigation(advancedMaterial.fineTuning)
     val backdrop = LocalTeakBackdrop.current
@@ -147,6 +152,7 @@ fun HomeTopBar(
                 .height(HomeTopBarHeight),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (!wide || searchActive) {
             Crossfade(
                 targetState = searchActive,
                 animationSpec = tween(durationMillis = 160),
@@ -164,10 +170,11 @@ fun HomeTopBar(
                 }
             }
             Spacer(Modifier.width(10.dp))
+            }
 
             TeakGlassSurface(
                 modifier = Modifier
-                    .weight(1f)
+                    .then(if (wide) Modifier.width(searchWidth) else Modifier.weight(1f))
                     .height(40.dp)
                     .then(
                         if (classic) {
@@ -266,6 +273,7 @@ fun HomeTopBar(
                 }
             }
 
+            if (wide) Spacer(Modifier.weight(1f))
             Spacer(Modifier.width(10.dp))
 
             Crossfade(

@@ -3,6 +3,7 @@ package com.aritxonly.bdfun.ui
 import androidx.activity.compose.BackHandler
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.More
+import top.yukonga.miuix.kmp.icon.extended.Delete
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -343,7 +344,11 @@ fun MessageScreen(
 @Composable
 fun MessageTopActions() {
     TeakTopGlassButton(onClick = { MessagePageBus.requestReadAll() }) {
-        MenuGlyph(MenuGlyphKind.Delete, Color.Black, size = 21.dp)
+        top.yukonga.miuix.kmp.basic.Icon(
+            imageVector = MiuixIcons.Delete, contentDescription = "全部已读",
+            tint = teakGlassGlyphColor(),
+            modifier = Modifier.size(21.dp),
+        )
     }
     TeakTopGlassButton(onClick = { /* 省略号暂时不做功能 */ }) {
         ThreeDotsGlyph()

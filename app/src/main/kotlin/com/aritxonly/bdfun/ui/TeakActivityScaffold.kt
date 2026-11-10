@@ -82,7 +82,7 @@ fun TeakActivityScaffold(
                 ScrollTopButton(settings)
                 overlay()
                 // 后台播放时，除了播放器页，其他任意页面也保留一张唱片。
-                if (showBackgroundDisc &&
+                if (!com.aritxonly.teak.common.chrome.isWideFoldTopBar() && showBackgroundDisc &&
                     settings.showDiscAfterVideo &&
                     BackgroundPlayback.active
                 ) {

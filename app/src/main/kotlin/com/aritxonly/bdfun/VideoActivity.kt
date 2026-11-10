@@ -79,6 +79,20 @@ import kotlinx.coroutines.launch
 class VideoActivity : ComponentActivity() {
 
     // ---- 自己监听传感器决定横竖屏 ----
+    private var splitSystemBars = false
+
+    private fun syncVideoSystemBars(split: Boolean = splitSystemBars) {
+        splitSystemBars = split
+        val dark = when (AppGraph.settings.darkMode) {
+            1 -> false
+            2 -> true
+            else -> resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        }
+        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+            .isAppearanceLightStatusBars = split && !dark
+    }
+
     private var orientationListener: android.view.OrientationEventListener? = null
     private var pendingLandscape: Boolean? = null
     private var pendingSince = 0L
@@ -116,7 +130,7 @@ class VideoActivity : ComponentActivity() {
             override fun onOrientationChanged(orientation: Int) {
                 if (orientation == ORIENTATION_UNKNOWN) return
                 // 每次方向变化都重新读：用户可能中途打开 / 关闭了方向锁定
-                if (!autoRotateAllowed() || VideoOrientationLock.locked) return
+                if (!PlayerUiState.fullscreen || !autoRotateAllowed() || VideoOrientationLock.locked) return
                 // 判定：横屏要转到离水平 12° 以内（比上一版 18° 更严格）
                 val landscape = orientation in 78..102 || orientation in 258..282
                 val portrait =
@@ -169,27 +183,16 @@ class VideoActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // 视频页状态栏底色始终是黑色（非沉浸）或视频画面（沉浸），图标都要用白色；
-        // 之前写成 !immersive 会在首次进入时把图标切成深色，黑底上直接看不见。
+        // Split panes use the page theme under system bars; stacked/fullscreen video uses light icons.
         runCatching {
-            androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
-                .isAppearanceLightStatusBars = false
+            syncVideoSystemBars()
         }
+        if (!PlayerUiState.fullscreen) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER
         if (autoRotateAllowed()) {
             startOrientationTracking()
         } else {
             stopOrientationTracking()
-            // 锁定了方向 / 关掉了自动旋转：回到竖屏。
-            // 但如果当前已经是「用户手动点全屏」要求的横屏，就不要把它扳回去。
-            val current = requestedOrientation
-            val alreadyLandscape =
-                current == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE ||
-                    current == ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE ||
-                    current == ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE ||
-                    resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-            if (!alreadyLandscape) {
-                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            }
+
         }
     }
 
@@ -229,14 +232,14 @@ class VideoActivity : ComponentActivity() {
         if (hasFocus) {
             // 从评论/空间等页面返回或转场结束时，补一次图标明暗同步。
             runCatching {
-                androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
-                    .isAppearanceLightStatusBars = false
+                syncVideoSystemBars()
             }
         }
     }
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
+        if (!PlayerUiState.fullscreen) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER
         if (BuildConfig.DEBUG) {
             android.util.Log.d(
                 "ROTDBG",
@@ -254,12 +257,20 @@ class VideoActivity : ComponentActivity() {
      */
     private fun applyStatusBarStyle(immersive: Boolean) {
         enableEdgeToEdge(
-            statusBarStyle = if (immersive) {
-                androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
-            } else {
-                androidx.activity.SystemBarStyle.dark(android.graphics.Color.BLACK)
+            // Content paints each pane to the window edges; system bars must not add a solid strip.
+            statusBarStyle = androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = androidx.activity.SystemBarStyle.auto(
+                android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT,
+            ) { resources ->
+                when (AppGraph.settings.darkMode) {
+                    1 -> false
+                    2 -> true
+                    else -> resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+                        android.content.res.Configuration.UI_MODE_NIGHT_YES
+                }
             },
         )
+        window.isNavigationBarContrastEnforced = false
     }
 
     @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
@@ -370,22 +381,16 @@ class VideoActivity : ComponentActivity() {
                 // 设置改变时同步状态栏底色：沉浸=透明（视频透出），非沉浸=黑
                 runCatching { applyStatusBarStyle(immersiveStatus) }
                 runCatching {
-                    androidx.core.view.WindowCompat.getInsetsController(w, w.decorView)
-                        .isAppearanceLightStatusBars = false
+                    syncVideoSystemBars()
                 }
             }
             var danmakuInputOpen by remember { mutableStateOf(false) }
             BackHandler(enabled = comments != null) { comments = null }
             BackHandler(enabled = danmakuInputOpen) { danmakuInputOpen = false }
-            BoxWithConstraints(
-                Modifier.fillMaxSize().then(
-                    if (pageFullscreen) Modifier else Modifier.windowInsetsPadding(
-                        WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
-                    ),
-                ),
-            ) {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
             val paneLayout = resolveVideoPaneLayout(maxWidth.value, maxHeight.value)
             val splitPanes = paneLayout.isSplit && !pageFullscreen
+            androidx.compose.runtime.SideEffect { syncVideoSystemBars(splitPanes) }
             TeakActivityScaffold(
                 settings = settings,
                 onBack = { exitVideoPage() },
@@ -407,10 +412,11 @@ class VideoActivity : ComponentActivity() {
                         Row(
                             modifier = Modifier
                                 .align(if (splitPanes) Alignment.TopEnd else Alignment.TopStart)
-                                .then(if (splitPanes) Modifier.width(paneLayout.detailsWidthDp.dp) else Modifier.fillMaxWidth())
+                                .then(if (splitPanes) Modifier.width(paneLayout.detailsWidthDp.dp)
+                                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End)) else Modifier.fillMaxWidth())
                                 .padding(
-                                    start = 16.dp,
-                                    end = 16.dp,
+                                    start = if (splitPanes) 8.dp else 16.dp,
+                                    end = if (splitPanes) 8.dp else 16.dp,
                                 )
                                 .graphicsLayer {
                                     alpha = overlayAlpha
@@ -423,20 +429,9 @@ class VideoActivity : ComponentActivity() {
                                 options = listOf("简介", "评论"),
                                 selected = pager.currentPage,
                                 onSelect = { scope.launch { pager.animateScrollToPage(it) } },
+                                itemWidth = if (splitPanes) 48.dp else 60.dp,
                             )
-                            if (!splitPanes) VideoDanmakuActions { danmakuInputOpen = true }
-                        }
-
-                        if (splitPanes) {
-                            Row(
-                                modifier = Modifier.align(Alignment.BottomStart)
-                                    .width(paneLayout.playerWidthDp.dp)
-                                    .navigationBarsPadding()
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                VideoDanmakuActions { danmakuInputOpen = true }
-                            }
+                            VideoDanmakuActions(compact = splitPanes) { danmakuInputOpen = true }
                         }
 
                         // 评论回复栏属于详情栏；只有独占全屏才隐藏。
@@ -571,9 +566,9 @@ class VideoActivity : ComponentActivity() {
                         initialSeekMs = commentRequest.third,
                     )
                     if (splitPanes) {
-                        // Both panes share white status-bar icons; keep a coherent dark strip.
-                        Box(Modifier.fillMaxWidth().height(playerTopInset)
-                            .background(androidx.compose.ui.graphics.Color.Black))
+                        // A shared theme-colored status area keeps both halves legible in light/dark themes.
+                        Box(Modifier.width(paneLayout.playerWidthDp.dp).height(playerTopInset)
+                            .background(MaterialTheme.colorScheme.background))
                     }
                     // 视频底边的白色渐变放进页面录制层，Tab 玻璃采样时会把它和下方内容
                     // 当成同一张底片一起模糊，避免 Tab 内外一亮一白。
@@ -638,11 +633,12 @@ class VideoActivity : ComponentActivity() {
 }
 
 @Composable
-private fun RowScope.VideoDanmakuActions(onOpenInput: () -> Unit) {
+private fun RowScope.VideoDanmakuActions(compact: Boolean = false, onOpenInput: () -> Unit) {
     Spacer(Modifier.weight(1f))
     // 点我发弹幕（与「简介/评论」同一套玻璃）
     TeakGlassChip(
         label = "点我发弹幕",
+        horizontalPadding = if (compact) 10.dp else 14.dp,
         active = false,
         onClick = onOpenInput,
     )
@@ -651,7 +647,7 @@ private fun RowScope.VideoDanmakuActions(onOpenInput: () -> Unit) {
     TeakGlassChip(
         label = "弹",
         active = DanmakuSettings.enabled,
-        horizontalPadding = 15.dp,
+        horizontalPadding = if (compact) 10.dp else 15.dp,
         onClick = {
             DanmakuSettings.enabled = !DanmakuSettings.enabled
             VideoPageBus.danmakuOn = DanmakuSettings.enabled

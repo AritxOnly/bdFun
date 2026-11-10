@@ -245,7 +245,7 @@ fun HomeScreen(
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         LazyVerticalGrid(
-            columns = if (maxWidth >= 600.dp) GridCells.Adaptive(if (largeCards) 320.dp else 240.dp) else GridCells.Fixed(if (largeCards) 1 else 2),
+            columns = if (maxWidth >= 600.dp) BoundedVideoGridCells(minSize = 180.dp, maxSize = 260.dp) else GridCells.Fixed(if (largeCards) 1 else 2),
             state = state.gridState,
             modifier = Modifier
                 .fillMaxSize()
@@ -258,7 +258,7 @@ fun HomeScreen(
                 // 让最后一排卡片能滚出悬浮底栏
                 bottom = 104.dp,
             ),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(items = state.videos, key = { it.bvid }) { video ->
