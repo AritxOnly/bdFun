@@ -238,6 +238,8 @@ data class DynamicItem(
     val pgcCover: String = "",
     val pgcTitle: String = "",
     val pgcLabel: String = "",
+    val moduleTag: String = "",
+    val liveRecommendation: DynamicLiveRecommendation? = null,
     /** 动态发布 IP 属地（接口 `module_author.pub_location_text`）。 */
     val ipLocation: String = "",
 )

@@ -1,7 +1,6 @@
 package com.aritxonly.bdfun.ui
 
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.width
 import com.aritxonly.teak.common.chrome.centeredListWidth
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -76,7 +75,11 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.ui.input.pointer.pointerInput
-import kotlinx.coroutines.flow.drop
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListScope
+import com.aritxonly.bdfun.data.DynamicFeedContract
+import com.aritxonly.bdfun.data.DynamicLiveRecommendation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.icon.MiuixIcons
@@ -88,7 +91,7 @@ import kotlin.math.roundToInt
 private val DynamicPullThreshold = 80.dp
 private val DynamicPullMax = 240.dp
 
-/** 固定顶栏高度（不含状态栏）：只有「全部 / 视频」玻璃分段栏。 */
+/** 固定顶栏高度（不含状态栏）：动态分类玻璃分段栏。 */
 val DynamicTopBarHeight: Dp = 56.dp
 
 @Composable
@@ -107,7 +110,7 @@ fun DynamicScreen(
     val thresholdPx = with(density) { DynamicPullThreshold.toPx() }
     val maxPullPx = with(density) { DynamicPullMax.toPx() }
 
-    var pull by remember { mutableFloatStateOf(0f) }
+    var pull by remember(state) { mutableFloatStateOf(0f) }
     // 同步给 App / 指示器：位移 + 进度
     LaunchedEffect(pull) {
         state.pullOffsetDp = with(density) { pull.toDp().value }
@@ -140,7 +143,7 @@ fun DynamicScreen(
     }
 
     var handledTick by remember { mutableIntStateOf(refreshTick) }
-    LaunchedEffect(loggedIn, refreshTick) {
+    LaunchedEffect(state, loggedIn, refreshTick) {
         if (refreshTick == handledTick) {
             state.ensureLoaded(loggedIn)
             return@LaunchedEffect
@@ -213,11 +216,12 @@ fun DynamicScreen(
         }
     }
 
-    // 滚到底自动翻页：全部动态和「只看某个 UP」各自分页。
-    LaunchedEffect(state, state.filterMid) {
-        snapshotFlowLastIndex(state.listState).drop(1).collect { last ->
-            val count = if (state.filterMid == null) state.items.size else state.userItems.size
-            if (count > 0 && last >= count - 2) {
+    LaunchedEffect(state.type, state.filterMid) { state.listState.scrollToItem(0) }
+    LaunchedEffect(state, state.type, state.filterMid) {
+        snapshotFlow {
+            state.listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index to state.items.size
+        }.collect { (last, count) ->
+            if (count > 0 && last != null && last >= count - 2 && state.error == null) {
                 state.loadMore(loggedIn)
             }
         }
@@ -234,10 +238,7 @@ fun DynamicScreen(
             return@Box
         }
 
-        val filterMid = state.filterMid
-        // 点某个 UP 头像后显示这个 UP 单独拉回来的动态；
-        // 不再只从已加载的关注流里筛，所以不会只剩一两条。
-        val visible = if (filterMid == null) state.items else state.userItems
+        val visible = state.items
 
         // 只在滚动停下来后判断：离屏幕中心最近的那条如果是视频，就静音自动播放。
         var autoPlayId by remember { mutableStateOf<String?>(null) }
@@ -269,7 +270,7 @@ fun DynamicScreen(
         val split = maxWidth >= 840.dp
         Row(Modifier.fillMaxSize()) {
         if (split) {
-            Box(Modifier.width(260.dp).padding(top = statusTop + DynamicTopBarHeight + 8.dp)) {
+            Box(Modifier.width(112.dp).padding(top = statusTop + DynamicTopBarHeight + 8.dp, bottom = 100.dp)) {
                 DynamicAvatarCard(state = state)
             }
         }
@@ -283,7 +284,7 @@ fun DynamicScreen(
                 .nestedScroll(connection),
             contentPadding = PaddingValues(
                 start = 8.dp,
-                // 固定顶栏只剩「全部 / 视频」分段栏；头像卡片已经放进列表里，会跟着一起滚走
+                // 固定顶栏显示分类分段栏；头像卡片已经放进列表里，会跟着一起滚走
                 top = statusTop + DynamicTopBarHeight + 8.dp,
                 end = 8.dp,
                 bottom = 100.dp,
@@ -334,6 +335,21 @@ fun DynamicScreen(
                 )
             }
 
+            if (visible.isEmpty() && !state.refreshing && !state.loading && state.error == null) {
+                item(key = "empty") {
+                    Text(
+                        if (state.type == "up" && state.filterMid == null) "选择一位 UP 主查看动态" else "暂无动态",
+                        color = colors.onBackgroundVariant,
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    )
+                }
+            }
+            if (state.hasMore && visible.isNotEmpty() && !state.activeLoading && !state.refreshing && state.error == null) {
+                item(key = "more") {
+                    Text("加载更多", color = colors.primary, modifier = Modifier
+                        .fillMaxWidth().clickable { scope.launch { state.loadMore(loggedIn) } }.padding(16.dp))
+                }
+            }
             state.error?.let { message ->
                 item(key = "error") {
                     Column(
@@ -354,7 +370,7 @@ fun DynamicScreen(
                             fontSize = 13.sp,
                             modifier = Modifier
                                 .clip(Capsule())
-                                .clickable { scope.launch { state.refresh(loggedIn) } }
+                                .clickable { scope.launch { state.retry(loggedIn) } }
                                 .padding(horizontal = 12.dp, vertical = 4.dp),
                         )
                     }
@@ -396,7 +412,7 @@ fun DynamicScreen(
 }
 
 /**
- * 固定顶栏：只有「全部 / 视频」玻璃分段栏。
+ * 固定顶栏：动态分类玻璃分段栏。
  * 挂在 App 层（内容采集层之外），能复用底栏同一块 backdrop 做真模糊，
  * 背景是首页同款渐进式模糊。
  */
@@ -427,11 +443,12 @@ fun DynamicTopBar(
                 .padding(vertical = 8.dp),
         ) {
             TeakSegmentedBar(
-                options = listOf("全部", "视频"),
-                selected = if (state.type == "video") 1 else 0,
+                options = DynamicFeedContract.labels,
+                selected = DynamicFeedContract.types.indexOf(state.type),
+                itemWidth = 56.dp,
                 onSelect = { index ->
                     scope.launch {
-                        state.switchTo(if (index == 1) "video" else "all", loggedIn)
+                        state.switchTo(DynamicFeedContract.types[index], loggedIn)
                     }
                 },
                 modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -451,41 +468,68 @@ fun DynamicAvatarCard(
 ) {
     val colors = MiuixTheme.colorScheme
     val scope = rememberCoroutineScope()
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(ContinuousCornerShape(18.dp))
-            .background(colors.surface)
-            .padding(vertical = 10.dp),
-    ) {
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            item(key = "all-dynamics") {
-                AllDynamicAvatar(
-                    selected = state.filterMid == null,
-                    onClick = { state.clearFilter() },
-                )
+    val context = LocalContext.current
+    val authorScroll = rememberLazyListState()
+    val profile = AppGraph.session.value
+    LaunchedEffect(state) {
+        snapshotFlow {
+            val info = authorScroll.layoutInfo
+            (info.visibleItemsInfo.lastOrNull()?.index ?: -1) to info.totalItemsCount
+        }.collect { (last, count) ->
+            if (count > 0 && last >= count - 3 && state.authorsError == null) state.loadMoreAuthors()
+        }
+    }
+    BoxWithConstraints(modifier.fillMaxWidth().clip(ContinuousCornerShape(18.dp)).background(colors.surface)) {
+        val vertical = maxWidth < 200.dp
+        val entries: LazyListScope.() -> Unit = {
+            item(key = "live-toggle") {
+                Text("直播 (${state.liveCount})", color = colors.primary,
+                    modifier = Modifier.clickable { state.showLive = !state.showLive }.padding(12.dp))
             }
-            items(state.authors, key = { it.mid }) { author ->
-                val selected = state.filterMid == author.mid
-                AuthorAvatar(
-                    name = author.name,
-                    face = author.face,
-                    selected = selected,
-                    onClick = {
-                        state.markSeen(author.mid)
-                        if (selected) {
-                            state.clearFilter()
-                        } else {
-                            scope.launch { state.filterTo(author.mid) }
-                        }
-                    },
-                )
+            if (state.showLive) items(state.liveUsers, key = { "live-${it.roomId}" }) { live ->
+                AuthorAvatar(name = live.name, face = live.face, selected = false, badge = "直播") {
+                    openDynamicLive(context, live.roomId)
+                }
+            }
+            item(key = "all-dynamics") {
+                AllDynamicAvatar(selected = state.type == "all") {
+                    scope.launch { state.listState.scrollToItem(0); state.clearFilter() }
+                }
+            }
+            profile?.let { me ->
+                item(key = "my-dynamics") {
+                    AuthorAvatar(name = "我", face = me.face, selected = state.filterMid == me.mid) {
+                        scope.launch { state.listState.scrollToItem(0); state.filterTo(me.mid) }
+                    }
+                }
+            }
+            items(state.authors, key = { "up-${it.mid}" }) { author ->
+                AuthorAvatar(name = author.name, face = author.face,
+                    selected = state.filterMid == author.mid, hasUpdate = author.hasUpdate) {
+                    scope.launch { state.listState.scrollToItem(0); state.filterTo(author.mid) }
+                }
+            }
+            if (state.authorsLoading) item(key = "up-loading") { TeakLoading(size = 28.dp) }
+            state.authorsError?.let { message ->
+                item(key = "up-error") {
+                    Text(message, color = colors.primary, fontSize = 12.sp,
+                        modifier = Modifier.width(100.dp).clickable {
+                            scope.launch { if (state.authorsHasMore) state.loadMoreAuthors() else state.refreshAuthors() }
+                        }.padding(8.dp))
+                }
+            }
+            if (state.authorsHasMore && !state.authorsLoading && state.authorsError == null) {
+                item(key = "up-more") {
+                    Text("更多 UP", color = colors.primary, modifier = Modifier.clickable {
+                        scope.launch { state.loadMoreAuthors() }
+                    }.padding(12.dp))
+                }
             }
         }
+        if (vertical) LazyColumn(state = authorScroll, horizontalAlignment = Alignment.CenterHorizontally,
+            contentPadding = PaddingValues(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = entries)
+        else LazyRow(state = authorScroll, verticalAlignment = Alignment.CenterVertically,
+            contentPadding = PaddingValues(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), content = entries)
     }
 }
 
@@ -494,6 +538,8 @@ private fun AuthorAvatar(
     name: String,
     face: String,
     selected: Boolean,
+    hasUpdate: Boolean = false,
+    badge: String? = null,
     onClick: () -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
@@ -541,6 +587,7 @@ private fun AuthorAvatar(
                 )
             }
         }
+        if (badge != null || hasUpdate) Text(badge ?: "有更新", color = colors.primary, fontSize = 9.sp)
         Text(
             text = name,
             color = colors.onBackgroundVariant,
@@ -729,6 +776,11 @@ internal fun DynamicCard(
             }
         }
 
+        if (item.moduleTag.isNotBlank()) {
+            Text(item.moduleTag, color = colors.primary, fontSize = 12.sp,
+                modifier = Modifier.padding(top = 8.dp))
+        }
+
         if (item.title.isNotBlank()) {
             Spacer(Modifier.height(8.dp))
             Text(
@@ -813,6 +865,10 @@ internal fun DynamicCard(
             }
         }
 
+        item.liveRecommendation?.let { live ->
+            Spacer(Modifier.height(10.dp))
+            DynamicLiveCard(live)
+        }
         item.video?.let { video ->
             Spacer(Modifier.height(10.dp))
             DynamicVideoCard(
@@ -1427,6 +1483,10 @@ private fun ForwardedDynamicBlock(
                 },
             )
         }
+        item.liveRecommendation?.let { live ->
+            Spacer(Modifier.height(10.dp))
+            DynamicLiveCard(live)
+        }
         item.video?.let { video ->
             Spacer(Modifier.height(8.dp))
             DynamicVideoCard(
@@ -1554,5 +1614,36 @@ private fun EmptyHint(
         ) {
             Text(text = action, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Normal)
         }
+    }
+}
+
+
+private fun openDynamicLive(context: android.content.Context, roomId: Long) {
+    if (roomId <= 0) return
+    runCatching {
+        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
+            android.net.Uri.parse("https://live.bilibili.com/$roomId")))
+    }.onFailure { context.showToast("无法打开直播间") }
+}
+
+@Composable
+private fun DynamicLiveCard(live: DynamicLiveRecommendation) {
+    val colors = MiuixTheme.colorScheme
+    val context = LocalContext.current
+    Column(Modifier.fillMaxWidth().clip(ContinuousCornerShape(12.dp))
+        .background(colors.surfaceContainerHigh).clickable(enabled = live.roomId > 0) {
+            openDynamicLive(context, live.roomId)
+        }) {
+        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
+            AsyncImage(model = rememberImageRequest(live.cover), contentDescription = live.title,
+                contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            Text(if (live.live) "直播中" else "直播结束", color = colors.onPrimary,
+                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).clip(Capsule())
+                    .background(colors.primary).padding(horizontal = 10.dp, vertical = 4.dp), fontSize = 11.sp)
+        }
+        Text(live.title, color = colors.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp))
+        Text(listOf(live.areaName, live.watched).filter { it.isNotBlank() }.joinToString(" · "),
+            color = colors.onSurfaceVariantSummary, fontSize = 12.sp, modifier = Modifier.padding(12.dp))
     }
 }

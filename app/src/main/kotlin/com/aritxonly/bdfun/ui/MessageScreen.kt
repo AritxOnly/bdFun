@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.icon.extended.Delete
+import top.yukonga.miuix.kmp.icon.extended.Messages
+import top.yukonga.miuix.kmp.icon.extended.Contacts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -40,11 +42,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -254,7 +254,7 @@ fun MessageScreen(
                         label = "回复与@",
                         modifier = Modifier.weight(1f),
                         onClick = onOpenReplies,
-                    ) { ChatGlyph(MessageGreen) }
+                    ) { androidx.compose.material3.Icon(MiuixIcons.Messages, null, Modifier.size(ShortcutGlyphSize), tint = MessageGreen) }
                     MessageShortcut(
                         label = "收到喜欢",
                         modifier = Modifier.weight(1f),
@@ -264,7 +264,7 @@ fun MessageScreen(
                         label = "新增粉丝",
                         modifier = Modifier.weight(1f),
                         onClick = onOpenFans,
-                    ) { PersonGlyph(MessageBlue) }
+                    ) { androidx.compose.material3.Icon(MiuixIcons.Contacts, null, Modifier.size(ShortcutGlyphSize), tint = MessageBlue) }
                 }
             }
 
@@ -1108,44 +1108,6 @@ private fun MessageAvatar(url: String, size: androidx.compose.ui.unit.Dp = 44.dp
 
 /** 快捷入口三个图标统一按这个尺寸绘制，视觉大小保持一致。 */
 private val ShortcutGlyphSize = 28.dp
-
-/** 回复与@：实心圆角对话气泡 + 左下小尾巴（参考用户提供图一）。 */
-@Composable
-private fun ChatGlyph(color: Color) {
-    Canvas(modifier = Modifier.size(ShortcutGlyphSize)) {
-        val w = size.width
-        val h = size.height
-        // 主体：略扁的椭圆气泡，留出底部尾巴的位置
-        drawOval(
-            color = color,
-            topLeft = Offset(w * 0.05f, h * 0.08f),
-            size = Size(w * 0.90f, h * 0.66f),
-        )
-        // 尾巴：从气泡左下伸出，向下再收回气泡底边
-        val tail = Path().apply {
-            moveTo(w * 0.30f, h * 0.66f)
-            cubicTo(w * 0.30f, h * 0.80f, w * 0.27f, h * 0.88f, w * 0.21f, h * 0.93f)
-            cubicTo(w * 0.31f, h * 0.94f, w * 0.43f, h * 0.85f, w * 0.48f, h * 0.70f)
-            close()
-        }
-        drawPath(tail, color)
-    }
-}
-
-@Composable
-private fun PersonGlyph(color: Color) {
-    Canvas(modifier = Modifier.size(ShortcutGlyphSize)) {
-        val w = size.width
-        val h = size.height
-        drawCircle(color, w * 0.18f, Offset(w * 0.5f, h * 0.32f))
-        drawRoundRect(
-            color = color,
-            topLeft = Offset(w * 0.2f, h * 0.55f),
-            size = Size(w * 0.6f, h * 0.34f),
-            cornerRadius = CornerRadius(w * 0.3f, w * 0.3f),
-        )
-    }
-}
 
 @Composable
 private fun MarkReadGlyph() {

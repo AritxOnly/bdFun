@@ -41,7 +41,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.roundToInt
 
-class BiliApi(context: Context) {
+class BiliApi(context: Context) : DynamicFeedSource {
     private val appContext: Context = context.applicationContext
     val cookieJar = BiliCookieJar(context)
 
@@ -1388,23 +1388,50 @@ class BiliApi(context: Context) {
 
     suspend fun dynamics(): List<DynamicItem> = dynamicPage("all").items
 
-    /** 动态分页：type = all / video。 */
-    suspend fun dynamicPage(type: String, offset: String = ""): DynamicPage =
+    /** Hyper-PiliPlus uses the same feed for categories and a selected UP. */
+    override suspend fun dynamicPage(type: String, offset: String, hostMid: Long?): DynamicPage =
         withContext(Dispatchers.IO) {
-            val params = mutableMapOf(
-                "timezone_offset" to "-480",
-                "type" to type,
-                "page" to "1",
-                "features" to "itemOpusStyle",
-            )
-            if (offset.isNotBlank()) params["offset"] = offset
-            val data = dataRequest("/x/polymer/web-dynamic/v1/feed/all", params)
+            val data = try {
+                dataRequest(DynamicFeedContract.feedPath, DynamicFeedContract.feedParams(type, offset, hostMid))
+            } catch (error: BiliException) {
+                if (error.code == 4101132) return@withContext DynamicPage(emptyList(), "", false)
+                throw error
+            }
             DynamicPage(
                 items = data.optJSONArray("items").objects().mapNotNull { parseDynamicItem(it) },
                 offset = data.s("offset"),
                 hasMore = data.optBoolean("has_more", false),
             )
         }
+
+    override suspend fun dynamicPortal(): DynamicPortal = withContext(Dispatchers.IO) {
+        val data = dataRequest(DynamicFeedContract.portalPath, DynamicFeedContract.portalParams)
+        val live = data.optJSONObject("live_users")
+        DynamicPortal(
+            upList = parseDynamicUpPage(data.optJSONObject("up_list")),
+            liveUsers = live?.optJSONArray("items").objects().mapNotNull {
+                val roomId = it.l("room_id")
+                if (roomId <= 0) null else DynamicLiveUser(
+                    mid = it.l("mid"), name = it.s("uname"), face = avatar(it.s("face"), 120),
+                    roomId = roomId, title = it.s("title"),
+                )
+            },
+            liveCount = live?.optInt("count", 0) ?: 0,
+        )
+    }
+
+    override suspend fun dynamicUpList(offset: String): DynamicUpPage = withContext(Dispatchers.IO) {
+        parseDynamicUpPage(dataRequest(DynamicFeedContract.upListPath, DynamicFeedContract.upListParams(offset)))
+    }
+
+    private fun parseDynamicUpPage(data: JSONObject?): DynamicUpPage = DynamicUpPage(
+        items = data?.optJSONArray("items").objects().mapNotNull {
+            val mid = it.l("mid")
+            if (mid <= 0) null else DynamicAuthor(mid, it.s("uname"), avatar(it.s("face"), 120), it.optBoolean("has_update"))
+        }.distinctBy { it.mid },
+        offset = data?.s("offset").orEmpty(),
+        hasMore = data?.optBoolean("has_more", false) ?: false,
+    )
 
     private fun parseDynamicItem(item: JSONObject, allowOrig: Boolean = true): DynamicItem? {
         val modules = item.optJSONObject("modules") ?: return null
@@ -1418,6 +1445,17 @@ class BiliApi(context: Context) {
         val common = major?.optJSONObject("common")
         val pgc = major?.optJSONObject("pgc")
         val live = major?.optJSONObject("live")
+        val liveRcmd = major?.optJSONObject("live_rcmd")
+            ?: major?.optJSONObject("subscription_new")?.optJSONObject("live_rcmd")
+        val liveInfo = liveRcmd?.s("content")?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { JSONObject(it).optJSONObject("live_play_info") }.getOrNull() }
+        val liveRecommendation = liveInfo?.let {
+            DynamicLiveRecommendation(
+                roomId = it.l("room_id"), title = it.s("title"), cover = image(it.s("cover"), 720),
+                live = it.optInt("live_status") == 1, areaName = it.s("area_name"),
+                watched = it.optJSONObject("watched_show")?.s("text_large").orEmpty(),
+            )
+        }
         val medialist = major?.optJSONObject("medialist")
         val courses = major?.optJSONObject("courses")
         val music = major?.optJSONObject("music")
@@ -1534,6 +1572,8 @@ class BiliApi(context: Context) {
                 5 -> "电视剧"
                 else -> "剧集"
             },
+            moduleTag = modules.optJSONObject("module_tag")?.s("text").orEmpty(),
+            liveRecommendation = liveRecommendation,
             ipLocation = author.s("pub_location_text")
                 .ifBlank { author.s("pub_location") }
                 .ifBlank { author.s("ip_location") }

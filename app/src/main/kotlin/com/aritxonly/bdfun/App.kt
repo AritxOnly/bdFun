@@ -269,7 +269,7 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
     }
     // 首页数据放在 App 层：进视频/搜索/设置再返回时不会重新拉取，滚动位置也保留。
     val homeFeed = rememberHomeFeedState(api)
-    val dynamicFeed = rememberDynamicFeedState(api)
+    val dynamicFeed = rememberDynamicFeedState(api, session?.mid)
     // 首页 / 动态页各自注册回到顶部；其他底栏页不显示。
     when (selected) {
         0 -> com.aritxonly.bdfun.ui.RegisterScrollTop(homeFeed.gridState, "home")
