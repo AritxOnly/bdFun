@@ -23,7 +23,7 @@ bdFun 包含或参考了以下第三方项目的代码、材质和参数。分�
 
 - 仓库：https://github.com/compose-miuix-ui/miuix
 - 许可证：Apache License 2.0
-- 使用方式：第三方依赖，未复制源码。提供 `miuix-ui`、`miuix-blur`、`miuix-icons`、`MiuixTheme`、`LayerBackdrop`、`textureBlur`、`progressiveTextureBlur` 等。
+- 使用方式：第三方依赖，以及经 Deadliner 调整的 Sheet 源码移植。依赖提供 `miuix-ui`、`miuix-blur`、`miuix-icons`、`MiuixTheme`、`LayerBackdrop`、`textureBlur`、`progressiveTextureBlur` 等。
 - 分发时按 Apache-2.0 保留 NOTICE / 许可证信息（如上游提供）。
 
 ## Guiyuan / 归元
@@ -67,3 +67,9 @@ bdFun 根目录已包含 GPL-3.0 的 `LICENSE`。由于直接包含 GPL-3.0 的 
 - Deadliner: https://github.com/AritxOnly/Deadliner — MIT, Copyright (c) 2024 Aritx Zhou. License: `TeakUI/third_party/deadliner/LICENSE`.
 - MIUIX glass: supplied by preview-5.0's existing pinned Miuix dependency; no second copy of its package is vendored.
 - Scope, source hashes and explicit bdFun material overrides: `docs/DEADLINER_GLASS_SYNC.md`.
+
+## Deadliner Dialog / Sheet migration (MODAL-01)
+
+- Deadliner modal wrappers: MIT, Copyright (c) 2024 Aritx Zhou; license retained at `TeakUI/third_party/deadliner/LICENSE`.
+- The vendored Sheet layout and overlay adapter derive from compose-miuix-ui, Copyright 2025 compose-miuix-ui contributors, Apache-2.0. License retained at `TeakUI/third_party/miuix/LICENSE`; original source headers retained.
+- Source snapshots and integration adaptations: `docs/deadliner-modal-migration.md`.

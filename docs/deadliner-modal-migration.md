@@ -6,7 +6,7 @@ The source tree contains uncommitted modal improvements; exact input hashes belo
 The full modal dependency closure is retained: retained dialog host, separate-window recorder,
 material resolver, button roles, form roles, Scaffold, sheet sizing, overlay adapter, complete
 MIUIX-derived gesture/IME/predictive-back implementation and container expansion motion.
-The upstream Apache-2.0 notices in the sheet fork are retained. See existing CREDITS.md for Deadliner attribution.
+The upstream Apache-2.0 notices in the sheet fork are retained. See `TeakUI/docs/CREDITS.md` and `THIRD_PARTY_NOTICES.md` for attribution; full MIT and Apache-2.0 licenses are retained under `TeakUI/third_party`.
 
 Integration adaptations: package names and existing Teak material/chrome locals; bdFun's existing
 material tuning values are preserved. Two Deadliner-only top-bar observer/press-host locals have
@@ -37,3 +37,4 @@ real-device rendering/IME/drag verification is listed in the PR (no emulator run
 | `ui/base/sheet/MiuixSheetContentLayout.kt` | `4b23df98a749dbb325795b2fd27c51a7ba5097afbbef9e257360e104b1180121` |
 | `ui/base/sheet/ScaffoldSheetOverlay.kt` | `4b26a5b91600805b3a915585b5fd5903737ebcfe46dda1306ecb280775307ed9` |
 | `ui/theme/TextFieldContainerColors.kt` | `935c79126bf911e12f2c64b23cd4c3f142b490872ec984de9c9cc943c7bcad08` |
+| `model/MiuixModalMaterialTuning.kt` (resolver adapted to existing Teak types/constants) | `36b61f470db58752c6677a343f08a93256cce5362c85e1e8e71ebc38d54911c4` |
