@@ -47,7 +47,7 @@ HyperPiliPlus 不只是“参考”，其中有一部分是直接移植，也有
 
 ## Miuix
 
-**没有复制 Miuix 源码。** Miuix 是第三方依赖，提供：
+Miuix 主要作为第三方依赖，提供：
 
 - `LayerBackdrop` / `rememberLayerBackdrop`
 - `textureBlur`
@@ -64,3 +64,9 @@ HyperPiliPlus 不只是“参考”，其中有一部分是直接移植，也有
 - `TeakPagerTabs` 的组件代码
 - `TeakTheme` 主题适配层
 - 位置、字号、折叠进度、页面级状态等规范
+
+## Deadliner Dialog / Sheet（MODAL-01）
+
+- Dialog 宿主、窗口采样、按钮与表单角色、Sheet 尺寸和布局迁移自 Deadliner，MIT，Copyright (c) 2024 Aritx Zhou。
+- `modal/sheet/MiuixSheetContentLayout.kt` 和 `ScaffoldSheetOverlay.kt` 包含经 Deadliner 调整的 MIUIX Sheet 源码，保留原 Apache-2.0 标头；许可证见 `../third_party/miuix/LICENSE`。
+- 完整输入版本、SHA-256、包名适配和 bdFun 材质参数保留说明见仓库 `docs/deadliner-modal-migration.md`。

@@ -755,9 +755,7 @@ fun LibraryScreen(
     }
 
     // 移动 / 复制：与视频页点「收藏」后弹出的收藏夹菜单同一套底部面板。
-    // 面板在 Dialog 里，跨窗口采样页面的 backdrop 会糊成一片，这里禁用采样走纯色底。
     val activeTransfer = transferMode
-    CompositionLocalProvider(LocalTeakBackdrop provides null) {
     TeakActionSheet(
         visible = activeTransfer != null,
         onDismiss = { transferMode = null },
@@ -787,7 +785,6 @@ fun LibraryScreen(
                 }
             }
         }
-    }
     }
     }
 }
