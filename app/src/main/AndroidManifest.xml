@@ -19,6 +19,11 @@
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.BdFun">
 
+        <!-- The app owns its responsive panes; do not replace them with OEM activity splits. -->
+        <property
+            android:name="android.window.PROPERTY_ACTIVITY_EMBEDDING_ALLOW_SYSTEM_OVERRIDE"
+            android:value="false" />
+
         <activity
             android:name=".TermsActivity"
             android:exported="true"
@@ -98,6 +103,7 @@
             android:resizeableActivity="true"
             android:windowSoftInputMode="adjustNothing"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|smallestScreenSize|density" />
+        <activity android:name=".RelationActivity" android:exported="false" />
         <activity
             android:name=".SpaceActivity"
             android:exported="false"

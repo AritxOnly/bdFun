@@ -146,3 +146,17 @@ internal fun resolveTeakMaterialProgress(distanceDp: Float): Float {
 }
 
 val LocalTeakPageScrollState = androidx.compose.runtime.staticCompositionLocalOf { TeakPageChrome.state }
+
+/** Masonry feeds use the same actual-position observer as lists and regular grids. */
+@Composable
+fun TrackTeakPageScroll(
+    state: androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState,
+    pageState: TeakPageScrollState = LocalTeakPageScrollState.current,
+) {
+    androidx.compose.runtime.SideEffect { pageState.scrollableState = state }
+    val density = LocalDensity.current.density
+    LaunchedEffect(state, pageState, density) {
+        snapshotFlow { state.firstVisibleItemIndex to state.firstVisibleItemScrollOffset }
+            .collect { (index, offset) -> pageState.update(index, offset.toFloat(), density = density) }
+    }
+}

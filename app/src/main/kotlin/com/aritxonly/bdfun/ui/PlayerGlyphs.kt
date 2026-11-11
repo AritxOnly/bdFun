@@ -2,6 +2,8 @@ package com.aritxonly.bdfun.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.ChevronBackward
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -44,22 +46,8 @@ private fun parsePaths(vararg data: String): List<Path> =
 
 @Composable
 internal fun InlineBackGlyph() {
-    Canvas(modifier = Modifier.size(20.dp)) {
-        val path = androidx.compose.ui.graphics.Path().apply {
-            moveTo(size.width * 0.64f, size.height * 0.12f)
-            lineTo(size.width * 0.28f, size.height * 0.5f)
-            lineTo(size.width * 0.64f, size.height * 0.88f)
-        }
-        drawPath(
-            path = path,
-            color = Color.White,
-            style = androidx.compose.ui.graphics.drawscope.Stroke(
-                width = 2.4.dp.toPx(),
-                cap = StrokeCap.Round,
-                join = androidx.compose.ui.graphics.StrokeJoin.Round,
-            ),
-        )
-    }
+    androidx.compose.material3.Icon(MiuixIcons.ChevronBackward, contentDescription = "返回",
+        tint = Color.White, modifier = Modifier.size(20.dp))
 }
 
 /** 首页：官方播放器顶栏的“小房子”（biliplayer_ic_topbar_back_bold，22×22）。 */

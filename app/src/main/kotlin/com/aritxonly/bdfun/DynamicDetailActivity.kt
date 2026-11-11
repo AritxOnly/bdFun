@@ -156,7 +156,7 @@ private fun DynamicDetailScreen(dynamic: DynamicItem, onBack: () -> Unit) {
         bottomPadding = 132.dp,
         header = {
             item(key = "detail-big-title") {
-                BigTitleHeader()
+                com.aritxonly.teak.common.chrome.TeakLargeTitle(title = "动态详情")
             }
             item(key = "detail-dynamic") {
                 Box(modifier = Modifier.padding(bottom = 4.dp)) {
@@ -199,29 +199,4 @@ private fun DynamicDetailScreen(dynamic: DynamicItem, onBack: () -> Unit) {
             }
         },
     )
-}
-
-/** 和设置页一样的大标题：顶部留 52dp，30sp Medium，滚动时渐隐 + 模糊。 */
-@Composable
-private fun BigTitleHeader() {
-    val colors = MiuixTheme.colorScheme
-    val collapse = com.aritxonly.teak.common.chrome.LocalTeakPageScrollState.current.collapse
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                alpha = 1f - (collapse / 0.65f).coerceIn(0f, 1f)
-            }
-            .blur((12f * (collapse / 0.65f).coerceIn(0f, 1f)).dp),
-    ) {
-        Spacer(Modifier.height(52.dp))
-        Text(
-            text = "动态详情",
-            color = colors.onBackground,
-            fontSize = 30.sp,
-            fontWeight = FontWeight.Normal,
-            modifier = Modifier.padding(start = 14.dp),
-        )
-        Spacer(Modifier.height(14.dp))
-    }
 }

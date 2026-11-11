@@ -45,6 +45,7 @@ fun TeakGlassBackButton(
     light: Boolean = false,
     /** 自定义箭头颜色（个人主页压在头图上时做黑白渐变用）。 */
     glyphColor: Color? = null,
+    flatBackgroundAlpha: Float = 0f,
 ) {
     val advancedMaterial = LocalTeakMaterialSpec.current
     val recipe = TeakGlassRecipes.floatingNavigation(advancedMaterial.fineTuning)
@@ -72,6 +73,7 @@ fun TeakGlassBackButton(
                     recipe = recipe,
                     backdrop = LocalTeakBackdrop.current,
                     materialAlpha = reveal,
+                    flatBackgroundAlpha = flatBackgroundAlpha,
                 ) {}
             }
         }
@@ -89,7 +91,8 @@ fun TeakGlassBackButton(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .clip(CircleShape)
+                    .background(top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainer.copy(alpha = flatBackgroundAlpha.coerceIn(0f, 1f)), androidx.compose.foundation.shape.CircleShape)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
                     .clickable(interactionSource = null, indication = null, onClick = onClick),
             )
         }

@@ -17,6 +17,7 @@ class MessageDetailActivity : ComponentActivity() {
         val kind = when (intent?.getStringExtra("kind")) {
             "like" -> MessageFeedKind.Like
             "fans" -> MessageFeedKind.Fans
+            "system" -> MessageFeedKind.System
             else -> MessageFeedKind.Reply
         }
         val settings = AppGraph.settings
@@ -24,6 +25,7 @@ class MessageDetailActivity : ComponentActivity() {
             MessageFeedKind.Reply -> "回复与@"
             MessageFeedKind.Like -> "收到喜欢"
             MessageFeedKind.Fans -> "新增粉丝"
+            MessageFeedKind.System -> "系统通知"
         }
         setContent {
             TeakActivityScaffold(

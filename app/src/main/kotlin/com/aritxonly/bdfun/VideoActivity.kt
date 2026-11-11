@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import com.aritxonly.bdfun.ui.resolveVideoPaneLayout
 import androidx.compose.foundation.layout.Row
@@ -79,6 +78,23 @@ import kotlinx.coroutines.launch
 class VideoActivity : ComponentActivity() {
 
     // ---- 自己监听传感器决定横竖屏 ----
+    private var splitSystemBars = false
+    private var pipEntered = false
+    private var pipMode by mutableStateOf(false)
+    private var openingAnotherPage = false
+
+    private fun syncVideoSystemBars(split: Boolean = splitSystemBars) {
+        splitSystemBars = split
+        val dark = when (AppGraph.settings.darkMode) {
+            1 -> false
+            2 -> true
+            else -> resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        }
+        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+            .isAppearanceLightStatusBars = split && !dark
+    }
+
     private var orientationListener: android.view.OrientationEventListener? = null
     private var pendingLandscape: Boolean? = null
     private var pendingSince = 0L
@@ -116,7 +132,7 @@ class VideoActivity : ComponentActivity() {
             override fun onOrientationChanged(orientation: Int) {
                 if (orientation == ORIENTATION_UNKNOWN) return
                 // 每次方向变化都重新读：用户可能中途打开 / 关闭了方向锁定
-                if (!autoRotateAllowed() || VideoOrientationLock.locked) return
+                if (!PlayerUiState.fullscreen || !autoRotateAllowed() || VideoOrientationLock.locked) return
                 // 判定：横屏要转到离水平 12° 以内（比上一版 18° 更严格）
                 val landscape = orientation in 78..102 || orientation in 258..282
                 val portrait =
@@ -169,27 +185,18 @@ class VideoActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // 视频页状态栏底色始终是黑色（非沉浸）或视频画面（沉浸），图标都要用白色；
-        // 之前写成 !immersive 会在首次进入时把图标切成深色，黑底上直接看不见。
+        openingAnotherPage = false
+        if (!isInPictureInPictureMode) pipEntered = false
+        // Split panes use the page theme under system bars; stacked/fullscreen video uses light icons.
         runCatching {
-            androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
-                .isAppearanceLightStatusBars = false
+            syncVideoSystemBars()
         }
+        if (!PlayerUiState.fullscreen) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER
         if (autoRotateAllowed()) {
             startOrientationTracking()
         } else {
             stopOrientationTracking()
-            // 锁定了方向 / 关掉了自动旋转：回到竖屏。
-            // 但如果当前已经是「用户手动点全屏」要求的横屏，就不要把它扳回去。
-            val current = requestedOrientation
-            val alreadyLandscape =
-                current == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE ||
-                    current == ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE ||
-                    current == ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE ||
-                    resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-            if (!alreadyLandscape) {
-                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            }
+
         }
     }
 
@@ -201,6 +208,12 @@ class VideoActivity : ComponentActivity() {
     /** 退出视频：若设置选择「画中画」，先进入系统画中画；否则正常关闭并交给唱片。 */
     private fun exitVideoPage() {
         val s = AppGraph.settings
+        if (s.stopOnVideoPageExit) {
+            com.aritxonly.bdfun.ui.BackgroundPlayback.cancelHandOff()
+            VideoPageBus.pauseFor(this)
+            finish()
+            return
+        }
         if (s.showDiscAfterVideo && s.exitVideoControl == 0) {
             val ok = runCatching {
                 val params = android.app.PictureInPictureParams.Builder()
@@ -211,6 +224,38 @@ class VideoActivity : ComponentActivity() {
             if (ok) return
         }
         finish()
+    }
+
+    // Home/background is distinct from navigating out of the video page.
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (AppGraph.settings.stopOnVideoPageExit && !isFinishing && !openingAnotherPage &&
+            !isInPictureInPictureMode && com.aritxonly.bdfun.ui.BackgroundPlayback.playing) {
+            val entered = runCatching { enterPictureInPictureMode(android.app.PictureInPictureParams.Builder()
+                .setAspectRatio(android.util.Rational(16, 9)).build()) }.getOrDefault(false)
+            if (entered) pipEntered = true else VideoPageBus.pauseFor(this)
+        }
+    }
+
+    override fun startActivityForResult(intent: android.content.Intent, requestCode: Int, options: Bundle?) {
+        openingAnotherPage = true
+        try { super.startActivityForResult(intent, requestCode, options) }
+        catch (error: Exception) { openingAnotherPage = false; throw error }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        pipMode = isInPictureInPictureMode
+        if (isInPictureInPictureMode) pipEntered = true
+    }
+
+    override fun onStop() {
+        // Dismissing PiP stops the Activity without guaranteeing immediate destruction.
+        if (AppGraph.settings.stopOnVideoPageExit && (pipEntered || isFinishing) && !isChangingConfigurations) {
+            com.aritxonly.bdfun.ui.BackgroundPlayback.cancelHandOff()
+            VideoPageBus.pauseFor(this)
+        }
+        super.onStop()
     }
 
     override fun onDestroy() {
@@ -229,14 +274,14 @@ class VideoActivity : ComponentActivity() {
         if (hasFocus) {
             // 从评论/空间等页面返回或转场结束时，补一次图标明暗同步。
             runCatching {
-                androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
-                    .isAppearanceLightStatusBars = false
+                syncVideoSystemBars()
             }
         }
     }
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
+        if (!PlayerUiState.fullscreen) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER
         if (BuildConfig.DEBUG) {
             android.util.Log.d(
                 "ROTDBG",
@@ -254,12 +299,20 @@ class VideoActivity : ComponentActivity() {
      */
     private fun applyStatusBarStyle(immersive: Boolean) {
         enableEdgeToEdge(
-            statusBarStyle = if (immersive) {
-                androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
-            } else {
-                androidx.activity.SystemBarStyle.dark(android.graphics.Color.BLACK)
+            // Content paints each pane to the window edges; system bars must not add a solid strip.
+            statusBarStyle = androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = androidx.activity.SystemBarStyle.auto(
+                android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT,
+            ) { resources ->
+                when (AppGraph.settings.darkMode) {
+                    1 -> false
+                    2 -> true
+                    else -> resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+                        android.content.res.Configuration.UI_MODE_NIGHT_YES
+                }
             },
         )
+        window.isNavigationBarContrastEnforced = false
     }
 
     @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
@@ -348,7 +401,7 @@ class VideoActivity : ComponentActivity() {
                 com.aritxonly.bdfun.TeakNavigator.openVideo(this@VideoActivity, next)
                 finish()
             }
-            val pageFullscreen = PlayerUiState.fullscreen
+            val pageFullscreen = PlayerUiState.fullscreen || pipMode
             val pageOverlayAlpha = rememberManualProgress(if (pageFullscreen) 0f else 1f, 200f)
             var comments by remember { mutableStateOf<VideoDetail?>(null) }
             // 从消息页进来时，消费一次「定位评论」请求，并直接打开评论页。
@@ -370,22 +423,16 @@ class VideoActivity : ComponentActivity() {
                 // 设置改变时同步状态栏底色：沉浸=透明（视频透出），非沉浸=黑
                 runCatching { applyStatusBarStyle(immersiveStatus) }
                 runCatching {
-                    androidx.core.view.WindowCompat.getInsetsController(w, w.decorView)
-                        .isAppearanceLightStatusBars = false
+                    syncVideoSystemBars()
                 }
             }
             var danmakuInputOpen by remember { mutableStateOf(false) }
             BackHandler(enabled = comments != null) { comments = null }
             BackHandler(enabled = danmakuInputOpen) { danmakuInputOpen = false }
-            BoxWithConstraints(
-                Modifier.fillMaxSize().then(
-                    if (pageFullscreen) Modifier else Modifier.windowInsetsPadding(
-                        WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
-                    ),
-                ),
-            ) {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
             val paneLayout = resolveVideoPaneLayout(maxWidth.value, maxHeight.value)
             val splitPanes = paneLayout.isSplit && !pageFullscreen
+            androidx.compose.runtime.SideEffect { syncVideoSystemBars(splitPanes) }
             TeakActivityScaffold(
                 settings = settings,
                 onBack = { exitVideoPage() },
@@ -394,7 +441,10 @@ class VideoActivity : ComponentActivity() {
                 showBackgroundDisc = false,
                 // 返回键改由 overlay 自己画：半屏时和播放器控件一起显隐（平滑淡入淡出）
                 showBackButton = false,
-                overlay = {
+                showTopBar = false,
+                showScrollTop = !pipMode,
+                overlay = overlay@{
+                    if (pipMode) return@overlay
                     val fs = pageFullscreen
                     LaunchedEffect(fs) {
                         if (fs) {
@@ -404,38 +454,34 @@ class VideoActivity : ComponentActivity() {
                     }
                     val overlayAlpha = pageOverlayAlpha
                     if (overlayAlpha > 0.01f) {
-                        Row(
-                            modifier = Modifier
-                                .align(if (splitPanes) Alignment.TopEnd else Alignment.TopStart)
-                                .then(if (splitPanes) Modifier.width(paneLayout.detailsWidthDp.dp) else Modifier.fillMaxWidth())
-                                .padding(
-                                    start = 16.dp,
-                                    end = 16.dp,
-                                )
-                                .graphicsLayer {
-                                    alpha = overlayAlpha
-                                    // 直接贴在播放器真实底边下面，不再各自算一套位置。
-                                    translationY = (if (splitPanes) playerTopInset.toPx() else VideoPageBus.playerBottomPx) + 6.dp.toPx()
-                                },
-                            verticalAlignment = Alignment.CenterVertically,
+                        androidx.compose.runtime.CompositionLocalProvider(
+                            com.aritxonly.teak.common.chrome.LocalTopBarScrollProgress provides
+                                com.aritxonly.teak.common.chrome.LocalTeakPageScrollState.current.materialProgress,
                         ) {
-                            TeakPagerTabs(
-                                options = listOf("简介", "评论"),
-                                selected = pager.currentPage,
-                                onSelect = { scope.launch { pager.animateScrollToPage(it) } },
-                            )
-                            if (!splitPanes) VideoDanmakuActions { danmakuInputOpen = true }
-                        }
-
-                        if (splitPanes) {
-                            Row(
-                                modifier = Modifier.align(Alignment.BottomStart)
-                                    .width(paneLayout.playerWidthDp.dp)
-                                    .navigationBarsPadding()
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
+                            com.aritxonly.teak.common.chrome.ProgressiveTopBarMaterial(
+                                enabled = splitPanes,
+                                modifier = Modifier
+                                    .align(if (splitPanes) Alignment.TopEnd else Alignment.TopStart)
+                                    .then(if (splitPanes) Modifier.width(paneLayout.detailsWidthDp.dp) else Modifier.fillMaxWidth())
+                                    .graphicsLayer {
+                                        alpha = overlayAlpha
+                                        translationY = if (splitPanes) 0f else VideoPageBus.playerBottomPx
+                                    },
                             ) {
-                                VideoDanmakuActions { danmakuInputOpen = true }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth()
+                                        .padding(top = if (splitPanes) statusBarDp else 0.dp)
+                                        .height(52.dp)
+                                        .padding(horizontal = if (splitPanes) 8.dp else 16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    TeakPagerTabs(
+                                        options = listOf("简介", "评论"), selected = pager.currentPage,
+                                        onSelect = { scope.launch { pager.animateScrollToPage(it) } },
+                                        itemWidth = if (splitPanes) 48.dp else 60.dp,
+                                    )
+                                    VideoDanmakuActions(compact = splitPanes) { danmakuInputOpen = true }
+                                }
                             }
                         }
 
@@ -552,6 +598,7 @@ class VideoActivity : ComponentActivity() {
                     VideoScreen(
                         api = api,
                         video = loadedVideo,
+                        pictureInPicture = pipMode,
                         paneLayout = paneLayout,
                         defaultQuality = settings.qualityPreference,
                         onOpenComments = {
@@ -570,21 +617,16 @@ class VideoActivity : ComponentActivity() {
                         initialCommentTarget = commentRequest.second,
                         initialSeekMs = commentRequest.third,
                     )
-                    if (splitPanes) {
-                        // Both panes share white status-bar icons; keep a coherent dark strip.
-                        Box(Modifier.fillMaxWidth().height(playerTopInset)
-                            .background(androidx.compose.ui.graphics.Color.Black))
-                    }
                     // 视频底边的白色渐变放进页面录制层，Tab 玻璃采样时会把它和下方内容
                     // 当成同一张底片一起模糊，避免 Tab 内外一亮一白。
                     val fadeColor = MaterialTheme.colorScheme.background
-                    Box(
+                    if (!splitPanes) Box(
                         modifier = Modifier
                             .align(if (splitPanes) Alignment.TopEnd else Alignment.TopStart)
                             .then(if (splitPanes) Modifier.width(paneLayout.detailsWidthDp.dp) else Modifier.fillMaxWidth())
                             .height(54.dp)
                             .graphicsLayer {
-                                alpha = pageOverlayAlpha
+                                alpha = if (pipMode) 0f else pageOverlayAlpha
                                 // 渐变紧贴播放器真实底边。
                                 translationY = if (splitPanes) playerTopInset.toPx() else VideoPageBus.playerBottomPx
                             }
@@ -603,7 +645,7 @@ class VideoActivity : ComponentActivity() {
                             .align(if (splitPanes) Alignment.BottomEnd else Alignment.BottomCenter)
                             .then(if (splitPanes) Modifier.width(paneLayout.detailsWidthDp.dp) else Modifier.fillMaxWidth())
                             .height(54.dp)
-                            .graphicsLayer { alpha = pageOverlayAlpha }
+                            .graphicsLayer { alpha = if (pipMode) 0f else pageOverlayAlpha }
                             .background(
                                 Brush.verticalGradient(
                                     listOf(
@@ -613,7 +655,7 @@ class VideoActivity : ComponentActivity() {
                                 ),
                             ),
                     )
-                    val c = comments
+                    val c = if (pipMode) null else comments
                     if (c != null) {
                         Box(
                             modifier = Modifier
@@ -638,11 +680,12 @@ class VideoActivity : ComponentActivity() {
 }
 
 @Composable
-private fun RowScope.VideoDanmakuActions(onOpenInput: () -> Unit) {
+private fun RowScope.VideoDanmakuActions(compact: Boolean = false, onOpenInput: () -> Unit) {
     Spacer(Modifier.weight(1f))
     // 点我发弹幕（与「简介/评论」同一套玻璃）
     TeakGlassChip(
         label = "点我发弹幕",
+        horizontalPadding = if (compact) 10.dp else 14.dp,
         active = false,
         onClick = onOpenInput,
     )
@@ -651,7 +694,7 @@ private fun RowScope.VideoDanmakuActions(onOpenInput: () -> Unit) {
     TeakGlassChip(
         label = "弹",
         active = DanmakuSettings.enabled,
-        horizontalPadding = 15.dp,
+        horizontalPadding = if (compact) 10.dp else 15.dp,
         onClick = {
             DanmakuSettings.enabled = !DanmakuSettings.enabled
             VideoPageBus.danmakuOn = DanmakuSettings.enabled

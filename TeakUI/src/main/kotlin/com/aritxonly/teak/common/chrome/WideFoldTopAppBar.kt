@@ -65,12 +65,11 @@ fun WideFoldTopAppBar(
     bottomContent: @Composable () -> Unit = {},
 ) {
     Column(modifier.fillMaxWidth()
-        .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-        .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))) {
+        .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = TopAppBarDefaults.CollapsedHeight)
                 .padding(start = TopAppBarDefaults.NavigationIconPadding,
-                    end = TopAppBarDefaults.ActionIconPadding),
+                    end = TeakChromeDefaults.TopOverlayHorizontalPadding),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             navigationIcon?.invoke()
@@ -83,7 +82,8 @@ fun WideFoldTopAppBar(
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, content = actions)
+            Row(horizontalArrangement = Arrangement.spacedBy(TeakChromeDefaults.TopOverlayItemSpacing),
+                verticalAlignment = Alignment.CenterVertically, content = actions)
         }
         bottomContent()
     }

@@ -41,7 +41,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.roundToInt
 
-class BiliApi(context: Context) {
+class BiliApi(context: Context) : DynamicFeedSource {
     private val appContext: Context = context.applicationContext
     val cookieJar = BiliCookieJar(context)
 
@@ -319,6 +319,12 @@ class BiliApi(context: Context) {
                     ?: parseDurationText(raw.s("cover_right_text")),
                 pubdate = 0,
                 cid = player?.l("cid")?.takeIf { it > 0 } ?: 0,
+                categoryName = args.s("tname").ifBlank { raw.s("tname") },
+                appRecommendation = true,
+                dislikeReasons = (raw.optJSONArray("three_point_v2").objects()
+                    .filter { it.s("type") == "dislike" }.flatMap { it.optJSONArray("reasons").objects() } +
+                    raw.optJSONObject("three_point")?.optJSONArray("dislike_reasons").objects())
+                    .map { RecommendationReason(it.l("id"), it.s("name")) }.distinctBy { it.id },
                 isFollowed = args.optBoolean("is_followed", false) ||
                     raw.optBoolean("is_followed", false),
             )
@@ -326,6 +332,22 @@ class BiliApi(context: Context) {
         val rawCount = data.optJSONArray("items")?.length() ?: 0
         LogCollector.record("FEED", "app-raw=$rawCount kept=${out.size}")
         return out
+    }
+
+    suspend fun dislikeRecommendation(video: VideoItem, reason: RecommendationReason) {
+        if (video.appRecommendation) {
+            check(cookieJar.value("access_key").isNotBlank()) { "请重新扫码登录以提交 App 推荐反馈" }
+            val params = mutableMapOf("goto" to "av", "id" to video.aid.toString(),
+                "reason_id" to reason.id.toString(), "build" to "1", "mobi_app" to "android")
+            signAppParams(params)
+            dataRequest("/x/feed/dislike", params, base = APP)
+        } else {
+            postRequest("/x/web-interface/feedback/dislike", mapOf(
+                "app_id" to "100", "platform" to "5", "from_spmid" to "", "spmid" to "333.1007.0.0",
+                "goto" to "av", "id" to video.aid.toString(), "mid" to video.ownerMid.toString(),
+                "track_id" to video.recommendationTrackId, "feedback_page" to "1",
+                "reason_id" to reason.id.toString(), "csrf" to csrf), tolerateEmptyBody = false)
+        }
     }
 
     suspend fun popular(page: Int = 1): List<VideoItem> = withContext(Dispatchers.IO) {
@@ -1039,6 +1061,30 @@ class BiliApi(context: Context) {
         }.getOrNull()
     }
 
+    /** HyperPiliPlus FollowHttp / FanHttp: server paging and owner privacy are preserved. */
+    suspend fun relationUsers(mid: Long, fans: Boolean, page: Int = 1, frequent: Boolean = false): RelationPage =
+        withContext(Dispatchers.IO) {
+            require(mid > 0 && page > 0)
+            val data = dataRequest(if (fans) "/x/relation/fans" else "/x/relation/followings",
+                relationListParams(mid, fans, page, frequent))
+            val raw = data.optJSONArray("list").objects()
+            val ids = raw.map { it.l("mid") }.filter { it > 0 }.distinct()
+            // 'attribute' in another person's following list describes THEIR relationship.
+            val relations = if (isLoggedIn && ids.isNotEmpty()) runCatching {
+                dataRequest("/x/relation/relations", mapOf("fids" to ids.joinToString(",")))
+            }.getOrElse { error ->
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                null
+            } else null
+            val items = raw.mapNotNull { item ->
+                val id = item.l("mid").takeIf { it > 0 } ?: return@mapNotNull null
+                RelationUser(id, item.s("uname"), avatar(item.s("face"), 160), item.s("sign"),
+                    if (!isLoggedIn) 0 else relations?.optJSONObject(id.toString())?.optInt("attribute", 0))
+            }
+            val total = data.optInt("total", 0)
+            RelationPage(items, total, relationNextPage(page, raw.size, total))
+        }
+
     // ---------------------------------------------------------------- account
 
     suspend fun history(): List<HistoryItem> = historyPage(0L, 0L, "").items
@@ -1388,23 +1434,50 @@ class BiliApi(context: Context) {
 
     suspend fun dynamics(): List<DynamicItem> = dynamicPage("all").items
 
-    /** 动态分页：type = all / video。 */
-    suspend fun dynamicPage(type: String, offset: String = ""): DynamicPage =
+    /** Hyper-PiliPlus uses the same feed for categories and a selected UP. */
+    override suspend fun dynamicPage(type: String, offset: String, hostMid: Long?): DynamicPage =
         withContext(Dispatchers.IO) {
-            val params = mutableMapOf(
-                "timezone_offset" to "-480",
-                "type" to type,
-                "page" to "1",
-                "features" to "itemOpusStyle",
-            )
-            if (offset.isNotBlank()) params["offset"] = offset
-            val data = dataRequest("/x/polymer/web-dynamic/v1/feed/all", params)
+            val data = try {
+                dataRequest(DynamicFeedContract.feedPath, DynamicFeedContract.feedParams(type, offset, hostMid))
+            } catch (error: BiliException) {
+                if (error.code == 4101132) return@withContext DynamicPage(emptyList(), "", false)
+                throw error
+            }
             DynamicPage(
                 items = data.optJSONArray("items").objects().mapNotNull { parseDynamicItem(it) },
                 offset = data.s("offset"),
                 hasMore = data.optBoolean("has_more", false),
             )
         }
+
+    override suspend fun dynamicPortal(): DynamicPortal = withContext(Dispatchers.IO) {
+        val data = dataRequest(DynamicFeedContract.portalPath, DynamicFeedContract.portalParams)
+        val live = data.optJSONObject("live_users")
+        DynamicPortal(
+            upList = parseDynamicUpPage(data.optJSONObject("up_list")),
+            liveUsers = live?.optJSONArray("items").objects().mapNotNull {
+                val roomId = it.l("room_id")
+                if (roomId <= 0) null else DynamicLiveUser(
+                    mid = it.l("mid"), name = it.s("uname"), face = avatar(it.s("face"), 120),
+                    roomId = roomId, title = it.s("title"),
+                )
+            },
+            liveCount = live?.optInt("count", 0) ?: 0,
+        )
+    }
+
+    override suspend fun dynamicUpList(offset: String): DynamicUpPage = withContext(Dispatchers.IO) {
+        parseDynamicUpPage(dataRequest(DynamicFeedContract.upListPath, DynamicFeedContract.upListParams(offset)))
+    }
+
+    private fun parseDynamicUpPage(data: JSONObject?): DynamicUpPage = DynamicUpPage(
+        items = data?.optJSONArray("items").objects().mapNotNull {
+            val mid = it.l("mid")
+            if (mid <= 0) null else DynamicAuthor(mid, it.s("uname"), avatar(it.s("face"), 120), it.optBoolean("has_update"))
+        }.distinctBy { it.mid },
+        offset = data?.s("offset").orEmpty(),
+        hasMore = data?.optBoolean("has_more", false) ?: false,
+    )
 
     private fun parseDynamicItem(item: JSONObject, allowOrig: Boolean = true): DynamicItem? {
         val modules = item.optJSONObject("modules") ?: return null
@@ -1418,6 +1491,17 @@ class BiliApi(context: Context) {
         val common = major?.optJSONObject("common")
         val pgc = major?.optJSONObject("pgc")
         val live = major?.optJSONObject("live")
+        val liveRcmd = major?.optJSONObject("live_rcmd")
+            ?: major?.optJSONObject("subscription_new")?.optJSONObject("live_rcmd")
+        val liveInfo = liveRcmd?.s("content")?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { JSONObject(it).optJSONObject("live_play_info") }.getOrNull() }
+        val liveRecommendation = liveInfo?.let {
+            DynamicLiveRecommendation(
+                roomId = it.l("room_id"), title = it.s("title"), cover = image(it.s("cover"), 720),
+                live = it.optInt("live_status") == 1, areaName = it.s("area_name"),
+                watched = it.optJSONObject("watched_show")?.s("text_large").orEmpty(),
+            )
+        }
         val medialist = major?.optJSONObject("medialist")
         val courses = major?.optJSONObject("courses")
         val music = major?.optJSONObject("music")
@@ -1534,6 +1618,8 @@ class BiliApi(context: Context) {
                 5 -> "电视剧"
                 else -> "剧集"
             },
+            moduleTag = modules.optJSONObject("module_tag")?.s("text").orEmpty(),
+            liveRecommendation = liveRecommendation,
             ipLocation = author.s("pub_location_text")
                 .ifBlank { author.s("pub_location") }
                 .ifBlank { author.s("ip_location") }
@@ -1671,26 +1757,24 @@ class BiliApi(context: Context) {
         }.getOrNull()
     }
 
-    private fun spaceBannerFrom(payload: JSONObject?): String {
-        val images = payload?.optJSONObject("images") ?: return ""
-        val day = images.s("imgUrl").orEmpty()
-        val night = images.s("night_imgurl").orEmpty()
-        val collectionFirst = images
-            .optJSONObject("collection_top_simple")
-            ?.optJSONObject("top")
-            ?.optJSONArray("result")
-            ?.optJSONObject(0)
-        val collectionCover = collectionFirst
-            ?.optJSONObject("item")
-            ?.optJSONObject("image")
-            ?.s("default_image")
-            .orEmpty()
-            .ifBlank { collectionFirst?.s("cover").orEmpty() }
-        return image(collectionCover.ifBlank { day.ifBlank { night } }, 1080)
+    private fun spaceBannerCandidates(payload: JSONObject?, info: JSONObject): List<String> {
+        val images = payload?.optJSONObject("images")
+        val first = images?.optJSONObject("collection_top_simple")?.optJSONObject("top")
+            ?.optJSONArray("result")?.optJSONObject(0)
+        val collection = first?.optJSONObject("item")?.optJSONObject("image")?.s("default_image").orEmpty()
+        val web = info.s("top_photo").ifBlank { info.optJSONObject("card")?.s("top_photo").orEmpty() }
+            .ifBlank { info.optJSONObject("space")?.s("top_photo").orEmpty() }
+        // The App endpoint can return its default pink dressing even when a custom web banner exists.
+        return orderedSpaceBanners(collection, first?.s("cover").orEmpty(), web,
+            images?.s("imgUrl").orEmpty(), images?.s("night_imgurl").orEmpty()).map(::image)
     }
 
-    /** 空间头图：优先 App 聚合接口 /x/v2/space 的 images，失败回退网页 acc/info 的 top_photo。 */
-    private suspend fun spaceHeaderImage(mid: Long): String = spaceBannerFrom(spaceAppPayload(mid))
+    private fun spaceBannerAlignment(payload: JSONObject?): Float {
+        val item = payload?.optJSONObject("images")?.optJSONObject("collection_top_simple")
+            ?.optJSONObject("top")?.optJSONArray("result")?.optJSONObject(0)?.optJSONObject("item")
+        val image = item?.optJSONObject("image") ?: item?.optJSONObject("animation")
+        return spaceBannerAlignment(image?.s("location").orEmpty(), image?.optDouble("height", 0.0) ?: 0.0)
+    }
 
     /** 为 TA 充电的人数：使用 PiliPlus 同款 App 聚合接口的 elec.total。 */
     suspend fun spaceChargeCount(mid: Long): Long = withContext(Dispatchers.IO) {
@@ -1802,14 +1886,9 @@ class BiliApi(context: Context) {
                         dataRequest("/x/space/upstat", mapOf("mid" to mid.toString())).l("likes")
                     }.getOrDefault(0L).takeIf { it > 0L }
                     ?: nav?.l("likes") ?: 0L,
-                banner = spaceBannerFrom(appSpace)
-                    .ifBlank {
-                        val card = info.optJSONObject("card")
-                        val raw = info.s("top_photo")
-                            .ifBlank { card?.s("top_photo").orEmpty() }
-                            .ifBlank { info.optJSONObject("space")?.s("top_photo").orEmpty() }
-                        runCatching { image(raw, 1080) }.getOrDefault("")
-                    },
+                banner = spaceBannerCandidates(appSpace, info).firstOrNull().orEmpty(),
+                bannerFallbacks = spaceBannerCandidates(appSpace, info).drop(1),
+                bannerAlignmentY = spaceBannerAlignment(appSpace),
                 officialTitle = official?.s("title").orEmpty(),
                 officialDesc = official?.s("desc").orEmpty(),
                 officialType = official?.optInt("type", 0) ?: 0,
@@ -2229,25 +2308,18 @@ class BiliApi(context: Context) {
             .orEmpty()
     }
 
-    suspend fun messages(type: Int, page: Int = 1): List<MessageItem> = withContext(Dispatchers.IO) {
+    suspend fun messages(type: Int, page: Int = 1): List<MessageItem> = messagesPage(type).items
+
+    suspend fun messagesPage(type: Int, cursor: MessageCursor? = null): MessageFeedPage = withContext(Dispatchers.IO) {
+        if (type == 3) return@withContext systemMessages(cursor)
         val path = when (type) {
             0 -> "/x/msgfeed/reply"
             1 -> "/x/msgfeed/at"
             2 -> "/x/msgfeed/like"
-            else -> "/x/msgfeed/system"
+            else -> error("Unknown message feed")
         }
-        val data = dataRequest(
-            path,
-            mapOf(
-                "pn" to page.toString(),
-                "ps" to "20",
-                "platform" to "web",
-                "mobi_app" to "web",
-                "build" to "0",
-                "web_location" to "333.40164",
-                "csrf" to csrf,
-            ),
-        )
+        val params = messageFeedParams(type, cursor)
+        val data = dataRequest(path, params)
         // 收到的赞返回的是 { latest: { items }, total: { items } } 两个分桶，
         // 不是顶层的 items；原来只读顶层，所以这个页面一直是空的。
         val rawItems = if (type == 2) {
@@ -2386,6 +2458,8 @@ class BiliApi(context: Context) {
                     ?: (detail?.l("source_id") ?: 0L),
                 businessId = businessId,
                 seekMs = seekSeconds * 1000L,
+                nativeUri = nativeUri,
+                noticeState = item.optInt("notice_state", 0),
                 quote = quote,
                 subjectText = subjectText,
                 subjectCover = subjectCover,
@@ -2400,7 +2474,11 @@ class BiliApi(context: Context) {
             "MSG",
             "type=$type items=${rawItems.size} parsed=${enriched.size}",
         )
-        enriched
+        val next = (if (type == 2) data.optJSONObject("total") else data)?.optJSONObject("cursor")
+        val nextId = next?.l("id") ?: 0L
+        val nextTime = next?.l("time") ?: 0L
+        MessageFeedPage(enriched, messageContinuation(cursor, nextId, nextTime,
+            next == null || next.optBoolean("is_end", false)))
     }
 
     /**
@@ -2478,49 +2556,14 @@ class BiliApi(context: Context) {
         followingOnly: Boolean,
         sessionTs: Long = 0L,
         pageSize: Int = 25,
-        /** 昵称 / 头像补全完成后再回调一次，让首屏先显示、名字稍后补上。 */
         onEnriched: ((List<MessageSession>) -> Unit)? = null,
-    ): Pair<List<MessageSession>, Boolean> = withContext(Dispatchers.IO) {
-        val request = mutableMapOf(
-            "session_type" to "4",
-            "group_fold" to "0",
-            "unfollow_fold" to "0",
-            "sort_rule" to "2",
-            "size" to pageSize.toString(),
-            "mobi_app" to "web",
-        )
+    ): MessageSessionPage = withContext(Dispatchers.IO) {
+        val request = mutableMapOf("session_type" to "4", "group_fold" to "0",
+            "unfollow_fold" to "0", "sort_rule" to "2", "size" to pageSize.toString(), "mobi_app" to "web")
         if (sessionTs > 0L) request["session_ts"] = sessionTs.toString()
-        val root = rawRequest(
-            "/session_svr/v1/session_svr/get_sessions",
-            request,
-            base = VC,
-        )
-        if (root.optInt("code", 0) != 0) return@withContext emptyList<MessageSession>() to false
-        val allSessions = root.optJSONObject("data")
-            ?.optJSONArray("session_list")
-            ?.objects()
-            .orEmpty()
-        val raw = if (followingOnly) {
-            val followed = allSessions.filter {
-                it.optInt("is_follow", 0) == 1 &&
-                    it.optInt("system_msg_type", 0) == 0
-            }
-            if (followed.isNotEmpty()) {
-                followed
-            } else {
-                rawRequest(
-                    "/session_svr/v1/session_svr/get_sessions",
-                    request + ("session_type" to "9"),
-                    base = VC,
-                ).optJSONObject("data")
-                    ?.optJSONArray("session_list")
-                    ?.objects()
-                    .orEmpty()
-                    .filter { it.optInt("system_msg_type", 0) == 0 }
-            }
-        } else {
-            allSessions
-        }
+        val data = dataRequest("/session_svr/v1/session_svr/get_sessions", request, base = VC)
+        val allSessions = data.optJSONArray("session_list").objects()
+        val raw = if (followingOnly) allSessions.filter { it.optInt("is_follow") == 1 } else allSessions
         val system = raw.map { it.toMessageSession() }
         // 首屏先返回：内存缓存里已经有的名字/头像立即带上，其余留给后台补全。
         val quick = system.map { session ->
@@ -2533,45 +2576,34 @@ class BiliApi(context: Context) {
         }
         val needResolve = quick
             .filter { it.name.isBlank() && it.sessionType == 1 && !it.isSystem }
-        if (needResolve.isNotEmpty() && onEnriched != null) {
-            backgroundScope.launch {
-                runCatching {
-                    kotlinx.coroutines.coroutineScope {
-                        needResolve.map { session ->
-                            async {
-                                val cached = MessageUserCache.get(session.talkerId)
-                                if (cached != null) {
-                                    session.copy(name = cached.first, avatar = cached.second)
-                                } else {
-                                    val brief = userBrief(session.talkerId)
-                                    if (brief == null) {
-                                        session
-                                    } else {
-                                        MessageUserCache.put(
-                                            session.talkerId,
-                                            brief.first,
-                                            brief.second,
-                                        )
-                                        session.copy(name = brief.first, avatar = brief.second)
-                                    }
-                                }
-                            }
-                        }.awaitAll()
-                    }.associateBy { it.id }.let { map ->
-                        onEnriched(quick.map { map[it.id] ?: it })
+        val resolved = if (needResolve.isEmpty()) quick else kotlinx.coroutines.coroutineScope {
+            val limit = kotlinx.coroutines.sync.Semaphore(4)
+            val names = needResolve.map { session -> async {
+                limit.acquire()
+                try {
+                    userBrief(session.talkerId)?.let { brief ->
+                        MessageUserCache.put(session.talkerId, brief.first, brief.second)
+                        session.id to brief
                     }
-                }
-            }
+                } finally { limit.release() }
+            } }.awaitAll().filterNotNull().toMap()
+            quick.map { session -> names[session.id]?.let { session.copy(name = it.first, avatar = it.second) } ?: session }
         }
-        quick to (raw.size >= pageSize)
+        val nextTs = allSessions.lastOrNull()?.l("session_ts") ?: 0L
+        val more = if (data.has("has_more")) data.optInt("has_more") == 1 else allSessions.size >= pageSize
+        MessageSessionPage(resolved, sessionContinuation(sessionTs, nextTs, more))
     }
 
     /** 拉取一个私信会话的消息。 */
-    suspend fun privateMessages(
+    suspend fun privateMessages(talkerId: Long, sessionType: Int = 1, size: Int = 30): List<ChatMessage> =
+        privateMessagePage(talkerId, sessionType, size).items
+
+    suspend fun privateMessagePage(
         talkerId: Long,
         sessionType: Int = 1,
         size: Int = 30,
-    ): List<ChatMessage> = withContext(Dispatchers.IO) {
+        before: Long? = null,
+    ): ChatMessagePage = withContext(Dispatchers.IO) {
         val data = dataRequest(
             "/svr_sync/v1/svr_sync/fetch_session_msgs",
             mapOf(
@@ -2582,26 +2614,28 @@ class BiliApi(context: Context) {
                 "build" to "0",
                 "mobi_app" to "web",
                 "web_location" to "333.1296",
-            ),
+            ) + (before?.let { mapOf("begin_seqno" to it.toString()) } ?: emptyMap()),
             signed = true,
             base = VC,
         )
         val own = mid
-        data.optJSONArray("messages").objects().mapNotNull { message ->
+        val items = data.optJSONArray("messages").objects().mapNotNull { message ->
             val type = message.optInt("msg_type", 1)
             val raw = message.s("content")
             val content = runCatching { JSONObject(raw) }.getOrNull()
-            val text = when (type) {
+            val withdrawn = message.optInt("msg_status") == 1
+            val text = if (withdrawn) "消息已撤回" else when (type) {
                 1 -> content?.s("content").orEmpty()
                 2 -> ""
                 6, 7 -> content?.s("title").orEmpty()
                 else -> content?.s("content").orEmpty().ifBlank { raw }
             }
-            val image = if (type == 2) content?.s("url").orEmpty() else ""
+            val image = if (type == 2 && !withdrawn) content?.s("url").orEmpty() else ""
             if (text.isBlank() && image.isBlank() && type != 1) return@mapNotNull null
             ChatMessage(
                 id = message.l("msg_key").takeIf { it != 0L }
                     ?: message.l("msg_seqno"),
+                sequence = message.l("msg_seqno"),
                 senderId = message.l("sender_uid"),
                 timestamp = message.l("timestamp").takeIf { it > 0L }
                     ?: message.l("msg_time"),
@@ -2609,20 +2643,23 @@ class BiliApi(context: Context) {
                 imageUrl = image,
                 isMine = message.l("sender_uid") == own,
             )
-        }.sortedBy { it.timestamp }
+        }.sortedBy { it.sequence }
+        val next = data.optString("min_seqno").toLongOrNull() ?: 0L
+        ChatMessagePage(items, sessionContinuation(before ?: 0L, next, data.optInt("has_more") == 1))
     }
 
     /** 发送一条纯文本私信。 */
-    suspend fun sendPrivateMessage(talkerId: Long, text: String): Boolean =
+    suspend fun sendPrivateMessage(talkerId: Long, text: String, sessionType: Int = 1,
+        imageContent: String? = null): Boolean =
         withContext(Dispatchers.IO) {
-            if (text.isBlank() || csrf.isBlank()) return@withContext false
+            if ((text.isBlank() && imageContent == null) || csrf.isBlank()) return@withContext false
             val now = System.currentTimeMillis() / 1000L
-            val content = JSONObject().put("content", text).toString()
+            val content = imageContent ?: JSONObject().put("content", text).toString()
             val params = mapOf(
                 "msg[sender_uid]" to mid.toString(),
                 "msg[receiver_id]" to talkerId.toString(),
-                "msg[receiver_type]" to "1",
-                "msg[msg_type]" to "1",
+                "msg[receiver_type]" to sessionType.toString(),
+                "msg[msg_type]" to if (imageContent != null) "2" else "1",
                 "msg[msg_status]" to "0",
                 "msg[dev_id]" to java.util.UUID.randomUUID().toString(),
                 "msg[timestamp]" to now.toString(),
@@ -2640,7 +2677,7 @@ class BiliApi(context: Context) {
                     params,
                     base = VC,
                     method = "POST",
-                    tolerateEmptyBody = true,
+                    tolerateEmptyBody = false,
                 )
             }.getOrNull() ?: return@withContext false
             root.optInt("code", 0) == 0
@@ -2692,32 +2729,33 @@ class BiliApi(context: Context) {
         }.getOrNull()
     }
 
-    /** 一键把所有未读消息标为已读；接口失败时由 UI 退化为本地清除红点。 */
+    suspend fun messageFeedUnread(): Map<String, Int> {
+        val data = dataRequest("/x/msgfeed/unread", mapOf("mobi_app" to "web", "build" to "0"))
+        return listOf("reply", "at", "like", "sys_msg").associateWith { data.optInt(it).coerceAtLeast(0) }
+    }
+
+    suspend fun messageUnreadCount(): Int = withContext(Dispatchers.IO) {
+        val params = mapOf("build" to "0", "mobi_app" to "web", "web_location" to "333.1365")
+        val privateData = dataRequest("/session_svr/v1/session_svr/single_unread",
+            params + ("unread_type" to "0"), base = "https://api.vc.bilibili.com")
+        val feed = dataRequest("/x/msgfeed/unread", params)
+        (listOf("follow_unread", "unfollow_unread").sumOf { privateData.optInt(it).coerceAtLeast(0) } +
+            listOf("at", "like", "reply", "sys_msg").sumOf { feed.optInt(it).coerceAtLeast(0) })
+    }
+
+    /** Only report success after the server confirms that every unread category is clear. */
     suspend fun clearAllUnread(sessions: List<MessageSession>): Boolean = withContext(Dispatchers.IO) {
-        val msgfeed = listOf("/x/msgfeed/clearUnread", "/x/msgfeed/clear_unread").any { path ->
-            runCatching {
-                dataRequest(path, emptyMap(), method = "POST")
-            }.isSuccess
-        }
-        val token = csrf
-        val acked = sessions.filter { it.unread > 0 && it.maxSeqno > 0L }.map { session ->
-            runCatching {
-                dataRequest(
-                    "/session_svr/v1/session_svr/update_ack",
-                    mapOf(
-                        "talker_id" to session.talkerId.toString(),
-                        "session_type" to session.sessionType.toString(),
-                        "ack_seqno" to session.maxSeqno.toString(),
-                        "csrf" to token,
-                        "csrf_token" to token,
-                        "mobi_app" to "web",
-                    ),
-                    base = VC,
-                    method = "POST",
-                )
-            }.isSuccess
-        }.any { it }
-        msgfeed || acked
+        val all = sessions.associateBy { it.id }.toMutableMap()
+        var cursor = 0L
+        do {
+            val page = messageSessions(false, cursor)
+            page.items.forEach { all[it.id] = it }
+            cursor = page.next ?: 0L
+        } while (cursor != 0L)
+        markSessionsRead(all.values.toList())
+        // These feeds acknowledge their current notifications when opened, as in HyperPiliPlus.
+        for (type in 0..3) messagesPage(type)
+        messageUnreadCount() == 0
     }
 
     /** 仅取用户 IP 属地，供动态详情在接口未返回发布 IP 时兜底。 */
@@ -2736,26 +2774,80 @@ class BiliApi(context: Context) {
         }.getOrDefault("")
     }
 
-    /** 兼容旧入口：只清会话未读。 */
     suspend fun markSessionsRead(sessions: List<MessageSession>): Boolean = withContext(Dispatchers.IO) {
-        val token = csrf
-        sessions.filter { it.unread > 0 && it.maxSeqno > 0L }.map { session ->
-            runCatching {
-                dataRequest(
-                    "/session_svr/v1/session_svr/update_ack",
-                    mapOf(
-                        "talker_id" to session.talkerId.toString(),
-                        "session_type" to session.sessionType.toString(),
-                        "ack_seqno" to session.maxSeqno.toString(),
-                        "csrf" to token,
-                        "csrf_token" to token,
-                        "mobi_app" to "web",
-                    ),
-                    base = VC,
-                    method = "POST",
-                )
-            }.isSuccess
-        }.any { it }
+        acknowledgeUnreadSessions(sessions) { session ->
+            dataRequest("/session_svr/v1/session_svr/update_ack", sessionParams(session) +
+                ("ack_seqno" to session.maxSeqno.toString()), base = VC, signed = true)
+        }
+        true
+    }
+
+    private fun sessionParams(session: MessageSession) = mapOf(
+        "talker_id" to session.talkerId.toString(), "session_type" to session.sessionType.toString(),
+        "csrf" to csrf, "csrf_token" to csrf, "mobi_app" to "web", "build" to "0")
+
+    suspend fun removeMessageSession(session: MessageSession) {
+        dataRequest("/session_svr/v1/session_svr/remove_session", sessionParams(session),
+            base = VC, signed = true, method = "POST")
+    }
+
+    suspend fun pinMessageSession(session: MessageSession, pinned: Boolean) {
+        dataRequest("/session_svr/v1/session_svr/set_top", sessionParams(session) +
+            ("op_type" to sessionPinOperation(pinned)), base = VC, signed = true, method = "POST")
+    }
+
+    suspend fun muteMessageSession(session: MessageSession, muted: Boolean) {
+        dataRequest("/link_setting/v1/link_setting/set_msg_dnd", mapOf(
+            "uid" to mid.toString(), "dnd_uid" to session.talkerId.toString(),
+            "setting" to if (muted) "1" else "0", "csrf" to csrf, "mobi_app" to "web", "build" to "0"),
+            base = VC, method = "POST")
+    }
+
+    suspend fun deleteFeedMessage(type: Int, id: String) {
+        require(type in 0..2)
+        postRequest("/x/msgfeed/del", mapOf("tp" to messageDeleteType(type).toString(), "id" to id,
+            "csrf" to csrf, "csrf_token" to csrf, "mobi_app" to "web", "build" to "0"), tolerateEmptyBody = false)
+    }
+
+    suspend fun setLikeNotice(id: String, enabled: Boolean) {
+        postRequest("/x/msgfeed/notice", mapOf("tp" to "0", "id" to id,
+            "notice_state" to if (enabled) "0" else "1", "platform" to "web", "mobi_app" to "web",
+            "build" to "0", "csrf" to csrf), tolerateEmptyBody = false)
+    }
+
+    private suspend fun systemMessages(cursor: MessageCursor?): MessageFeedPage {
+        val params = mutableMapOf("page_size" to "20", "mobi_app" to "web", "build" to "0")
+        cursor?.let { params["cursor"] = it.id.toString() }
+        val root = rawRequest("/x/sys-msg/query_notify_list", params, base = "https://message.bilibili.com")
+        val code = root.optInt("code")
+        if (code != 0) throw BiliException(code, apiMessage(code, root.optString("message")))
+        val items = root.optJSONArray("data").objects().map {
+            val raw = it.s("content")
+            val content = runCatching { JSONObject(raw).optString("web", raw) }.getOrDefault(raw)
+            MessageItem(id = it.s("id"), title = it.s("title"), content = content,
+                time = 0L, name = "系统通知", avatar = "", source = it.s("time_at"), systemCursor = it.l("cursor"))
+        }
+        if (cursor == null && items.isNotEmpty()) {
+            try {
+                dataRequest("/x/sys-msg/update_cursor", mapOf("cursor" to items.first().systemCursor.toString(),
+                    "csrf" to csrf), base = "https://message.bilibili.com")
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { LogCollector.record("MSG", "system read acknowledgement failed") }
+        }
+        val next = items.lastOrNull()?.systemCursor ?: 0L
+        return MessageFeedPage(items, messageContinuation(cursor, next, 0L, items.size < 20))
+    }
+
+    suspend fun deleteSystemMessage(id: String) = withContext(Dispatchers.IO) {
+        val body = JSONObject().put("csrf", csrf).put("ids", JSONArray().put(id.toLong()))
+            .put("station_ids", JSONArray()).put("type", 4).put("mobi_app", "android")
+        val request = Request.Builder()
+            .url("https://message.bilibili.com/x/sys-msg/del_notify_list?mobi_app=android&csrf=${encode(csrf)}")
+            .header("User-Agent", UA).header("Referer", "https://message.bilibili.com/")
+            .post(body.toString().toRequestBody("application/json".toMediaTypeOrNull())).build()
+        val response = executeOnce(request, false)
+        val code = response.optInt("code")
+        if (code != 0) throw BiliException(code, apiMessage(code, response.optString("message")))
     }
 
     private fun JSONObject.toMessageSession(): MessageSession {
@@ -2777,7 +2869,10 @@ class BiliApi(context: Context) {
             time = (l("session_ts") / 1_000_000L).takeIf { it > 0L }
                 ?: (last?.l("timestamp") ?: 0L),
             unread = optInt("unread_count", 0),
-            isSystem = systemType != 0 || account != null,
+            isSystem = systemType != 0,
+            followed = optInt("is_follow") == 1,
+            pinned = l("top_ts") > 0L,
+            muted = optInt("is_dnd") == 1,
             maxSeqno = l("max_seqno"),
             sessionTs = l("session_ts"),
         )
@@ -2820,6 +2915,8 @@ class BiliApi(context: Context) {
             duration = item.optInt("duration", 0),
             pubdate = item.l("pubdate"),
             cid = item.l("cid"),
+            categoryName = item.s("tname"),
+            recommendationTrackId = item.s("track_id"),
             reason = item.optJSONObject("rcmd_reason")?.s("content").orEmpty(),
             isFollowed = item.optBoolean("is_followed", false),
         )
@@ -3421,7 +3518,7 @@ class BiliApi(context: Context) {
                 .header("Origin", "https://www.bilibili.com")
         }
         val request = builder.build()
-        if (BuildConfig.DEBUG) android.util.Log.d("BiliApi", "request ${request.url}")
+        if (BuildConfig.DEBUG) android.util.Log.d("BiliApi", "request ${request.url.encodedPath}")
 
         // 只对 GET 做自动重试：POST 可能是投币/点赞，重复发送会有副作用。
         // 最多两次：一次正常、一次重试；避免网络完全断开时转圈太久。
@@ -3454,7 +3551,7 @@ class BiliApi(context: Context) {
             "fail path=${request.url.encodedPath} status=${(error as? BiliException)?.code} " +
                 "message=${error.message}",
         )
-        if (BuildConfig.DEBUG) android.util.Log.w("BiliApi", "network error ${request.url}", error)
+        if (BuildConfig.DEBUG) android.util.Log.w("BiliApi", "network error ${request.url.encodedPath}", error)
         throw error
     }
 

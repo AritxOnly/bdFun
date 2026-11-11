@@ -162,6 +162,7 @@ class SettingsStore(context: Context) {
         prefs.getStringSet("dm_keywords", emptySet()).orEmpty().toSet(),
     )
 
+    private val stopOnVideoPageExitState = mutableStateOf(prefs.getBoolean("stop_on_video_page_exit", false))
     private val backgroundPlayState = mutableStateOf(prefs.getBoolean("background_play", true))
     private val showDiscAfterVideoState =
         mutableStateOf(prefs.getBoolean("show_disc_after_video", true))
@@ -593,7 +594,15 @@ class SettingsStore(context: Context) {
             prefs.edit().putBoolean("background_play", value).apply()
         }
 
-    /** 退出视频后是否继续播放（显示唱片或进入画中画）。与“App 进入后台是否继续播放”解耦。 */
+    /** 显式离开视频页或关闭 PiP 时停止；不拦截切到桌面进入 PiP。 */
+    var stopOnVideoPageExit: Boolean
+        get() = stopOnVideoPageExitState.value
+        set(value) {
+            stopOnVideoPageExitState.value = value
+            prefs.edit().putBoolean("stop_on_video_page_exit", value).apply()
+        }
+
+    /** 退出视频后是否继续播放（显示唱片或进入画中画）。新停止选项开启时优先停止。 */
     var showDiscAfterVideo: Boolean
         get() = showDiscAfterVideoState.value
         set(value) {

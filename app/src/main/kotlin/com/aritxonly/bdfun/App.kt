@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun
 
+import androidx.lifecycle.repeatOnLifecycle
 import com.aritxonly.teak.common.chrome.LocalTeakPageScrollState
 import com.aritxonly.teak.common.chrome.LocalTopBarScrollProgress
 import com.aritxonly.teak.common.chrome.ProgressiveTopBarMaterial
@@ -59,6 +60,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.compose.foundation.layout.Row
+import top.yukonga.miuix.kmp.icon.extended.Search
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
@@ -115,6 +117,7 @@ import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.ContactsCircle
 import top.yukonga.miuix.kmp.icon.extended.Home
+import top.yukonga.miuix.kmp.icon.extended.Album
 import top.yukonga.miuix.kmp.icon.extended.Messages
 import top.yukonga.miuix.kmp.theme.darkColorScheme as miuixDarkColorScheme
 import top.yukonga.miuix.kmp.theme.lightColorScheme as miuixLightColorScheme
@@ -234,7 +237,7 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
     val destinations = remember {
         listOf(
             Destination("home", "首页", MiuixIcons.Home),
-            Destination("dynamics", "动态", MiuixIcons.Messages),
+            Destination("dynamics", "动态", MiuixIcons.Album),
             Destination("mine", "我的", MiuixIcons.ContactsCircle),
         )
     }
@@ -262,13 +265,27 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
     // 再次点击当前底栏项 → 触发该页刷新
     var dynamicRefreshTick by remember { mutableIntStateOf(0) }
     val appScope = rememberCoroutineScope()
+    var unreadMessageCount by remember(session?.mid) { mutableIntStateOf(0) }
+    val unreadLifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    LaunchedEffect(session?.mid, unreadLifecycleOwner) {
+        if (session == null) return@LaunchedEffect
+        unreadLifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            while (true) {
+                try { unreadMessageCount = api.messageUnreadCount() }
+                catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel }
+                catch (_: Exception) { }
+                kotlinx.coroutines.delay(60_000)
+            }
+        }
+    }
+
 
     LaunchedEffect(Unit) {
         session = runCatching { api.nav() }.getOrNull()
     }
     // 首页数据放在 App 层：进视频/搜索/设置再返回时不会重新拉取，滚动位置也保留。
     val homeFeed = rememberHomeFeedState(api)
-    val dynamicFeed = rememberDynamicFeedState(api)
+    val dynamicFeed = rememberDynamicFeedState(api, session?.mid)
     // 首页 / 动态页各自注册回到顶部；其他底栏页不显示。
     when (selected) {
         0 -> com.aritxonly.bdfun.ui.RegisterScrollTop(homeFeed.gridState, "home")
@@ -297,7 +314,6 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
     SideEffect { TeakUiStyle.style = settings.interfaceStyle }
 
     val wideNavigation = isWideFoldTopBar() && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
-    val navigationInset = if (wideNavigation && !showSearch) 96.dp else 0.dp
 
     TeakTheme(
         dark = dark,
@@ -341,8 +357,7 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .layerBackdrop(backdrop)
-                            .padding(start = navigationInset),
+                            .layerBackdrop(backdrop),
                     ) {
                         // 三个 tab：横向相连的 pager（可拖拽，切换是同一套非线性动画）
                         // 外面包一层更大的触摸阈值，手指轻抖不会误翻页。
@@ -396,7 +411,15 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
 
                     val pageFloat = (tabPagerState.currentPage + tabPagerState.currentPageOffsetFraction)
                         .coerceAtLeast(0f)
-                    ScrollTopButton(settings)
+                    ScrollTopButton(
+                        settings,
+                        bottomObstruction = if (showSearch) 0.dp else
+                            TeakFloatingTabBarDefaults.Height + when {
+                                wideNavigation -> 12.dp
+                                settings.bottomBarRaise -> 4.dp + TeakChromeDefaults.RaisedBottomBarExtra
+                                else -> 4.dp
+                            },
+                    )
 
                     // 搜索页：搜索框保持不动，下面整块换成纯白页（搜索记录 + 热搜 / 结果）
                     if (showSearch || searchReveal > 0.01f) {
@@ -445,7 +468,6 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                         CompositionLocalProvider(LocalTopBarScrollProgress provides (if (showSearch) searchChrome.materialProgress else homeChrome.materialProgress)) {
                         ProgressiveTopBarMaterial(
                             modifier = Modifier.align(Alignment.TopCenter)
-                                .padding(start = navigationInset)
                                 .graphicsLayer {
                                     translationX = -pageFloat * size.width * 0.92f
                                     alpha = (1f - pageFloat).coerceIn(0f, 1f)
@@ -453,6 +475,7 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                         ) {
                         HomeTopBar(
                             profile = session,
+                            unreadCount = unreadMessageCount,
                             searchActive = showSearch,
                             searchQuery = searchQuery,
                             onQueryChange = { searchQuery = it },
@@ -519,7 +542,6 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                         CompositionLocalProvider(LocalTopBarScrollProgress provides dynamicChrome.materialProgress) {
                         ProgressiveTopBarMaterial(
                             modifier = Modifier.align(Alignment.TopCenter)
-                                .padding(start = navigationInset)
                                 .graphicsLayer {
                                     translationX = (1f - pageFloat) * size.width * 0.92f
                                     alpha = (1f - kotlin.math.abs(pageFloat - 1f)).coerceIn(0f, 1f)
@@ -560,7 +582,7 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                         BrandPink
                     }
 
-                    val discVisible = settings.showDiscAfterVideo && BackgroundPlayback.active
+                    val discVisible = !wideNavigation && settings.showDiscAfterVideo && BackgroundPlayback.active
                     val discSlot = rememberSpringFloat(
                         target = if (discVisible) 1f else 0f,
                         stiffness = 300f,
@@ -596,14 +618,35 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
 
                     if (tabBarAlpha > 0.01f) {
                         if (wideNavigation) {
-                            com.aritxonly.teak.common.navigation.TeakNavigationRail(
-                                items = tabItems,
-                                selectedKey = destinations[selected].key,
-                                onItemSelected = onBarItem,
-                                modifier = Modifier.align(Alignment.CenterStart)
-                                    .statusBarsPadding().navigationBarsPadding().padding(start = 8.dp)
+                            Row(
+                                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                                    .navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp)
                                     .graphicsLayer { alpha = tabBarAlpha }.blockTouches(tabBarCovered),
-                            )
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                TeakFloatingTabBar(
+                                    items = tabItems,
+                                    selectedKey = destinations[selected].key,
+                                    onItemSelected = onBarItem,
+                                    layout = TeakFloatingTabLayout.Stacked,
+                                    selectedContentColor = barSelectedColor,
+                                )
+                                androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                                com.aritxonly.teak.common.material.TeakGlassIconButton(
+                                    onClick = {
+                                        appScope.launch { tabPagerState.scrollToPage(0) }
+                                        searchChrome.reset()
+                                        showSearch = true
+                                        searchQuery = ""
+                                        searchSubmitted = null
+                                    },
+                                    size = TeakFloatingTabBarDefaults.Height,
+                                ) {
+                                    Icon(top.yukonga.miuix.kmp.icon.MiuixIcons.Search,
+                                        contentDescription = "搜索", tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.size(28.dp))
+                                }
+                            }
                         } else if (TeakUiStyle.isClassic) {
                             // 经典样式：底栏贴着屏幕底边，上方一条分割线，不做悬浮胶囊。
                             ClassicTabBar(

@@ -43,7 +43,9 @@ object TeakNavigator {
                 .putExtra("talker_id", session.talkerId)
                 .putExtra("session_type", session.sessionType)
                 .putExtra("name", session.name)
-                .putExtra("avatar", session.avatar),
+                .putExtra("avatar", session.avatar)
+                .putExtra("unread", session.unread)
+                .putExtra("max_seqno", session.maxSeqno),
         )
     }
 

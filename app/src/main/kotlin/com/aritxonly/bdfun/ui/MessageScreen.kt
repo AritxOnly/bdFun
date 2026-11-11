@@ -3,8 +3,16 @@ package com.aritxonly.bdfun.ui
 import androidx.activity.compose.BackHandler
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.More
+import top.yukonga.miuix.kmp.icon.extended.Delete
+import top.yukonga.miuix.kmp.icon.extended.Messages
+import top.yukonga.miuix.kmp.icon.extended.Contacts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberUpdatedState
+import com.aritxonly.bdfun.data.MessageCursor
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +27,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -39,11 +46,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -83,7 +88,7 @@ private val MessagePink = Color(0xFFF45B86)
 private val MessageBlue = Color(0xFF3CA9E8)
 private val MessageRed = Color(0xFFF04B4B)
 
-enum class MessageFeedKind { Reply, Like, Fans }
+enum class MessageFeedKind { Reply, Like, Fans, System }
 
 @Composable
 fun MessageScreen(
@@ -103,135 +108,99 @@ fun MessageScreen(
     RegisterScrollTop(listState, "message")
     var tabIndex by remember { mutableIntStateOf(0) }
     val tabProgress = remember { mutableFloatStateOf(0f) }
-    val sessionsByTab = remember { mutableStateMapOf<Int, List<MessageSession>>() }
-    val loadingByTab = remember { mutableStateMapOf<Int, Boolean>() }
-    val errorByTab = remember { mutableStateMapOf<Int, String?>() }
-    val sessionTsByTab = remember { mutableStateMapOf<Int, Long>() }
-    val hasMoreByTab = remember { mutableStateMapOf<Int, Boolean>() }
-    val loadingMoreByTab = remember { mutableStateMapOf<Int, Boolean>() }
-    var consumedReadAll by remember { mutableIntStateOf(0) }
-
+    var sessions by remember { mutableStateOf(emptyList<MessageSession>()) }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var next by remember { mutableStateOf<Long?>(null) }
+    var retryMore by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf<MessageSession?>(null) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var showMore by remember { mutableStateOf(false) }
+    var unread by remember { mutableStateOf(emptyMap<String, Int>()) }
+    var generation by remember { mutableIntStateOf(0) }
+    suspend fun load(more: Boolean = false) {
+        if (!loggedIn || loading || busy) return
+        val cursor = if (more) next ?: return else 0L
+        retryMore = more
+        loading = true
+        error = null
+        val version = ++generation
+        try {
+            val page = api.messageSessions(false, cursor, onEnriched = { enriched ->
+                scope.launch {
+                    if (generation == version) {
+                        val names = enriched.associateBy { it.id }
+                        sessions = sessions.map { current -> names[current.id]?.let {
+                            current.copy(name = it.name, avatar = it.avatar)
+                        } ?: current }
+                    }
+                }
+            })
+            sessions = ((if (more) sessions else emptyList()) + page.items).distinctBy { it.id }
+                .sortedByDescending { it.pinned }
+            next = page.next
+            runCatching { api.messageFeedUnread() }.onSuccess { unread = it }
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (e: Exception) { error = e.message ?: "消息加载失败" }
+        finally { loading = false }
+    }
+    MessageResumeEffect { load() }
+    LaunchedEffect(loggedIn) { if (loggedIn) load() else { sessions = emptyList(); unread = emptyMap() } }
+    var consumedReadAll by remember { mutableIntStateOf(MessagePageBus.readAllRequest) }
     LaunchedEffect(MessagePageBus.readAllRequest) {
-        val tick = MessagePageBus.readAllRequest
-        if (tick == 0 || tick == consumedReadAll) return@LaunchedEffect
-        consumedReadAll = tick
-        if (!loggedIn) {
-            context.showToast("登录后可操作")
-            return@LaunchedEffect
-        }
-        val snapshot = sessionsByTab.values.flatten()
+        if (consumedReadAll == MessagePageBus.readAllRequest) return@LaunchedEffect
+        consumedReadAll = MessagePageBus.readAllRequest
+        if (!loggedIn || busy || loading) return@LaunchedEffect
+        busy = true
+        generation++
         scope.launch {
-            runCatching { api.clearAllUnread(snapshot) }
-            sessionsByTab.keys.toList().forEach { key ->
-                sessionsByTab[key] = sessionsByTab[key].orEmpty().map { it.copy(unread = 0) }
-            }
-            context.showToast("已全部标为已读")
+        try {
+            val success = api.clearAllUnread(sessions)
+            context.showToast(if (success) "已全部标为已读" else "部分消息尚未标为已读，请重试")
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (e: Exception) { context.showToast(e.message ?: "标记已读失败") }
+        finally { busy = false }
+        load()
         }
     }
-
+    var consumedMore by remember { mutableIntStateOf(MessagePageBus.moreRequest) }
+    LaunchedEffect(MessagePageBus.moreRequest) {
+        if (consumedMore != MessagePageBus.moreRequest) {
+            consumedMore = MessagePageBus.moreRequest
+            showMore = true
+        }
+    }
+    fun mutate(action: suspend (MessageSession) -> MessageSession?) {
+        val target = selected ?: return
+        if (busy || loading) return
+        busy = true
+        generation++ // Ignore stale background name enrichment after a mutation.
+        scope.launch {
+            try {
+                val replacement = action(target)
+                sessions = sessions.mapNotNull { if (it.id == target.id) replacement else it }
+                    .sortedByDescending { it.pinned }
+                selected = null
+                confirmDelete = false
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { context.showToast(e.message ?: "操作失败") }
+            finally { busy = false }
+        }
+    }
     BackHandler(onBack = onBack)
     TrackTeakPageScroll(listState)
-
-    suspend fun loadTab(tab: Int, more: Boolean = false) {
-        if (!loggedIn) return
-        if (more) {
-            if (loadingMoreByTab[tab] == true || hasMoreByTab[tab] == false) return
-            loadingMoreByTab[tab] = true
-        } else {
-            loadingByTab[tab] = true
-            errorByTab[tab] = null
-        }
-        val lastTs = if (more) sessionTsByTab[tab] ?: 0L else 0L
-        val loadedPair = runCatching {
-            api.messageSessions(
-                followingOnly = tab == 1,
-                sessionTs = lastTs,
-                pageSize = 25,
-                onEnriched = { enriched ->
-                    // 首屏已经显示；昵称/头像补全后在后台静默替换。
-                    scope.launch {
-                        if (!more) {
-                            val current = sessionsByTab[tab]
-                            if (current != null &&
-                                current.firstOrNull()?.id == enriched.firstOrNull()?.id
-                            ) {
-                                sessionsByTab[tab] = enriched
-                            }
-                        }
-                    }
-                },
-            )
-        }.onFailure { errorByTab[tab] = it.message ?: "消息加载失败" }.getOrNull()
-        var loaded = loadedPair?.first.orEmpty()
-        var hasMore = loadedPair?.second == true
-        // 会话接口偶发空/失败时，退回系统通知列表，至少保证消息页有内容。
-        if (!more && loaded.isEmpty()) {
-            loaded = runCatching { api.messages(3) }
-                .getOrDefault(emptyList())
-                .map { item ->
-                    MessageSession(
-                        id = item.id,
-                        talkerId = item.userMid,
-                        sessionType = 1,
-                        name = item.name.ifBlank { item.title },
-                        avatar = item.avatar,
-                        preview = item.content.ifBlank { item.title },
-                        time = item.time,
-                        unread = 0,
-                        isSystem = true,
-                    )
-                }
-            hasMore = false
-        }
-        sessionsByTab[tab] = if (more) {
-            (sessionsByTab[tab].orEmpty() + loaded).distinctBy { it.id }
-        } else {
-            loaded
-        }
-        sessionTsByTab[tab] = loaded.lastOrNull()?.sessionTs ?: lastTs
-        hasMoreByTab[tab] = hasMore
-        if (more) loadingMoreByTab[tab] = false else loadingByTab[tab] = false
-    }
-
-    LaunchedEffect(loggedIn) {
-        if (!loggedIn) {
-            sessionsByTab.clear()
-            loadingByTab.clear()
-            return@LaunchedEffect
-        }
-        // 只先加载当前页；另一页等用户切过去再取，减少首次进入的请求量。
-        loadTab(tabIndex)
-    }
-
-    LaunchedEffect(tabIndex) {
-        if (loggedIn && sessionsByTab[tabIndex] == null && loadingByTab[tabIndex] != true) {
-            loadTab(tabIndex)
-        }
-    }
-
-    LaunchedEffect(tabIndex, sessionsByTab[tabIndex]?.size, hasMoreByTab[tabIndex]) {
-        val key = tabIndex
-        androidx.compose.runtime.snapshotFlow {
-            val info = listState.layoutInfo
-            info.visibleItemsInfo.lastOrNull()?.index ?: -1
-        }.collect { last ->
-            val size = sessionsByTab[key]?.size ?: 0
-            if (size > 0 && last >= size - 2 && hasMoreByTab[key] == true) {
-                loadTab(key, more = true)
-            }
-        }
-    }
+    val visibleSessions = sessions.filter { tabIndex == 0 || (it.followed && !it.isSystem) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
             modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding(),
+                .fillMaxSize(),
             contentPadding = PaddingValues(
                 start = 16.dp,
                 end = 16.dp,
-                top = 8.dp,
+                top = 8.dp + rememberStatusBarTop(),
                 bottom = 40.dp,
             ),
         ) {
@@ -244,7 +213,7 @@ fun MessageScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 18.dp)
-                        .clip(RoundedCornerShape(18.dp))
+                        .clip(com.aritxonly.teak.common.chrome.TeakContinuousCornerShape(22.dp))
                         .background(colors.surface)
                         .padding(vertical = 10.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -253,17 +222,24 @@ fun MessageScreen(
                         label = "回复与@",
                         modifier = Modifier.weight(1f),
                         onClick = onOpenReplies,
-                    ) { ChatGlyph(MessageGreen) }
+                        unread = (unread["reply"] ?: 0) + (unread["at"] ?: 0),
+                    ) { androidx.compose.material3.Icon(MiuixIcons.Messages, null, Modifier.size(ShortcutGlyphSize), tint = MessageGreen) }
                     MessageShortcut(
                         label = "收到喜欢",
                         modifier = Modifier.weight(1f),
                         onClick = onOpenLikes,
+                        unread = unread["like"] ?: 0,
                     ) { ResourceGlyph(res = TeakIcon.Like, tint = MessagePink, size = ShortcutGlyphSize) }
                     MessageShortcut(
                         label = "新增粉丝",
                         modifier = Modifier.weight(1f),
                         onClick = onOpenFans,
-                    ) { PersonGlyph(MessageBlue) }
+                    ) { androidx.compose.material3.Icon(MiuixIcons.Contacts, null, Modifier.size(ShortcutGlyphSize), tint = MessageBlue) }
+                    MessageShortcut(label = "系统通知", modifier = Modifier.weight(1f),
+                        unread = unread["sys_msg"] ?: 0,
+                        onClick = { com.aritxonly.bdfun.TeakNavigator.openMessageFeed(context, "system") }) {
+                        androidx.compose.material3.Icon(MiuixIcons.Messages, null, Modifier.size(ShortcutGlyphSize), tint = colors.primary)
+                    }
                 }
             }
 
@@ -308,32 +284,43 @@ fun MessageScreen(
                     }
                 }
             } else {
-                item(key = "sessions") {
-                    SwipeCardPager(
-                        selected = tabIndex,
-                        pageCount = 2,
-                        onSelected = { tabIndex = it },
-                        progressState = tabProgress,
-                    ) { page ->
-                        SessionCard(
-                            sessions = sessionsByTab[page].orEmpty(),
-                            loading = loadingByTab[page] == true,
-                            error = errorByTab[page],
-                            hasMore = hasMoreByTab[page] == true,
-                            loadingMore = loadingMoreByTab[page] == true,
-                            onOpen = { session ->
-                                if (!session.isSystem && session.talkerId > 0L) {
-                                    com.aritxonly.bdfun.TeakNavigator.openPrivateChat(context, session)
-                                } else {
-                                    context.showToast("系统消息请在消息中心查看")
-                                }
-                            },
-                            onLoadMore = {
-                                scope.launch { loadTab(page, more = true) }
-                            },
-                        )
+                itemsIndexed(visibleSessions, key = { _, session -> session.id }) { index, session ->
+                    MessageRowSurface(index == 0, index == visibleSessions.lastIndex) {
+                        SessionRow(session, onClick = {
+                            if (session.talkerId > 0L) com.aritxonly.bdfun.TeakNavigator.openPrivateChat(context, session)
+                        }, onLongClick = { selected = session; confirmDelete = false })
                     }
                 }
+                item(key = "footer") {
+                    MessagePageFooter(loading, error, next != null, visibleSessions.isEmpty(),
+                        onLoad = { scope.launch { load(more = if (error != null) retryMore else next != null && sessions.isNotEmpty()) } })
+                }
+            }
+        }
+    }
+    TeakActionSheet(showMore, onDismiss = { showMore = false }, title = "消息") {
+        ActionSheetRow("刷新消息", !loading && !busy) { showMore = false; scope.launch { load() } }
+        ActionSheetRow("全部标为已读", !loading && !busy) { showMore = false; MessagePageBus.requestReadAll() }
+    }
+    TeakActionSheet(selected != null, onDismiss = { if (!busy) selected = null }, title = selected?.name) {
+        val target = selected
+        if (target != null) {
+            val enabled = !busy && !loading
+            if (confirmDelete) {
+                Text("删除会话后，可通过对方的个人空间重新发起私信。", Modifier.padding(18.dp), color = colors.onBackgroundVariant)
+                ActionSheetRow("确认删除会话", enabled, MiuixIcons.Delete) { mutate { api.removeMessageSession(it); null } }
+                ActionSheetRow("取消", enabled) { confirmDelete = false }
+            } else {
+                ActionSheetRow(if (target.pinned) "取消置顶" else "置顶会话", enabled) {
+                    mutate { api.pinMessageSession(it, !it.pinned); it.copy(pinned = !it.pinned) }
+                }
+                if (target.sessionType == 1) ActionSheetRow(if (target.muted) "关闭免打扰" else "消息免打扰", enabled) {
+                    mutate { api.muteMessageSession(it, !it.muted); it.copy(muted = !it.muted) }
+                }
+                ActionSheetRow("标为已读", enabled && target.unread > 0) {
+                    mutate { api.markSessionsRead(listOf(it)); it.copy(unread = 0) }
+                }
+                ActionSheetRow("删除会话", enabled, MiuixIcons.Delete) { confirmDelete = true }
             }
         }
     }
@@ -343,9 +330,13 @@ fun MessageScreen(
 @Composable
 fun MessageTopActions() {
     TeakTopGlassButton(onClick = { MessagePageBus.requestReadAll() }) {
-        MenuGlyph(MenuGlyphKind.Delete, Color.Black, size = 21.dp)
+        top.yukonga.miuix.kmp.basic.Icon(
+            imageVector = MiuixIcons.Delete, contentDescription = "全部已读",
+            tint = teakGlassGlyphColor(),
+            modifier = Modifier.size(21.dp),
+        )
     }
-    TeakTopGlassButton(onClick = { /* 省略号暂时不做功能 */ }) {
+    TeakTopGlassButton(onClick = { MessagePageBus.requestMore() }) {
         ThreeDotsGlyph()
     }
 }
@@ -353,6 +344,10 @@ fun MessageTopActions() {
 object MessagePageBus {
     var readAllRequest by mutableIntStateOf(0)
         private set
+
+    var moreRequest by mutableIntStateOf(0)
+        private set
+    fun requestMore() { moreRequest++ }
 
     fun requestReadAll() {
         readAllRequest++
@@ -364,6 +359,7 @@ private fun MessageShortcut(
     label: String,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
+    unread: Int = 0,
     glyph: @Composable () -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
@@ -378,7 +374,7 @@ private fun MessageShortcut(
             modifier = Modifier.size(58.dp),
             contentAlignment = Alignment.Center,
         ) {
-            glyph()
+            UnreadBadgeHost(unread) { glyph() }
         }
         Spacer(Modifier.height(7.dp))
         Text(text = label, color = colors.onBackground, fontSize = 13.sp)
@@ -405,85 +401,13 @@ private fun MessageTab(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SessionCard(
-    sessions: List<MessageSession>,
-    loading: Boolean,
-    error: String?,
-    hasMore: Boolean,
-    loadingMore: Boolean,
-    onOpen: (MessageSession) -> Unit,
-    onLoadMore: () -> Unit,
-) {
-    val colors = MiuixTheme.colorScheme
-    val view = androidx.compose.ui.platform.LocalView.current
-    // 底部「加载更多」只允许触发一次；加载结束后再重新武装。
-    // 原来 onGloballyPositioned 每次布局都会调用，一次滑到底会连发好几页请求。
-    var loadMoreRequested by remember { mutableStateOf(false) }
-    LaunchedEffect(loadingMore, hasMore) {
-        if (!loadingMore) loadMoreRequested = false
-    }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(colors.surface),
-    ) {
-        if (sessions.isEmpty() && !loading) {
-            Text(
-                text = error ?: "暂无消息",
-                modifier = Modifier.fillMaxWidth().padding(vertical = 46.dp),
-                color = colors.onBackgroundVariant,
-                fontSize = 13.sp,
-                textAlign = TextAlign.Center,
-            )
-        } else if (sessions.isEmpty() && loading) {
-            // 首屏请求还没回来时给一个明确占位，不再是一块空白卡片。
-            Text(
-                text = "加载中…",
-                modifier = Modifier.fillMaxWidth().padding(vertical = 46.dp),
-                color = colors.onBackgroundVariant,
-                fontSize = 13.sp,
-                textAlign = TextAlign.Center,
-            )
-        }
-        sessions.forEachIndexed { index, session ->
-            SessionRow(session = session, onClick = { onOpen(session) })
-        }
-        if (hasMore) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onGloballyPositioned { coords ->
-                        val y = coords.positionInWindow().y
-                        if (!loadMoreRequested &&
-                            !loadingMore &&
-                            y in 0f..(view.height * 0.92f)
-                        ) {
-                            loadMoreRequested = true
-                            onLoadMore()
-                        }
-                    }
-                    .padding(vertical = 14.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = if (loadingMore) "加载中…" else "上滑加载更多",
-                    color = colors.onBackgroundVariant,
-                    fontSize = 12.sp,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SessionRow(session: MessageSession, onClick: () -> Unit) {
+private fun SessionRow(session: MessageSession, onClick: () -> Unit, onLongClick: () -> Unit) {
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(interactionSource = null, indication = null, onClick = onClick)
+            .combinedClickable(interactionSource = null, indication = null, onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -521,7 +445,7 @@ private fun SessionRow(session: MessageSession, onClick: () -> Unit) {
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                text = session.preview.ifBlank { "暂无新消息" },
+                text = (if (session.pinned) "[置顶] " else "") + (if (session.muted) "[免打扰] " else "") + session.preview.ifBlank { "暂无新消息" },
                 color = colors.onBackgroundVariant,
                 fontSize = 13.sp,
                 maxLines = 1,
@@ -530,13 +454,9 @@ private fun SessionRow(session: MessageSession, onClick: () -> Unit) {
         }
         if (session.unread > 0) {
             Spacer(Modifier.width(8.dp))
-            Box(
-                modifier = Modifier
-                    .padding(top = 5.dp)
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(MessageRed),
-            )
+            Text(if (session.unread > 99) "99+" else session.unread.toString(),
+                color = Color.White, fontSize = 11.sp,
+                modifier = Modifier.background(MessageRed, CircleShape).padding(horizontal = 6.dp, vertical = 2.dp))
         }
     }
 }
@@ -555,62 +475,53 @@ fun MessageDetailScreen(api: BiliApi, kind: MessageFeedKind) {
     val itemsByTab = remember(kind) { mutableStateMapOf<Int, List<MessageItem>>() }
     val loadingByTab = remember(kind) { mutableStateMapOf<Int, Boolean>() }
     val errorByTab = remember(kind) { mutableStateMapOf<Int, String?>() }
+    val nextByTab = remember(kind) { mutableStateMapOf<Int, MessageCursor?>() }
+    val retryMoreByTab = remember(kind) { mutableStateMapOf<Int, Boolean>() }
+    val fanPages = remember(kind) { mutableStateMapOf<Int, Int>() }
     val followedOverride = remember(kind) { mutableStateMapOf<Long, Boolean>() }
     val followBusy = remember(kind) { mutableStateMapOf<Long, Boolean>() }
+    var selected by remember(kind) { mutableStateOf<Pair<Int, MessageItem>?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     val tabs = when (kind) {
         MessageFeedKind.Reply -> listOf("全部", "我关注的人", "@我")
         MessageFeedKind.Like -> listOf("全部", "我关注的人")
-        MessageFeedKind.Fans -> emptyList()
+        else -> emptyList()
     }
     val title = when (kind) {
         MessageFeedKind.Reply -> "回复与@"
         MessageFeedKind.Like -> "收到喜欢"
         MessageFeedKind.Fans -> "新增粉丝"
+        MessageFeedKind.System -> "系统通知"
     }
-    val pageCount = if (tabs.isEmpty()) 1 else tabs.size
-
-    suspend fun loadPage(page: Int) {
-        loadingByTab[page] = true
-        errorByTab[page] = null
-        val result = if (kind == MessageFeedKind.Fans) {
-            runCatching { api.newFollowers() }
-        } else {
-            val type = when (kind) {
-                MessageFeedKind.Reply -> if (page == 2) 1 else 0
-                MessageFeedKind.Like -> 2
-                MessageFeedKind.Fans -> 3
-            }
-            runCatching { api.messages(type) }
-        }
-        val loaded = result
-            .onFailure { errorByTab[page] = it.message ?: "消息加载失败" }
-            .getOrDefault(emptyList())
-        itemsByTab[page] = if (kind != MessageFeedKind.Fans && page == 1) {
-            // 接口不一定返回关注关系。整页都没有关注标记时退回全部，
-            // 否则用户看到的就是一个永远空白的「我关注的人」。
-            if (loaded.any { it.followed }) loaded.filter { it.followed } else loaded
-        } else {
-            loaded
-        }
-        loadingByTab[page] = false
+    fun feedType(page: Int) = when (kind) {
+        MessageFeedKind.Reply -> if (page == 2) 1 else 0
+        MessageFeedKind.Like -> 2
+        else -> 3
     }
-
-    LaunchedEffect(kind) {
-        // 「我关注的人」和「全部」是同一个接口，直接复用第一页做过滤，不再重复请求。
-        val first = async { loadPage(0) }
-        if (kind == MessageFeedKind.Reply) {
-            launch { loadPage(2) }
-        }
-        first.await()
-        if (pageCount > 1) {
-            val loaded = itemsByTab[0].orEmpty()
-            itemsByTab[1] = if (loaded.any { it.followed }) {
-                loaded.filter { it.followed }
-            } else {
-                loaded
-            }
-        }
+    suspend fun loadPage(page: Int, more: Boolean = false) {
+        val key = if (page == 1) 0 else page
+        if (loadingByTab[key] == true || busy) return
+        if (more && nextByTab[key] == null) return
+        retryMoreByTab[key] = more
+        loadingByTab[key] = true
+        errorByTab[key] = null
+        try {
+            val pageResult = if (kind == MessageFeedKind.Fans) {
+                val pn = if (more) (fanPages[key] ?: 1) + 1 else 1
+                val items = api.newFollowers(pn)
+                fanPages[key] = pn
+                com.aritxonly.bdfun.data.MessageFeedPage(items, if (items.size >= 20) MessageCursor(pn.toLong()) else null)
+            } else api.messagesPage(feedType(key), if (more) nextByTab[key] else null)
+            itemsByTab[key] = ((if (more) itemsByTab[key].orEmpty() else emptyList()) + pageResult.items).distinctBy { it.id }
+            nextByTab[key] = pageResult.next
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (e: Exception) { errorByTab[key] = e.message ?: "消息加载失败" }
+        finally { loadingByTab[key] = false }
     }
+    LaunchedEffect(kind) { loadPage(0) }
+    LaunchedEffect(tab) { val key = if (tab == 1) 0 else tab; if (!itemsByTab.containsKey(key)) loadPage(key) }
+    MessageResumeEffect { loadPage(tab) }
 
     fun openMessageItem(item: MessageItem) {
         com.aritxonly.bdfun.data.LogCollector.record(
@@ -623,8 +534,15 @@ fun MessageDetailScreen(api: BiliApi, kind: MessageFeedKind) {
         // 只要 aid 看起来是视频，就别被 business_id 的稀奇值挡住。
         val looksLikeVideo = item.aid in 1L..9_999_999_999L
         if (item.businessId != 0 && item.businessId != 1 && !looksLikeVideo) {
-            // 动态评论等类型暂时没有对应的站内详情跳转，避免用动态 id 当视频打开。
-            context.showToast("这条消息来自动态评论，暂不支持直接定位")
+            val id = Regex("(?:dynamic|opus)/([0-9]+)").find(item.nativeUri)?.groupValues?.get(1)
+                ?: android.net.Uri.parse(item.nativeUri).getQueryParameter("dynamic_id")
+            if (!id.isNullOrBlank()) scope.launch {
+                try {
+                    val dynamic = api.dynamicDetail(id) ?: error("动态已删除或暂不可用")
+                    com.aritxonly.bdfun.TeakNavigator.openDynamic(context, dynamic)
+                } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (e: Exception) { context.showToast(e.message ?: "动态加载失败") }
+            } else context.showToast("这条消息未提供可打开的动态链接")
             return
         }
         if (item.aid <= 0L && item.bvid.isBlank()) {
@@ -660,7 +578,7 @@ fun MessageDetailScreen(api: BiliApi, kind: MessageFeedKind) {
         followedOverride[mid] = target
         followBusy[mid] = true
         scope.launch {
-            val result = runCatching { api.followUser(mid, target) }
+            val result = runCatching { check(api.followUser(mid, target)) { "关注操作失败" } }
             followBusy[mid] = false
             if (result.isSuccess) {
                 context.showToast(if (target) "已回关" else "已取消关注")
@@ -671,97 +589,68 @@ fun MessageDetailScreen(api: BiliApi, kind: MessageFeedKind) {
         }
     }
 
-    LazyColumn(
-        state = listState,
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = 8.dp,
-            bottom = 40.dp,
-        ),
-    ) {
-        item(key = "header") {
-            TeakLargeTitle(title = title)
+    val key = if (tab == 1) 0 else tab
+    val allItems = itemsByTab[key].orEmpty()
+    val pageItems = if (tab == 1) allItems.filter { it.followed } else allItems
+    LazyColumn(state = listState, modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp + rememberStatusBarTop(), bottom = 40.dp)) {
+        item(key = "header") { TeakLargeTitle(title = title) }
+        item(key = "tabs") {
+            Row(Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (tabs.isNotEmpty()) TeakPagerTabs(options = tabs, selected = tab, onSelect = { tab = it },
+                    itemWidth = if (tabs.size > 2) 76.dp else 96.dp, backdrop = null, plain = true, position = tabProgress)
+                Spacer(Modifier.weight(1f))
+                Text("刷新", color = colors.primary, fontSize = 13.sp,
+                    modifier = Modifier.clickable(enabled = loadingByTab[key] != true && !busy) { scope.launch { loadPage(tab) } }.padding(12.dp))
+            }
         }
-        if (tabs.isNotEmpty()) {
-            item(key = "tabs") {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp, bottom = 10.dp),
-                    contentAlignment = Alignment.CenterStart,
-                ) {
-                    TeakPagerTabs(
-                        options = tabs,
-                        selected = tab,
-                        onSelect = { tab = it },
-                        itemWidth = if (tabs.size > 2) 76.dp else 96.dp,
-                        backdrop = null,
-                        plain = true,
-                        position = tabProgress,
-                    )
+        itemsIndexed(pageItems, key = { _, item -> "message_${item.id}" }) { index, item ->
+            val menu = { selected = key to item; confirmDelete = false }
+            MessageRowSurface(index == 0, index == pageItems.lastIndex) {
+                when (kind) {
+                    MessageFeedKind.Reply -> ReplyRow(item, myName, onClick = { openMessageItem(item) }, onMore = menu)
+                    MessageFeedKind.Like -> LikeRow(item, onClick = { openMessageItem(item) }, onMore = menu)
+                    MessageFeedKind.Fans -> FanRow(item, followedOverride[item.userMid] ?: item.followed,
+                        followBusy[item.userMid] == true, onFollow = { toggleFollow(item) })
+                    MessageFeedKind.System -> SystemNotificationRow(item, onMore = menu)
                 }
             }
         }
-        item(key = "list") {
-            SwipeCardPager(
-                selected = tab,
-                pageCount = pageCount,
-                onSelected = { tab = it },
-                progressState = tabProgress,
-            ) { page ->
-                val pageItems = itemsByTab[page].orEmpty()
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        // 新增粉丝的圆角卡片整体往下 5dp。
-                        .padding(top = if (kind == MessageFeedKind.Fans) 5.dp else 0.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(colors.surface),
-                ) {
-                    when {
-                        loadingByTab[page] == true -> Text(
-                            text = "加载中…",
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 46.dp),
-                            color = colors.onBackgroundVariant,
-                            fontSize = 13.sp,
-                            textAlign = TextAlign.Center,
-                        )
-                        pageItems.isEmpty() -> Text(
-                            text = if (kind == MessageFeedKind.Fans) {
-                                "暂无新增粉丝"
-                            } else {
-                                errorByTab[page] ?: "暂无消息"
-                            },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 46.dp),
-                            color = colors.onBackgroundVariant,
-                            fontSize = 13.sp,
-                            textAlign = TextAlign.Center,
-                        )
-                        else -> pageItems.forEach { item ->
-                            when (kind) {
-                                MessageFeedKind.Like -> LikeRow(
-                                    item = item,
-                                    onClick = { openMessageItem(item) },
-                                )
-                                MessageFeedKind.Fans -> FanRow(
-                                    item = item,
-                                    followed = followedOverride[item.userMid] ?: item.followed,
-                                    busy = followBusy[item.userMid] == true,
-                                    onFollow = { toggleFollow(item) },
-                                )
-                                MessageFeedKind.Reply -> ReplyRow(
-                                    item = item,
-                                    myName = myName,
-                                    onClick = { openMessageItem(item) },
-                                )
-                            }
-                        }
-                    }
+        item(key = "footer") {
+            MessagePageFooter(loadingByTab[key] == true, errorByTab[key], nextByTab[key] != null, pageItems.isEmpty(),
+                onLoad = { scope.launch { loadPage(tab, more = if (errorByTab[key] != null) retryMoreByTab[key] == true else nextByTab[key] != null && itemsByTab.containsKey(key)) } })
+        }
+    }
+    fun mutate(action: suspend (MessageItem) -> MessageItem?) {
+        val (page, item) = selected ?: return
+        if (busy || loadingByTab[page] == true) return
+        busy = true
+        scope.launch {
+            try {
+                val replacement = action(item)
+                itemsByTab[page] = itemsByTab[page].orEmpty().mapNotNull { if (it.id == item.id) replacement else it }
+                selected = null
+                confirmDelete = false
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { context.showToast(e.message ?: "操作失败") }
+            finally { busy = false }
+        }
+    }
+    TeakActionSheet(selected != null, onDismiss = { if (!busy) selected = null }, title = "消息操作") {
+        val target = selected
+        if (target != null) {
+            val enabled = !busy && loadingByTab[target.first] != true
+            if (confirmDelete) {
+                ActionSheetRow("确认删除这条通知", enabled, MiuixIcons.Delete) {
+                    mutate { if (kind == MessageFeedKind.System) api.deleteSystemMessage(it.id)
+                        else api.deleteFeedMessage(feedType(target.first), it.id); null }
                 }
+                ActionSheetRow("取消", enabled) { confirmDelete = false }
+            } else {
+                if (kind == MessageFeedKind.Like) ActionSheetRow(if (target.second.noticeState == 0) "不再通知" else "接收通知", enabled) {
+                    mutate { api.setLikeNotice(it.id, it.noticeState != 0); it.copy(noticeState = if (it.noticeState == 0) 1 else 0) }
+                }
+                ActionSheetRow("删除通知", enabled, MiuixIcons.Delete) { confirmDelete = true }
             }
         }
     }
@@ -774,13 +663,14 @@ private fun ReplyRow(
     item: MessageItem,
     myName: String,
     onClick: () -> Unit = {},
+    onMore: () -> Unit = {},
 ) {
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(interactionSource = null, indication = null, onClick = onClick)
+            .combinedClickable(interactionSource = null, indication = null, onClick = onClick, onLongClick = onMore)
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         // 头像缩小 20%，把宽度让给回复正文。
@@ -827,11 +717,11 @@ private fun ReplyRow(
                     fontSize = 11.sp,
                 )
                 Spacer(Modifier.width(12.dp))
-                SmallMessageAction(TeakIcon.CommentBubble, "回复")
+                SmallMessageAction(TeakIcon.CommentBubble, "回复", onClick)
                 Spacer(Modifier.width(12.dp))
-                SmallMessageAction(TeakIcon.LikeOutline, "点赞")
+                SmallMessageAction(TeakIcon.LikeOutline, "查看评论", onClick)
                 Spacer(Modifier.weight(1f))
-                MessageMoreDots { context.showToast("暂未开放") }
+                MessageMoreDots(onMore)
             }
         }
         if (item.videoSubject || item.subjectText.isNotBlank()) {
@@ -842,7 +732,7 @@ private fun ReplyRow(
 }
 
 @Composable
-private fun LikeRow(item: MessageItem, onClick: () -> Unit = {}) {
+private fun LikeRow(item: MessageItem, onClick: () -> Unit = {}, onMore: () -> Unit = {}) {
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
     val summary = when {
@@ -854,7 +744,7 @@ private fun LikeRow(item: MessageItem, onClick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(interactionSource = null, indication = null, onClick = onClick)
+            .combinedClickable(interactionSource = null, indication = null, onClick = onClick, onLongClick = onMore)
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         MessageAvatar(item.avatar)
@@ -876,7 +766,7 @@ private fun LikeRow(item: MessageItem, onClick: () -> Unit = {}) {
                     fontSize = 11.sp,
                 )
                 Spacer(Modifier.weight(1f))
-                MessageMoreDots { context.showToast("暂未开放") }
+                MessageMoreDots(onMore)
             }
         }
         val likedText = item.subjectText
@@ -1052,9 +942,9 @@ private fun QuoteBlock(name: String, text: String) {
 }
 
 @Composable
-private fun SmallMessageAction(icon: Int, label: String) {
+private fun SmallMessageAction(icon: Int, label: String, onClick: () -> Unit) {
     val colors = MiuixTheme.colorScheme
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier = Modifier.clickable(onClick = onClick).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         ResourceGlyph(res = icon, tint = colors.onBackgroundVariant, size = 14.dp)
         Spacer(Modifier.width(3.dp))
         Text(text = label, color = colors.onBackgroundVariant, fontSize = 11.sp)
@@ -1103,44 +993,6 @@ private fun MessageAvatar(url: String, size: androidx.compose.ui.unit.Dp = 44.dp
 
 /** 快捷入口三个图标统一按这个尺寸绘制，视觉大小保持一致。 */
 private val ShortcutGlyphSize = 28.dp
-
-/** 回复与@：实心圆角对话气泡 + 左下小尾巴（参考用户提供图一）。 */
-@Composable
-private fun ChatGlyph(color: Color) {
-    Canvas(modifier = Modifier.size(ShortcutGlyphSize)) {
-        val w = size.width
-        val h = size.height
-        // 主体：略扁的椭圆气泡，留出底部尾巴的位置
-        drawOval(
-            color = color,
-            topLeft = Offset(w * 0.05f, h * 0.08f),
-            size = Size(w * 0.90f, h * 0.66f),
-        )
-        // 尾巴：从气泡左下伸出，向下再收回气泡底边
-        val tail = Path().apply {
-            moveTo(w * 0.30f, h * 0.66f)
-            cubicTo(w * 0.30f, h * 0.80f, w * 0.27f, h * 0.88f, w * 0.21f, h * 0.93f)
-            cubicTo(w * 0.31f, h * 0.94f, w * 0.43f, h * 0.85f, w * 0.48f, h * 0.70f)
-            close()
-        }
-        drawPath(tail, color)
-    }
-}
-
-@Composable
-private fun PersonGlyph(color: Color) {
-    Canvas(modifier = Modifier.size(ShortcutGlyphSize)) {
-        val w = size.width
-        val h = size.height
-        drawCircle(color, w * 0.18f, Offset(w * 0.5f, h * 0.32f))
-        drawRoundRect(
-            color = color,
-            topLeft = Offset(w * 0.2f, h * 0.55f),
-            size = Size(w * 0.6f, h * 0.34f),
-            cornerRadius = CornerRadius(w * 0.3f, w * 0.3f),
-        )
-    }
-}
 
 @Composable
 private fun MarkReadGlyph() {

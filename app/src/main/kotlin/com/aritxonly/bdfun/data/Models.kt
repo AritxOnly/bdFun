@@ -17,7 +17,19 @@ data class VideoItem(
     val isFollowed: Boolean = false,
     /** 从「我的评论与弹幕」等入口跳转时，进入视频后直接定位到这个时间点。 */
     val startPositionMs: Long = 0L,
+    val categoryName: String = "",
+    val recommendationTrackId: String = "",
+    val appRecommendation: Boolean = false,
+    val dislikeReasons: List<RecommendationReason> = emptyList(),
 )
+
+data class RecommendationReason(val id: Long, val name: String)
+
+data class MessageCursor(val id: Long, val time: Long = 0L)
+data class MessageFeedPage(val items: List<MessageItem>, val next: MessageCursor?)
+data class ChatMessagePage(val items: List<ChatMessage>, val next: Long?)
+
+data class MessageSessionPage(val items: List<MessageSession>, val next: Long?)
 
 data class VideoPage(
     val cid: Long,
@@ -185,6 +197,8 @@ data class UserProfile(
     val likes: Long = 0,
     /** 空间头图。 */
     val banner: String = "",
+    val bannerFallbacks: List<String> = emptyList(),
+    val bannerAlignmentY: Float = 0f,
     /** 空间页资料：认证标题 / 等级经验（接口没有时为空 / 0）。 */
     val officialTitle: String = "",
     val officialDesc: String = "",
@@ -238,6 +252,8 @@ data class DynamicItem(
     val pgcCover: String = "",
     val pgcTitle: String = "",
     val pgcLabel: String = "",
+    val moduleTag: String = "",
+    val liveRecommendation: DynamicLiveRecommendation? = null,
     /** 动态发布 IP 属地（接口 `module_author.pub_location_text`）。 */
     val ipLocation: String = "",
 )
@@ -377,6 +393,9 @@ data class MessageItem(
     val atMe: Boolean = false,
     /** 别人在我的视频下发了评论。 */
     val commentOnMyVideo: Boolean = false,
+    val nativeUri: String = "",
+    val systemCursor: Long = 0,
+    val noticeState: Int = 0,
 )
 
 /** 私信会话里的一条消息。 */
@@ -387,6 +406,7 @@ data class ChatMessage(
     val text: String,
     val imageUrl: String = "",
     val isMine: Boolean = false,
+    val sequence: Long = 0L,
 )
 
 /** 消息中心的一个会话（系统通知 / 私信）。 */
@@ -403,6 +423,9 @@ data class MessageSession(
     val maxSeqno: Long = 0L,
     /** 原始 session_ts（微秒），用于消息列表翻页。 */
     val sessionTs: Long = 0L,
+    val followed: Boolean = false,
+    val pinned: Boolean = false,
+    val muted: Boolean = false,
 )
 
 /** 官方字幕轨（`/x/player/v2` 的 subtitle.subtitles）。 */
@@ -419,3 +442,12 @@ data class SubtitleCue(
     val toMs: Long,
     val text: String,
 )
+
+/** Relationship here always belongs to the logged-in account, never the viewed space owner. */
+data class RelationUser(
+    val mid: Long, val name: String, val face: String, val sign: String,
+    val attribute: Int? = null,
+) {
+    val followed: Boolean get() = attribute == 2 || attribute == 6
+}
+data class RelationPage(val items: List<RelationUser>, val total: Int, val nextPage: Int?)

@@ -42,6 +42,7 @@ fun TeakSegmentedBar(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
     itemWidth: Dp = 74.dp,
+    materialAlpha: Float = 1f,
 ) {
     val colors = MiuixTheme.colorScheme
     val advancedMaterial = LocalTeakMaterialSpec.current
@@ -58,6 +59,8 @@ fun TeakSegmentedBar(
     TeakGlassSurface(
         modifier = modifier.height(40.dp),
         shape = Capsule(),
+        materialAlpha = materialAlpha,
+        flatBackgroundAlpha = 0.9f,
         recipe = recipe,
         backdrop = LocalTeakBackdrop.current,
     ) {

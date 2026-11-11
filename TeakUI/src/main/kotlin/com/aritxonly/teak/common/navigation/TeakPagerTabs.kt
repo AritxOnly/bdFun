@@ -80,6 +80,8 @@ fun TeakPagerTabs(
      * 消息 / 收藏 / 历史等页面内的 Tab 用 true；顶栏、底栏仍用默认的玻璃。
      */
     plain: Boolean = false,
+    materialProgress: Float = if (com.aritxonly.teak.common.chrome.LocalProgressiveTopBarMaterialHosted.current)
+        com.aritxonly.teak.common.chrome.LocalTopBarButtonMaterialProgress.current else 1f,
     /**
      * 连续位置（0.0 = 第一项，1.5 = 正从第二项滑向第三项）。
      * 传入后指示器在布局阶段跟随手指移动，不再等页面切换结束才跳过去。
@@ -207,6 +209,8 @@ fun TeakPagerTabs(
             shape = Capsule(),
             recipe = recipe,
             backdrop = backdrop,
+            materialAlpha = materialProgress,
+            flatBackgroundAlpha = 0.9f,
         ) {
             content()
         }

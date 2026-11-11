@@ -32,6 +32,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -60,6 +62,7 @@ import com.aritxonly.bdfun.BrandPink
 import com.aritxonly.bdfun.data.UserProfile
 import com.kyant.shapes.Capsule
 import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Close
 import top.yukonga.miuix.kmp.icon.extended.Messages
 import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -80,7 +83,7 @@ fun HomeTopBar(
     onOpenMessages: () -> Unit,
     onOpenProfile: () -> Unit,
     modifier: Modifier = Modifier,
-    unread: Boolean = true,
+    unreadCount: Int = 0,
     searchActive: Boolean = false,
     searchQuery: String = "",
     onQueryChange: (String) -> Unit = {},
@@ -92,6 +95,11 @@ fun HomeTopBar(
     searchResultsVisible: Boolean = false,
     onOpenSearchPage: () -> Unit = {},
 ) {
+    val windowSize = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val wide = with(density) { windowSize.width.toDp() >= 600.dp } &&
+        com.aritxonly.teak.common.chrome.isWideFoldTopBar()
+    val searchWidth = with(density) { (windowSize.width.toDp() * 0.45f).coerceIn(280.dp, 480.dp) }
     val advancedMaterial = LocalTeakMaterialSpec.current
     val recipe = TeakGlassRecipes.floatingNavigation(advancedMaterial.fineTuning)
     val backdrop = LocalTeakBackdrop.current
@@ -167,7 +175,7 @@ fun HomeTopBar(
 
             TeakGlassSurface(
                 modifier = Modifier
-                    .weight(1f)
+                    .then(if (wide) Modifier.width(searchWidth) else Modifier.weight(1f))
                     .height(40.dp)
                     .then(
                         if (classic) {
@@ -191,6 +199,8 @@ fun HomeTopBar(
                         },
                     ),
                 shape = Capsule(),
+                materialAlpha = com.aritxonly.teak.common.chrome.LocalTopBarButtonMaterialProgress.current,
+                flatBackgroundAlpha = 0.9f,
                 recipe = recipe,
                 backdrop = if (classic) null else backdrop,
                 contentAlignment = Alignment.CenterStart,
@@ -266,6 +276,7 @@ fun HomeTopBar(
                 }
             }
 
+            if (wide) Spacer(Modifier.weight(1f))
             Spacer(Modifier.width(10.dp))
 
             Crossfade(
@@ -281,83 +292,18 @@ fun HomeTopBar(
                     recipe = recipe,
                     backdrop = backdrop,
                 ) {
-                    Canvas(modifier = Modifier.size(18.dp)) {
-                        val w = size.width
-                        val h = size.height
-                        val stroke = w * 0.09f
-                        // 盖子
-                        drawLine(
-                            color = BrandPink,
-                            start = Offset(w * 0.20f, h * 0.24f),
-                            end = Offset(w * 0.80f, h * 0.24f),
-                            strokeWidth = stroke,
-                            cap = StrokeCap.Round,
-                        )
-                        // 提手
-                        drawLine(
-                            color = BrandPink,
-                            start = Offset(w * 0.40f, h * 0.24f),
-                            end = Offset(w * 0.40f, h * 0.14f),
-                            strokeWidth = stroke,
-                            cap = StrokeCap.Round,
-                        )
-                        drawLine(
-                            color = BrandPink,
-                            start = Offset(w * 0.40f, h * 0.14f),
-                            end = Offset(w * 0.60f, h * 0.14f),
-                            strokeWidth = stroke,
-                            cap = StrokeCap.Round,
-                        )
-                        drawLine(
-                            color = BrandPink,
-                            start = Offset(w * 0.60f, h * 0.14f),
-                            end = Offset(w * 0.60f, h * 0.24f),
-                            strokeWidth = stroke,
-                            cap = StrokeCap.Round,
-                        )
-                        // 桶身
-                        drawRoundRect(
-                            color = BrandPink,
-                            topLeft = Offset(w * 0.27f, h * 0.33f),
-                            size = Size(w * 0.46f, h * 0.53f),
-                            cornerRadius = CornerRadius(w * 0.10f),
-                            style = Stroke(width = stroke),
-                        )
-                        // 两条内线
-                        listOf(0.42f, 0.58f).forEach { x ->
-                            drawLine(
-                                color = BrandPink,
-                                start = Offset(w * x, h * 0.44f),
-                                end = Offset(w * x, h * 0.74f),
-                                strokeWidth = stroke,
-                                cap = StrokeCap.Round,
-                            )
-                        }
-                    }
+                    Icon(MiuixIcons.Close, contentDescription = "清空搜索", tint = BrandPink,
+                        modifier = Modifier.size(18.dp))
                 }
                 } else {
-                TeakGlassIconButton(
-                    materialAlpha = com.aritxonly.teak.common.chrome.LocalTopBarButtonMaterialProgress.current,
-                    onClick = onOpenMessages,
-                    size = 40.dp,
-                    recipe = recipe,
-                    backdrop = backdrop,
-                ) {
-                    Box {
-                        Icon(
-                            imageVector = MiuixIcons.Messages,
-                            contentDescription = "消息",
-                            tint = BrandPink,
-                            modifier = Modifier.size(19.dp),
-                        )
-                        if (unread) {
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .size(7.dp)
-                                    .background(MaterialTheme.colorScheme.error, Capsule()),
-                            )
-                        }
+                UnreadBadgeHost(count = unreadCount) {
+                    TeakGlassIconButton(
+                        materialAlpha = com.aritxonly.teak.common.chrome.LocalTopBarButtonMaterialProgress.current,
+                        flatBackgroundAlpha = 0.9f,
+                        onClick = onOpenMessages, size = 40.dp, recipe = recipe, backdrop = backdrop,
+                    ) {
+                        Icon(MiuixIcons.Messages, contentDescription = "消息", tint = BrandPink,
+                            modifier = Modifier.size(19.dp))
                     }
                 }
                 }
