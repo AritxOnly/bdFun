@@ -50,7 +50,31 @@ class BiliApi(context: Context) : DynamicFeedSource {
     )
 
     private val buvidMutex = Mutex()
-    private val wbiMutex = Mutex()
+    private val wbiSigner = com.aritxonly.bdfun.infra.bili.WbiSigner(
+        loadKeys = {
+            val root = rawRequest("/x/web-interface/nav", emptyMap())
+            root.optJSONObject("data")?.optJSONObject("wbi_img")?.let { wbi ->
+                wbi.s("img_url").substringAfterLast('/').substringBefore('.') to
+                    wbi.s("sub_url").substringAfterLast('/').substringBefore('.')
+            }
+        },
+        encode = ::encode,
+    )
+    private val appSigner = com.aritxonly.bdfun.infra.bili.AppRequestSigner(::encode)
+
+    private val requests by lazy {
+        com.aritxonly.bdfun.infra.bili.BiliRequestGateway(
+            http = http,
+            beforeRequest = ::ensureBuvid,
+            signQuery = wbiSigner::signQuery,
+            encode = ::encode,
+            debug = BuildConfig.DEBUG,
+            apiBase = API,
+            passportBase = PASSPORT,
+            defaultUserAgent = UA,
+        )
+    }
+
     /** 消息会话昵称/头像后台补全：不阻塞首屏列表。 */
     private val backgroundScope = kotlinx.coroutines.CoroutineScope(
         kotlinx.coroutines.SupervisorJob() + Dispatchers.IO,
@@ -79,16 +103,9 @@ class BiliApi(context: Context) : DynamicFeedSource {
             ): Boolean = size > 64
         }
 
-    @Volatile
-    private var wbiKeys: WbiKeys? = null
-
     /** buvid 获取失败后的冷却时间，避免每个请求都重新卡在一次失败请求上。 */
     @Volatile
     private var buvidRetryAt = 0L
-
-    /** WBI key 的获取时间；key 会轮换，进程活太久时要重新拉。 */
-    @Volatile
-    private var wbiFetchedAt = 0L
 
     val isLoggedIn: Boolean get() = cookieJar.hasSession
     val mid: Long get() = cookieJar.mid
@@ -187,8 +204,7 @@ class BiliApi(context: Context) : DynamicFeedSource {
 
     fun logout() {
         cookieJar.clear()
-        wbiKeys = null
-        wbiFetchedAt = 0L
+        wbiSigner.clear()
         buvidRetryAt = 0L
     }
 
@@ -420,7 +436,7 @@ class BiliApi(context: Context) : DynamicFeedSource {
             "playurl signed=$usedSigned code=$code message=${root.optString("message")} " +
                 "dataType=${dataValue?.javaClass?.simpleName ?: "null"} " +
                 "loggedIn=$isLoggedIn mid=$mid sessLen=${cookieJar.value("SESSDATA").length} " +
-                "buvidLen=${cookieJar.value("buvid3").length} wbi=${wbiKeys != null} " +
+                "buvidLen=${cookieJar.value("buvid3").length} wbi=${wbiSigner.hasKeys} " +
                 "device=${android.os.Build.MANUFACTURER}/${android.os.Build.MODEL} " +
                 "sdk=${android.os.Build.VERSION.SDK_INT} ${netInfo()} " +
                 "err=${signedError?.javaClass?.simpleName}:${signedError?.message?.take(120)} " +
@@ -3292,13 +3308,6 @@ class BiliApi(context: Context) : DynamicFeedSource {
 
     // ---------------------------------------------------------------- request
 
-    private class WbiKeys(val imgKey: String, val subKey: String) {
-        val mixinKey: String = run {
-            val raw = imgKey + subKey
-            MIXIN_TABLE.map { raw.getOrElse(it) { '0' } }.joinToString("").take(32)
-        }
-    }
-
     private suspend fun ensureBuvid() {
         if (cookieJar.value("buvid3").isNotBlank()) return
         if (System.currentTimeMillis() < buvidRetryAt) return
@@ -3340,42 +3349,12 @@ class BiliApi(context: Context) : DynamicFeedSource {
         }
     }
 
-    private suspend fun ensureWbiKeys(): WbiKeys {
-        val cached = wbiKeys
-        if (cached != null &&
-            System.currentTimeMillis() - wbiFetchedAt < WBI_TTL_MS
-        ) {
-            return cached
-        }
-        wbiMutex.withLock {
-            val current = wbiKeys
-            if (current != null &&
-                System.currentTimeMillis() - wbiFetchedAt < WBI_TTL_MS
-            ) {
-                return current
-            }
-            val fallback = current
-            try {
-                val root = rawRequest("/x/web-interface/nav", emptyMap())
-                parseWbi(root.optJSONObject("data")?.optJSONObject("wbi_img"))
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                // 刷新失败但旧 key 还在时继续用旧 key，别让整个推荐/搜索直接不可用。
-                if (fallback != null) return fallback
-                throw BiliException(-1, "无法获取请求签名，请检查网络")
-            }
-            return wbiKeys ?: fallback ?: throw BiliException(-1, "无法获取请求签名，请检查网络")
-        }
-    }
-
     private fun parseWbi(wbi: JSONObject?) {
         if (wbi == null) return
         val img = wbi.s("img_url").substringAfterLast('/').substringBefore('.')
         val sub = wbi.s("sub_url").substringAfterLast('/').substringBefore('.')
         if (img.isNotBlank() && sub.isNotBlank()) {
-            wbiKeys = WbiKeys(img, sub)
-            wbiFetchedAt = System.currentTimeMillis()
+            wbiSigner.update(img, sub)
         }
     }
 
@@ -3388,21 +3367,8 @@ class BiliApi(context: Context) : DynamicFeedSource {
         referer: String? = null,
         userAgent: String? = null,
         headers: Map<String, String> = emptyMap(),
-    ): JSONObject {
-        val root = rawRequest(
-            path,
-            params,
-            signed,
-            base,
-            method,
-            referer,
-            userAgent = userAgent,
-            headers = headers,
-        )
-        val code = root.optInt("code", 0)
-        if (code != 0) throw BiliException(code, apiMessage(code, root.optString("message")))
-        return root.optJSONObject("data") ?: JSONObject()
-    }
+    ): JSONObject =
+        requests.dataRequest(path, params, signed, base, method, referer, userAgent, headers)
 
     private suspend fun rawRequest(
         path: String,
@@ -3414,58 +3380,15 @@ class BiliApi(context: Context) : DynamicFeedSource {
         tolerateEmptyBody: Boolean = false,
         userAgent: String? = null,
         headers: Map<String, String> = emptyMap(),
-    ): JSONObject = withContext(Dispatchers.IO) {
-        ensureBuvid()
-        val actualParams = params.toMutableMap()
-        var url = "$base$path"
-        if (signed) {
-            val keys = ensureWbiKeys()
-            actualParams["wts"] = (System.currentTimeMillis() / 1000).toString()
-            val query = actualParams.toSortedMap().entries.joinToString("&") { (key, value) ->
-                "${encode(key)}=${encode(value.replace(Regex("[!'()*]"), ""))}"
-            }
-            val rid = md5(query + keys.mixinKey)
-            url = "$url?$query&w_rid=$rid"
-        } else if (actualParams.isNotEmpty()) {
-            val query = actualParams.entries.joinToString("&") { (key, value) ->
-                "${encode(key)}=${encode(value)}"
-            }
-            url = "$url?$query"
-        }
-        val builder = Request.Builder()
-            .url(url)
-            .header("User-Agent", userAgent ?: UA)
-            .header("Referer", referer ?: if (base == PASSPORT) "https://passport.bilibili.com/" else "https://www.bilibili.com/")
-            .header("Accept", "application/json, text/plain, */*")
-            .header("Accept-Language", "zh-CN,zh;q=0.9")
-        headers.forEach { (key, value) -> builder.header(key, value) }
-        if (method == "POST") {
-            val form = FormBody.Builder()
-            actualParams.forEach { (key, value) -> form.add(key, value) }
-            builder.post(form.build())
-                .header("Origin", "https://www.bilibili.com")
-        }
-        val request = builder.build()
-        if (BuildConfig.DEBUG) android.util.Log.d("BiliApi", "request ${request.url.encodedPath}")
-
-        http.execute(request, method, tolerateEmptyBody)
-    }
+    ): JSONObject =
+        requests.rawRequest(path, params, signed, base, method, referer, tolerateEmptyBody, userAgent, headers)
 
     private suspend fun postRequest(
         path: String,
         params: Map<String, String>,
         tolerateEmptyBody: Boolean = true,
-    ): JSONObject {
-        val result = rawRequest(
-            path,
-            params,
-            method = "POST",
-            tolerateEmptyBody = tolerateEmptyBody,
-        )
-        val code = result.optInt("code", 0)
-        if (code != 0) throw BiliException(code, apiMessage(code, result.optString("message")))
-        return result.optJSONObject("data") ?: JSONObject()
-    }
+    ): JSONObject =
+        requests.postRequest(path, params, tolerateEmptyBody)
 
     /**
      * 给 app.bilibili.com 的接口补上 App 签名。
@@ -3478,17 +3401,10 @@ class BiliApi(context: Context) : DynamicFeedSource {
         appSec: String = APP_SEC,
         includeAccessKey: Boolean = true,
     ) {
-        params["appkey"] = appKey
-        params["ts"] = (System.currentTimeMillis() / 1000L).toString()
-        if (includeAccessKey) {
-            cookieJar.value("access_key").takeIf { it.isNotBlank() }?.let {
-                params["access_key"] = it
-            }
-        }
-        val query = params.toSortedMap().entries.joinToString("&") { (key, value) ->
-            "${encode(key)}=${encode(value)}"
-        }
-        params["sign"] = md5(query + appSec)
+        appSigner.sign(
+            params, appKey, appSec,
+            if (includeAccessKey) cookieJar.value("access_key") else null,
+        )
     }
 
     companion object {
@@ -3512,16 +3428,6 @@ class BiliApi(context: Context) : DynamicFeedSource {
         const val PASSPORT = "https://passport.bilibili.com"
         const val VC = "https://api.vc.bilibili.com"
         const val UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
-
-        /** WBI key 大约每天轮换；6 小时刷新一次足够，也避免进程活久了签名一直用旧 key。 */
-        private const val WBI_TTL_MS = 6 * 60 * 60 * 1000L
-
-        private val MIXIN_TABLE = intArrayOf(
-            46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35,
-            27, 43, 5, 49, 33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13,
-            37, 48, 7, 16, 24, 55, 40, 61, 26, 17, 0, 1, 60, 51, 30, 4,
-            22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11, 36, 20, 34, 44, 52,
-        )
 
         private fun encode(value: String): String = Uri.encode(value, "-_.~")
 

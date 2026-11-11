@@ -43,7 +43,7 @@ PR 标题：[P1-05] 视频域接口分片
 
 | 阶段 | 内容 | 任务数 | 完成 | 预计 |
 |---|---|---|---|---|
-| P0 | 立骨架、装依赖注入、上规矩 | 6 | 0 | 3.5 人天 |
+| P0 | 立骨架、装依赖注入、上规矩 | 6 | 6 | 3.5 人天 |
 | P1 | 拆网络层（最大的一块） | 11 | 0 | 9–11 人天 |
 | P2 | 抽状态（风险最高） | 8 | 0 | 10–12 人天 |
 | P3 | 拆大文件 | 8 | 0 | 8–10 人天 |
@@ -85,12 +85,12 @@ P5-* 依赖 P4-05，且需要团队同意
 
 #### P0-01 · 新建 `:core:model` 模块
 - **负责人**：Codex
-- **状态**：进行中（2026-11-11；实现与构建验证通过，等待装机回归）
+- **状态**：已完成（2026-11-11；自动验证及模拟器安装/冷启动通过）
 - **验证记录（2026-11-11）**：
   - `:core:model:build` 通过（JDK 21）；41 个模型声明与旧代码逐字一致，旧 `Models.kt` 未修改。
   - 新模块无 Android / OkHttp / JSON 依赖，按 video/comment/user/feed/message/library 分包。
   - `DynamicItem` 引用的 `DynamicLiveRecommendation` 从现有 `DynamicFeedSource.kt` 同步复制，避免新模块反向依赖 app。
-  - `:app:testDebugUnitTest :app:assembleDebug` 被缺失的 `top.yukonga.miuix.kmp:miuix-glass:0.9.4` 阻断；默认已找回并接入原始 Miuix 快照，后续 P0 阶段 App 单测和 debug 构建通过；尚未装机验证。
+  - 已接入原始 Miuix 快照；App 单测和 debug 构建通过，Pixel_9 只读实例安装、冷启动与首页真实数据加载通过。
   - 未增加第三方运行时依赖；JVM 插件复用版本目录中的 Kotlin 2.4.21，选择 JVM 而非 Android library 以保证模型脱离 Android。
 - **人话目标**：给"视频、评论、用户"这类业务名词找一个不依赖 Android 的家。
 - **动作**：
@@ -104,7 +104,7 @@ P5-* 依赖 P4-05，且需要团队同意
 
 #### P0-02 · 新建 `:core:domain` 并定义 3 个仓储接口
 - **负责人**：Codex
-- **状态**：进行中（实现已落地，核心/App 单测与 debug/release 构建通过；待装机回归）
+- **状态**：已完成（2026-11-11；自动验证及模拟器安装/冷启动通过）
 - **人话目标**：先把"要什么数据"写成菜单，不关心"从哪弄"。
 - **动作**：
   1. 新建 JVM 模块 `:core:domain`，依赖 `:core:model`。
@@ -116,7 +116,7 @@ P5-* 依赖 P4-05，且需要团队同意
 
 #### P0-03 · 新建 `:core:common` 并迁入纯函数
 - **负责人**：Codex
-- **状态**：进行中（实现已落地，核心/App 单测与 debug/release 构建通过；待装机回归）
+- **状态**：已完成（2026-11-11；自动验证及模拟器安装/冷启动通过）
 - **人话目标**：把"数字转 1.2万""时间转 昨天"这类纯计算集中到一个地方。
 - **动作**：
   1. 新建 JVM 模块 `:core:common`。
@@ -129,7 +129,7 @@ P5-* 依赖 P4-05，且需要团队同意
 
 #### P0-04 · 建 `AppContainer`，收拢对象的创建
 - **负责人**：Codex
-- **状态**：进行中（实现已落地，核心/App 单测与 debug/release 构建通过；待装机回归）
+- **状态**：已完成（2026-11-11；自动验证及模拟器安装/冷启动通过）
 - **人话目标**：现在对象到处 new，改成"进门时统一发工牌"。
 - **动作**：
   1. 在 `:app` 建 `di/AppContainer.kt`，集中创建 `BiliApi`、`SettingsStore`、`SentHistoryStore`、`VideoCacheManager`、`CdnAutoSelector`、`PlaybackProgressStore`。
@@ -141,7 +141,7 @@ P5-* 依赖 P4-05，且需要团队同意
 
 #### P0-05 · 加"架构守卫"检查
 - **负责人**：Codex
-- **状态**：进行中（实现已落地，核心/App 单测与 debug/release 构建通过；待装机回归）
+- **状态**：已完成（2026-11-11；自动验证及模拟器安装/冷启动通过）
 - **人话目标**：装一个门禁，谁把网络代码写进业务层就报警。
 - **动作**：
   1. 写一个 Gradle task 或 PowerShell/Kotlin 脚本 `tools/check-layering.kt`：
@@ -154,7 +154,7 @@ P5-* 依赖 P4-05，且需要团队同意
 
 #### P0-06 · 建 `:core:application` 与 `:core:navigation` 骨架（只建空壳）
 - **负责人**：Codex
-- **状态**：进行中（实现已落地，核心/App 单测与 debug/release 构建通过；待装机回归）
+- **状态**：已完成（2026-11-11；自动验证及模拟器安装/冷启动通过）
 - **人话目标**：给"跨页面共享的状态"和"页面地址清单"预留两个抽屉，现在不放东西，避免以后拆模块时返工。
 - **动作**：
   1. 新建 JVM 模块 `:core:application`（依赖 `:core:model`、`:core:domain`），先只放一个 `SessionStore` 接口。
@@ -172,13 +172,15 @@ P5-* 依赖 P4-05，且需要团队同意
 
 #### P1-01 · 抽出 `BiliHttpClient`
 - **负责人**：Codex
-- **状态**：进行中（HTTP 执行与重试已抽离；签名与请求准备尚在旧门面）
+- **状态**：进行中（HTTP 执行、重试、URL/请求头/表单准备已抽离；旧方法只转发，待 main 合入后集成验收）
 - **动作**：先新建 `:infra:bili` 模块（Android library），再把 `dataRequest` / `executeOnce` / `rawRequest` / `postRequest` / `awaitResponse` / `retryDelayMs` 搬进去，只负责：拼 URL、带 Cookie、超时、重试、把 HTTP 错误转成 `AppError`。
 - **前置**：P0-02 / P0-03
 - **验收**：`BiliApi` 里不再出现 `okhttp3.Call`；首页、视频页、消息页三个页面手动点一遍正常
 - **预估**：1.5 人天 · **风险**：中高（重试/超时行为容易变）· **注意**：现有重试次数与退避策略要原样保留
 
 #### P1-02 · 抽出 `WbiSigner`
+- **负责人**：Codex
+- **状态**：进行中（密钥缓存与 App/TV 签名已迁移，11 项签名测试通过；尚未实现服务端明确拒签后的自动重取重试）
 - **动作**：把 `ensureWbiKeys` / `parseWbi` / `signAppParams` 及相关缓存搬进 `infra:bili/WbiSigner`，加一个"密钥过期自动重取"的显式状态。
 - **前置**：P1-01
 - **验收**：需要签名的接口（`view`/`playInfo`/`related`）全部正常；key 过期时能自动重试一次

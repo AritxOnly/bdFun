@@ -38,3 +38,13 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 ## 交付条件
 
 当前是 P0 与 HTTP 执行层抽离的阶段结果，不等同于全量重构完成。release 验证产物不作为全量完成版发送飞书；全量任务、回归与发布说明完成后，再按用户授权交付。
+
+## 合入 main 后的请求与签名迁移验证
+
+- main 基线：`671d264`；合并提交：`e63e590`。阶段收尾 fetch 无新增提交。
+- 使用仓库 `.local/` 自动发现的 Miuix 快照，无需临时 MIUIX_SOURCE 路径。
+- `checkLayering :core:common:test :infra:bili:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --no-parallel --max-workers=2 --offline`：通过。
+- App 45 项、common 3 项、infra:bili 14 项，共 62 项，0 失败。
+- Pixel_9 只读临时实例：安装成功，MainActivity COLD 启动成功；首页推荐加载真实数据，视频详情与起播成功；个人主页头部和滚动小标题可见；crash 缓冲为空。临时实例已关闭，未保存原 AVD 快照。
+- 截图：`build/reports/refactor/main-home.png`、`main-video.png`、`main-space.png`、`main-space-scrolled.png`（构建目录，不提交）。
+- 上述验证没有覆盖切清晰度、切分 P、横屏、系统画中画、后台控制、扫码登录或完整消息流程。此前的 release 产物不对应本阶段源码，最终交付前须重新构建签名 release。
