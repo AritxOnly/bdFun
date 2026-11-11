@@ -267,8 +267,8 @@ fun MineScreen(
 
                 Spacer(Modifier.height(14.dp))
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    StatCell("关注", shown.following, Modifier.weight(1f))
-                    StatCell("粉丝", shown.follower, Modifier.weight(1f))
+                    StatCell("关注", shown.following, Modifier.weight(1f).clickable { com.aritxonly.bdfun.RelationActivity.open(ctx, shown.mid, false) })
+                    StatCell("粉丝", shown.follower, Modifier.weight(1f).clickable { com.aritxonly.bdfun.RelationActivity.open(ctx, shown.mid, true) })
                     StatCell("获赞", shown.likes, Modifier.weight(1f))
                 }
             }

@@ -6,6 +6,8 @@ import com.aritxonly.bdfun.ui.rememberImageRequest
 
 import androidx.core.graphics.drawable.toBitmap
 import android.os.Bundle
+import com.aritxonly.bdfun.ui.findHostActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
@@ -125,6 +127,25 @@ import top.yukonga.miuix.kmp.icon.extended.Search
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 class SpaceActivity : ComponentActivity() {
+    private var lightStatusIcons = false
+
+    internal fun syncSpaceStatusIcons(light: Boolean = lightStatusIcons) {
+        lightStatusIcons = light
+        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+            .isAppearanceLightStatusBars = !light
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) syncSpaceStatusIcons()
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // MIUI may reset contrast on fold/rotation even when this Activity is retained.
+        window.decorView.post { syncSpaceStatusIcons() }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         // 真正退出个人主页时释放进程级资料缓存；从主页进视频再返回不会触发。
@@ -133,6 +154,7 @@ class SpaceActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         AppGraph.ensure(applicationContext)
         val mid = AppGraph.pendingSpaceMid.value
         if (mid == null || mid <= 0) {
@@ -358,11 +380,13 @@ private fun SpaceScreen(
             val fetched = spaceDeferred.await()
             if (fetched != null) space = fetched
             // 先把头图加载出来让用户先看到，剩下的资料/投稿/动态继续并行等待。
-            val bannerUrl = (fetched ?: space)?.profile?.banner.orEmpty().ifBlank { DEFAULT_SPACE_BANNER }
-            val bitmap = if (bannerUrl.isNotBlank()) {
-                runCatching { loadSpaceBannerBitmap(context, bannerUrl) }.getOrNull()
-            } else {
-                null
+            val bannerProfile = (fetched ?: space)?.profile
+            val bannerUrls = (listOf(bannerProfile?.banner.orEmpty()) +
+                bannerProfile?.bannerFallbacks.orEmpty() + DEFAULT_SPACE_BANNER).filter { it.isNotBlank() }.distinct()
+            var bitmap: android.graphics.Bitmap? = null
+            for (url in bannerUrls) {
+                bitmap = loadSpaceBannerBitmap(context, url)
+                if (bitmap != null) break
             }
             bannerBitmap = bitmap ?: bannerBitmap
             if (bitmap != null && !bitmap.isRecycled) {
@@ -424,17 +448,18 @@ private fun SpaceScreen(
         }
     }
 
-    // 每个 Tab 保留自己的滚动位置；这样来回切换不会每次都回到顶部。
-    val tabListStates = remember {
-        List(4) { androidx.compose.foundation.lazy.LazyListState() }
-    }
-    val listState = tabListStates[selectedTab.coerceIn(0, 3)]
-    RegisterScrollTop(listState, "space")
-
     val blurDensity = LocalDensity.current
     val windowSize = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
     val windowWidth = with(blurDensity) { windowSize.width.toDp() }
     val wideSpace = windowWidth >= 736.dp
+    // Compact lists include the profile and tab anchor; wide lists contain only posts.
+    // Never let LazyColumn preserve a visible key from one structure into the other.
+    val compactTabStates = List(4) { rememberLazyListState() }
+    val wideTabStates = List(4) { rememberLazyListState() }
+    val tabListStates = if (wideSpace) wideTabStates else compactTabStates
+    val listState = tabListStates[pagerState.currentPage.coerceIn(0, 3)]
+    RegisterScrollTop(listState, "space")
+
     val profileWidth = (windowWidth * 0.40f).coerceIn(280.dp, 440.dp)
     val profileListState = androidx.compose.foundation.lazy.rememberLazyListState()
     val contentWidth = if (wideSpace) profileWidth else minOf(windowWidth, 680.dp)
@@ -472,14 +497,14 @@ private fun SpaceScreen(
         }
     }
 
-    val tabAnchor by remember(listState, wideSpace, statusBarTop) {
+    val tabAnchor by remember(listState, wideSpace, statusBarTop, blurDensity) {
         derivedStateOf {
             val pinY = with(blurDensity) { (statusBarTop + 56.dp).toPx() }
             val info = listState.layoutInfo
             val tabs = info.visibleItemsInfo.firstOrNull { it.key == "space-tabs" }
-            if (wideSpace) 0f
-            else tabs?.offset?.toFloat()?.coerceAtLeast(pinY)
-                ?: if (listState.firstVisibleItemIndex > 0) pinY else Float.POSITIVE_INFINITY
+            if (wideSpace) 0f else com.aritxonly.bdfun.ui.spaceTabOffset(
+                listState.firstVisibleItemIndex, tabs?.offset, pinY,
+            )
         }
     }
     androidx.compose.runtime.SideEffect {
@@ -519,7 +544,7 @@ private fun SpaceScreen(
 
     val headerContent: @Composable () -> Unit = {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    SpaceBanner(bitmap = bannerBitmap)
+                    SpaceBanner(bitmap = bannerBitmap, alignmentY = profile?.bannerAlignmentY ?: 0f)
                     // 白色面板从头顶边开始，不做圆角矩形；头像用负 offset 盖到头上。
                     Column(
                         modifier = Modifier
@@ -605,16 +630,28 @@ private fun SpaceScreen(
                                     horizontalArrangement = Arrangement.SpaceEvenly,
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    SpaceStat("粉丝", profile?.follower ?: 0, Modifier.weight(1f))
-                                    SpaceStat("关注", profile?.following ?: 0, Modifier.weight(1f))
+                                    SpaceStat("粉丝", profile?.follower ?: 0, Modifier.weight(1f).clickable { RelationActivity.open(context, mid, true) })
+                                    SpaceStat("关注", profile?.following ?: 0, Modifier.weight(1f).clickable { RelationActivity.open(context, mid, false) })
                                     SpaceStat("获赞", profile?.likes ?: 0, Modifier.weight(1f))
                                 }
-                                Spacer(Modifier.height(10.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Spacer(Modifier.weight(1f))
+
+                            }
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .trimBottom(24.dp)
+                                .padding(start = 16.dp, end = 16.dp, top = 0.dp),
+                        ) {
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text(
+                                    text = profile?.name.orEmpty(), color = colors.onBackground,
+                                    fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold,
+                                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
                                     MessageCircleButton(
                                         onClick = {
                                             context.startActivity(
@@ -629,7 +666,6 @@ private fun SpaceScreen(
                                             )
                                         },
                                     )
-                                    Spacer(Modifier.width(10.dp))
                                     FollowCapsule(
                                         isSelf = isSelf,
                                         followed = followed,
@@ -672,29 +708,7 @@ private fun SpaceScreen(
                                             }
                                         },
                                     )
-                                }
                             }
-                        }
-
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .trimBottom(36.dp)
-                                .padding(start = 16.dp, end = 16.dp, top = 0.dp),
-                        ) {
-                            val rawName = profile?.name.orEmpty().ifBlank { " " }
-                            val displayName = remember(rawName) { breakProfileName(rawName) }
-                            Text(
-                                text = displayName,
-                                color = colors.onBackground,
-                                fontSize = 20.sp,
-                                lineHeight = 26.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                // 右边给关注胶囊让位，避免长名字压到按钮上。
-                                modifier = Modifier.fillMaxWidth().padding(end = 128.dp),
-                            )
                             Spacer(Modifier.height(8.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Image(
@@ -891,6 +905,7 @@ private fun SpaceScreen(
                 beyondViewportPageCount = 1,
                 overscrollEffect = null,
             ) { page ->
+                androidx.compose.runtime.key(wideSpace, page) {
                 LazyColumn(
                     state = tabListStates[page.coerceIn(0, 3)],
                     modifier = Modifier
@@ -1236,6 +1251,7 @@ private fun SpaceScreen(
                 }
             }
         }
+                }
         }
         }
     }
@@ -1244,7 +1260,7 @@ private fun SpaceScreen(
 // ---------------------------------------------------------------- 头部组件
 
 @Composable
-private fun SpaceBanner(bitmap: android.graphics.Bitmap?, aspect: Float = 16f / 10f) {
+private fun SpaceBanner(bitmap: android.graphics.Bitmap?, aspect: Float = 16f / 10f, alignmentY: Float = 0f) {
     val dark = MiuixTheme.colorScheme.background.luminance() < 0.5f
     Box(
         modifier = Modifier
@@ -1258,6 +1274,7 @@ private fun SpaceBanner(bitmap: android.graphics.Bitmap?, aspect: Float = 16f / 
                 bitmap = bitmap.asImageBitmap(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
+                alignment = androidx.compose.ui.BiasAlignment(0f, alignmentY),
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -1808,59 +1825,6 @@ private fun SpaceEmpty(text: String) {
     }
 }
 
-/** 名字显示宽度：中文/符号算 1 个字，两个英文字母算 1 个字。 */
-private fun profileNameUnits(text: String): Int {
-    var units = 0
-    var latin = 0
-    for (ch in text) {
-        val isLatin = ch in 'A'..'Z' || ch in 'a'..'z'
-        if (isLatin) {
-            latin++
-            if (latin == 2) {
-                units++
-                latin = 0
-            }
-        } else {
-            if (latin > 0) {
-                units++
-                latin = 0
-            }
-            units++
-        }
-    }
-    if (latin > 0) units++
-    return units
-}
-
-/** 超过 7 个字的名字在第七个字后换行，剩下的放到第二排。 */
-private fun breakProfileName(text: String): String {
-    if (profileNameUnits(text) <= 7) return text
-    var units = 0
-    var latin = 0
-    var index = 0
-    while (index < text.length) {
-        val ch = text[index]
-        val isLatin = ch in 'A'..'Z' || ch in 'a'..'z'
-        if (isLatin) {
-            latin++
-            if (latin == 2) {
-                units++
-                latin = 0
-            }
-        } else {
-            if (latin > 0) {
-                units++
-                latin = 0
-            }
-            units++
-        }
-        index++
-        if (units >= 7) break
-    }
-    if (index >= text.length) return text
-    return text.substring(0, index) + "\n" + text.substring(index)
-}
-
 /** 紧凑数字但不带小数点：7.3 万 → 7万。 */
 private fun formatCountNoDecimal(value: Long): String =
     formatCount(value)
@@ -1932,11 +1896,12 @@ private suspend fun loadSpaceBannerBitmap(
     val request = ImageRequest.Builder(context)
         .data(com.aritxonly.bdfun.data.BiliApi.image(url))
         .setHeader("Referer", "https://space.bilibili.com/")
-        .size(1080, 675)
+        .size(1440, 1440)
+        .scale(coil.size.Scale.FIT)
         .allowHardware(false)
         .build()
     val result = coil.Coil.imageLoader(context).execute(request)
-    result.drawable?.toBitmap()?.takeIf { !it.isRecycled }
+    (result as? coil.request.SuccessResult)?.drawable?.toBitmap()?.takeIf { !it.isRecycled }
 }
 
 /** 头图缩到 8×8 取平均亮度，决定顶栏图标先显示白还是黑。 */
@@ -1983,9 +1948,11 @@ private fun SpaceTopChrome(state: SpaceChromeState, onBack: () -> Unit) {
     )
     val context = LocalContext.current
     androidx.compose.runtime.SideEffect {
-        (context as? android.app.Activity)?.let {
-            androidx.core.view.WindowCompat.getInsetsController(it.window, it.window.decorView)
-                .isAppearanceLightStatusBars = (if (state.wide) pageGlyph else glyph).luminance() < 0.5f
+        context.findHostActivity()?.let {
+            val lightIcons = (if (state.wide) pageGlyph else glyph).luminance() >= 0.5f
+            if (it is SpaceActivity) it.syncSpaceStatusIcons(lightIcons)
+            else androidx.core.view.WindowCompat.getInsetsController(it.window, it.window.decorView)
+                .isAppearanceLightStatusBars = !lightIcons
         }
     }
     val actions: @Composable androidx.compose.foundation.layout.RowScope.(Color) -> Unit = { tint ->
@@ -1998,7 +1965,9 @@ private fun SpaceTopChrome(state: SpaceChromeState, onBack: () -> Unit) {
     }
     val tabs: @Composable (Dp) -> Unit = { itemWidth ->
         TeakPagerTabs(options = listOf("主页", "动态", "投稿", "小店"), selected = state.selected,
-            onSelect = { state.onSelect(it) }, position = state.position, itemWidth = itemWidth)
+            onSelect = { state.onSelect(it) }, position = state.position, itemWidth = itemWidth,
+            materialProgress = if (state.wide) com.aritxonly.teak.common.chrome.LocalTopBarButtonMaterialProgress.current
+                else com.aritxonly.teak.common.chrome.rememberManualProgress(state.headerProgress, 280f))
     }
     if (state.wide) {
         Row(Modifier.fillMaxWidth()) {
@@ -2057,7 +2026,7 @@ private fun WideSpaceProfile(
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
     Column(Modifier.fillMaxWidth().background(colors.background), horizontalAlignment = Alignment.CenterHorizontally) {
-        SpaceBanner(bitmap, aspect = 2.35f)
+        SpaceBanner(bitmap, aspect = 2.35f, alignmentY = profile?.bannerAlignmentY ?: 0f)
         AsyncImage(model = rememberImageRequest(profile?.face.orEmpty()), contentDescription = "头像",
             contentScale = ContentScale.Crop, modifier = Modifier.offset(y = (-32).dp).size(88.dp)
                 .clip(CircleShape).border(4.dp, colors.background, CircleShape))
@@ -2070,8 +2039,8 @@ private fun WideSpaceProfile(
                 if (profile?.vip == true) Text(profile.vipLabel.ifBlank { "大会员" }, color = colors.primary, fontSize = 13.sp)
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                SpaceStat("粉丝", profile?.follower ?: 0, Modifier.weight(1f))
-                SpaceStat("关注", profile?.following ?: 0, Modifier.weight(1f))
+                SpaceStat("粉丝", profile?.follower ?: 0, Modifier.weight(1f).clickable { RelationActivity.open(context, mid, true) })
+                SpaceStat("关注", profile?.following ?: 0, Modifier.weight(1f).clickable { RelationActivity.open(context, mid, false) })
                 SpaceStat("获赞", profile?.likes ?: 0, Modifier.weight(1f))
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,

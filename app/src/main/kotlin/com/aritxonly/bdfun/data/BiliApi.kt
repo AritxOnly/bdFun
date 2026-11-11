@@ -1061,6 +1061,30 @@ class BiliApi(context: Context) : DynamicFeedSource {
         }.getOrNull()
     }
 
+    /** HyperPiliPlus FollowHttp / FanHttp: server paging and owner privacy are preserved. */
+    suspend fun relationUsers(mid: Long, fans: Boolean, page: Int = 1, frequent: Boolean = false): RelationPage =
+        withContext(Dispatchers.IO) {
+            require(mid > 0 && page > 0)
+            val data = dataRequest(if (fans) "/x/relation/fans" else "/x/relation/followings",
+                relationListParams(mid, fans, page, frequent))
+            val raw = data.optJSONArray("list").objects()
+            val ids = raw.map { it.l("mid") }.filter { it > 0 }.distinct()
+            // 'attribute' in another person's following list describes THEIR relationship.
+            val relations = if (isLoggedIn && ids.isNotEmpty()) runCatching {
+                dataRequest("/x/relation/relations", mapOf("fids" to ids.joinToString(",")))
+            }.getOrElse { error ->
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                null
+            } else null
+            val items = raw.mapNotNull { item ->
+                val id = item.l("mid").takeIf { it > 0 } ?: return@mapNotNull null
+                RelationUser(id, item.s("uname"), avatar(item.s("face"), 160), item.s("sign"),
+                    if (!isLoggedIn) 0 else relations?.optJSONObject(id.toString())?.optInt("attribute", 0))
+            }
+            val total = data.optInt("total", 0)
+            RelationPage(items, total, relationNextPage(page, raw.size, total))
+        }
+
     // ---------------------------------------------------------------- account
 
     suspend fun history(): List<HistoryItem> = historyPage(0L, 0L, "").items
@@ -1733,26 +1757,24 @@ class BiliApi(context: Context) : DynamicFeedSource {
         }.getOrNull()
     }
 
-    private fun spaceBannerFrom(payload: JSONObject?): String {
-        val images = payload?.optJSONObject("images") ?: return ""
-        val day = images.s("imgUrl").orEmpty()
-        val night = images.s("night_imgurl").orEmpty()
-        val collectionFirst = images
-            .optJSONObject("collection_top_simple")
-            ?.optJSONObject("top")
-            ?.optJSONArray("result")
-            ?.optJSONObject(0)
-        val collectionCover = collectionFirst
-            ?.optJSONObject("item")
-            ?.optJSONObject("image")
-            ?.s("default_image")
-            .orEmpty()
-            .ifBlank { collectionFirst?.s("cover").orEmpty() }
-        return image(collectionCover.ifBlank { day.ifBlank { night } })
+    private fun spaceBannerCandidates(payload: JSONObject?, info: JSONObject): List<String> {
+        val images = payload?.optJSONObject("images")
+        val first = images?.optJSONObject("collection_top_simple")?.optJSONObject("top")
+            ?.optJSONArray("result")?.optJSONObject(0)
+        val collection = first?.optJSONObject("item")?.optJSONObject("image")?.s("default_image").orEmpty()
+        val web = info.s("top_photo").ifBlank { info.optJSONObject("card")?.s("top_photo").orEmpty() }
+            .ifBlank { info.optJSONObject("space")?.s("top_photo").orEmpty() }
+        // The App endpoint can return its default pink dressing even when a custom web banner exists.
+        return orderedSpaceBanners(collection, first?.s("cover").orEmpty(), web,
+            images?.s("imgUrl").orEmpty(), images?.s("night_imgurl").orEmpty()).map(::image)
     }
 
-    /** 空间头图：优先 App 聚合接口 /x/v2/space 的 images，失败回退网页 acc/info 的 top_photo。 */
-    private suspend fun spaceHeaderImage(mid: Long): String = spaceBannerFrom(spaceAppPayload(mid))
+    private fun spaceBannerAlignment(payload: JSONObject?): Float {
+        val item = payload?.optJSONObject("images")?.optJSONObject("collection_top_simple")
+            ?.optJSONObject("top")?.optJSONArray("result")?.optJSONObject(0)?.optJSONObject("item")
+        val image = item?.optJSONObject("image") ?: item?.optJSONObject("animation")
+        return spaceBannerAlignment(image?.s("location").orEmpty(), image?.optDouble("height", 0.0) ?: 0.0)
+    }
 
     /** 为 TA 充电的人数：使用 PiliPlus 同款 App 聚合接口的 elec.total。 */
     suspend fun spaceChargeCount(mid: Long): Long = withContext(Dispatchers.IO) {
@@ -1864,14 +1886,9 @@ class BiliApi(context: Context) : DynamicFeedSource {
                         dataRequest("/x/space/upstat", mapOf("mid" to mid.toString())).l("likes")
                     }.getOrDefault(0L).takeIf { it > 0L }
                     ?: nav?.l("likes") ?: 0L,
-                banner = spaceBannerFrom(appSpace)
-                    .ifBlank {
-                        val card = info.optJSONObject("card")
-                        val raw = info.s("top_photo")
-                            .ifBlank { card?.s("top_photo").orEmpty() }
-                            .ifBlank { info.optJSONObject("space")?.s("top_photo").orEmpty() }
-                        runCatching { image(raw) }.getOrDefault("")
-                    },
+                banner = spaceBannerCandidates(appSpace, info).firstOrNull().orEmpty(),
+                bannerFallbacks = spaceBannerCandidates(appSpace, info).drop(1),
+                bannerAlignmentY = spaceBannerAlignment(appSpace),
                 officialTitle = official?.s("title").orEmpty(),
                 officialDesc = official?.s("desc").orEmpty(),
                 officialType = official?.optInt("type", 0) ?: 0,

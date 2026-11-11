@@ -89,7 +89,8 @@ fun TeakGlassBackButton(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .clip(CircleShape)
+                    .background(top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.4f), androidx.compose.foundation.shape.CircleShape)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
                     .clickable(interactionSource = null, indication = null, onClick = onClick),
             )
         }

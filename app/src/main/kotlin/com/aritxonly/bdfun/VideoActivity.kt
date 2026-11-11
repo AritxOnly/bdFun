@@ -454,28 +454,35 @@ class VideoActivity : ComponentActivity() {
                     }
                     val overlayAlpha = pageOverlayAlpha
                     if (overlayAlpha > 0.01f) {
-                        Row(
-                            modifier = Modifier
-                                .align(if (splitPanes) Alignment.TopEnd else Alignment.TopStart)
-                                .then(if (splitPanes) Modifier.width(paneLayout.detailsWidthDp.dp) else Modifier.fillMaxWidth())
-                                .padding(
-                                    start = if (splitPanes) 8.dp else 16.dp,
-                                    end = if (splitPanes) 8.dp else 16.dp,
-                                )
-                                .graphicsLayer {
-                                    alpha = overlayAlpha
-                                    // 直接贴在播放器真实底边下面，不再各自算一套位置。
-                                    translationY = (if (splitPanes) playerTopInset.toPx() else VideoPageBus.playerBottomPx) + 6.dp.toPx()
-                                },
-                            verticalAlignment = Alignment.CenterVertically,
+                        androidx.compose.runtime.CompositionLocalProvider(
+                            com.aritxonly.teak.common.chrome.LocalTopBarScrollProgress provides
+                                com.aritxonly.teak.common.chrome.LocalTeakPageScrollState.current.materialProgress,
                         ) {
-                            TeakPagerTabs(
-                                options = listOf("简介", "评论"),
-                                selected = pager.currentPage,
-                                onSelect = { scope.launch { pager.animateScrollToPage(it) } },
-                                itemWidth = if (splitPanes) 48.dp else 60.dp,
-                            )
-                            VideoDanmakuActions(compact = splitPanes) { danmakuInputOpen = true }
+                            com.aritxonly.teak.common.chrome.ProgressiveTopBarMaterial(
+                                enabled = splitPanes,
+                                modifier = Modifier
+                                    .align(if (splitPanes) Alignment.TopEnd else Alignment.TopStart)
+                                    .then(if (splitPanes) Modifier.width(paneLayout.detailsWidthDp.dp) else Modifier.fillMaxWidth())
+                                    .graphicsLayer {
+                                        alpha = overlayAlpha
+                                        translationY = if (splitPanes) 0f else VideoPageBus.playerBottomPx
+                                    },
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth()
+                                        .padding(top = if (splitPanes) statusBarDp else 0.dp)
+                                        .height(52.dp)
+                                        .padding(horizontal = if (splitPanes) 8.dp else 16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    TeakPagerTabs(
+                                        options = listOf("简介", "评论"), selected = pager.currentPage,
+                                        onSelect = { scope.launch { pager.animateScrollToPage(it) } },
+                                        itemWidth = if (splitPanes) 48.dp else 60.dp,
+                                    )
+                                    VideoDanmakuActions(compact = splitPanes) { danmakuInputOpen = true }
+                                }
+                            }
                         }
 
                         // 评论回复栏属于详情栏；只有独占全屏才隐藏。
@@ -613,7 +620,7 @@ class VideoActivity : ComponentActivity() {
                     // 视频底边的白色渐变放进页面录制层，Tab 玻璃采样时会把它和下方内容
                     // 当成同一张底片一起模糊，避免 Tab 内外一亮一白。
                     val fadeColor = MaterialTheme.colorScheme.background
-                    Box(
+                    if (!splitPanes) Box(
                         modifier = Modifier
                             .align(if (splitPanes) Alignment.TopEnd else Alignment.TopStart)
                             .then(if (splitPanes) Modifier.width(paneLayout.detailsWidthDp.dp) else Modifier.fillMaxWidth())

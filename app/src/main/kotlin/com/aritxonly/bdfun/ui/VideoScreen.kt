@@ -1163,7 +1163,7 @@ fun VideoScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         val listState = rememberLazyListState()
-        TrackTeakPageScroll(listState)
+        if (pager.currentPage == 0) TrackTeakPageScroll(listState)
 
         // 全屏时只隐藏、不卸载：否则退回竖屏评论列表会整段重载
         run {
@@ -1215,7 +1215,7 @@ fun VideoScreen(
                             state = listState,
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(
-                                top = (if (splitPanes) expandedTopInset else playerBlockHeight) + 52.dp,
+                                top = (if (splitPanes) statusBarTop else playerBlockHeight) + 52.dp,
                                 bottom = 32.dp,
                             ),
                         ) {
@@ -1621,9 +1621,10 @@ fun VideoScreen(
                                 onBack = {},
                                 bvid = d.bvid,
                                 bare = true,
-                                topInset = if (splitPanes) 52.dp else playerBlockHeight + 14.dp +
+                                trackBackProgress = pager.currentPage == 1,
+                                topInset = if (splitPanes) statusBarTop + 52.dp else playerBlockHeight + 14.dp +
                                     (if (immersiveStatusBar) 36.dp else 0.dp),
-                                threadPlayerBottom = if (splitPanes) expandedTopInset + 52.dp else playerBlockHeight,
+                                threadPlayerBottom = if (splitPanes) statusBarTop + 52.dp else playerBlockHeight,
                                 threadPaneWidth = if (splitPanes) maxWidth else null,
                                 playerFullscreen = fullscreen,
                                 focusRootRpid = initialCommentRoot,

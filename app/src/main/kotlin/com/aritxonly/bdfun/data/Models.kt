@@ -197,6 +197,8 @@ data class UserProfile(
     val likes: Long = 0,
     /** 空间头图。 */
     val banner: String = "",
+    val bannerFallbacks: List<String> = emptyList(),
+    val bannerAlignmentY: Float = 0f,
     /** 空间页资料：认证标题 / 等级经验（接口没有时为空 / 0）。 */
     val officialTitle: String = "",
     val officialDesc: String = "",
@@ -440,3 +442,12 @@ data class SubtitleCue(
     val toMs: Long,
     val text: String,
 )
+
+/** Relationship here always belongs to the logged-in account, never the viewed space owner. */
+data class RelationUser(
+    val mid: Long, val name: String, val face: String, val sign: String,
+    val attribute: Int? = null,
+) {
+    val followed: Boolean get() = attribute == 2 || attribute == 6
+}
+data class RelationPage(val items: List<RelationUser>, val total: Int, val nextPage: Int?)
