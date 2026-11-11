@@ -65,8 +65,7 @@ fun WideFoldTopAppBar(
     bottomContent: @Composable () -> Unit = {},
 ) {
     Column(modifier.fillMaxWidth()
-        .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-        .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))) {
+        .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = TopAppBarDefaults.CollapsedHeight)
                 .padding(start = TopAppBarDefaults.NavigationIconPadding,

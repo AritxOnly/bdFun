@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun
 
+import androidx.lifecycle.repeatOnLifecycle
 import com.aritxonly.teak.common.chrome.LocalTeakPageScrollState
 import com.aritxonly.teak.common.chrome.LocalTopBarScrollProgress
 import com.aritxonly.teak.common.chrome.ProgressiveTopBarMaterial
@@ -263,6 +264,20 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
     // 再次点击当前底栏项 → 触发该页刷新
     var dynamicRefreshTick by remember { mutableIntStateOf(0) }
     val appScope = rememberCoroutineScope()
+    var unreadMessageCount by remember(session?.mid) { mutableIntStateOf(0) }
+    val unreadLifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    LaunchedEffect(session?.mid, unreadLifecycleOwner) {
+        if (session == null) return@LaunchedEffect
+        unreadLifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            while (true) {
+                try { unreadMessageCount = api.messageUnreadCount() }
+                catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel }
+                catch (_: Exception) { }
+                kotlinx.coroutines.delay(60_000)
+            }
+        }
+    }
+
 
     LaunchedEffect(Unit) {
         session = runCatching { api.nav() }.getOrNull()
@@ -451,6 +466,7 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                         ) {
                         HomeTopBar(
                             profile = session,
+                            unreadCount = unreadMessageCount,
                             searchActive = showSearch,
                             searchQuery = searchQuery,
                             onQueryChange = { searchQuery = it },

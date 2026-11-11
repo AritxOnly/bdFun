@@ -46,6 +46,7 @@ fun TeakActivityScaffold(
     /** 个别页面覆盖唱片的右边距，用来对准底部表情按钮。 */
     discEndPadding: androidx.compose.ui.unit.Dp? = null,
     title: String? = null,
+    limitContentWidth: Boolean = true,
     topBarLeading: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
     topBarCenter: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit = {},
     topBarActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
@@ -65,6 +66,7 @@ fun TeakActivityScaffold(
     TeakBareTheme(settings) { _, materialColors ->
         TeakPageScaffold(
             title = title,
+            limitContentWidth = limitContentWidth,
             onBack = onBack,
             backRevealed = backRevealed,
             showBackButton = showBackButton,

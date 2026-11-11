@@ -2732,6 +2732,15 @@ class BiliApi(context: Context) : DynamicFeedSource {
         }.getOrNull()
     }
 
+    suspend fun messageUnreadCount(): Int = withContext(Dispatchers.IO) {
+        val params = mapOf("build" to "0", "mobi_app" to "web", "web_location" to "333.1365")
+        val privateData = dataRequest("/session_svr/v1/session_svr/single_unread",
+            params + ("unread_type" to "0"), base = "https://api.vc.bilibili.com")
+        val feed = dataRequest("/x/msgfeed/unread", params)
+        (listOf("follow_unread", "unfollow_unread").sumOf { privateData.optInt(it).coerceAtLeast(0) } +
+            listOf("at", "like", "reply", "sys_msg").sumOf { feed.optInt(it).coerceAtLeast(0) })
+    }
+
     /** 一键把所有未读消息标为已读；接口失败时由 UI 退化为本地清除红点。 */
     suspend fun clearAllUnread(sessions: List<MessageSession>): Boolean = withContext(Dispatchers.IO) {
         val msgfeed = listOf("/x/msgfeed/clearUnread", "/x/msgfeed/clear_unread").any { path ->

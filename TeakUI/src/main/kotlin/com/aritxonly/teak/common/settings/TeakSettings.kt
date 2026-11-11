@@ -15,7 +15,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -139,9 +140,13 @@ fun TeakSettingsPage(
                 state = listState,
                 modifier = modifier
                     .fillMaxSize()
-                    .layerBackdrop(settingsBackdrop)
-                    .statusBarsPadding(),
-                contentPadding = contentPadding,
+                    .layerBackdrop(settingsBackdrop),
+                contentPadding = PaddingValues(
+                    start = contentPadding.calculateLeftPadding(androidx.compose.ui.platform.LocalLayoutDirection.current),
+                    end = contentPadding.calculateRightPadding(androidx.compose.ui.platform.LocalLayoutDirection.current),
+                    top = contentPadding.calculateTopPadding() + WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
+                    bottom = contentPadding.calculateBottomPadding(),
+                ),
                 verticalArrangement = verticalArrangement,
             ) {
                 item(key = "teak_settings_header") {

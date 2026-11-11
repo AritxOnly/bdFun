@@ -1189,6 +1189,7 @@ fun VideoScreen(
                             }
                         } else if (splitPanes) {
                             Modifier.width(paneLayout.detailsWidthDp.dp).fillMaxHeight()
+                                .background(colors.background)
                                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End))
                         } else {
                             Modifier.fillMaxSize()

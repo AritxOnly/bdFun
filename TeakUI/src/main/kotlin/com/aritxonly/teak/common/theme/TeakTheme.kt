@@ -1,6 +1,7 @@
 package com.aritxonly.teak.common.theme
 
 import android.os.Build
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +55,25 @@ fun TeakTheme(
     fontScale: Float = 1f,
     content: @Composable () -> Unit,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val activity = remember(context) {
+        var owner = context
+        while (owner is android.content.ContextWrapper && owner !is android.app.Activity) owner = owner.baseContext
+        owner as? android.app.Activity
+    }
+    androidx.compose.runtime.DisposableEffect(activity, materialColors.background) {
+        activity?.window?.let { window ->
+            androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+            if (Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
+            if (Build.VERSION.SDK_INT >= 30) {
+                window.attributes = window.attributes.apply {
+                    layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                }
+            }
+            window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(materialColors.background.toArgb()))
+        }
+        onDispose { }
+    }
     val mode = if (dark) ColorSchemeMode.Dark else ColorSchemeMode.Light
     val controller = remember(mode, lightColors, darkColors) {
         ThemeController(

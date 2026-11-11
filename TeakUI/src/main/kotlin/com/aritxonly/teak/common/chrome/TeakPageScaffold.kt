@@ -264,6 +264,7 @@ fun TeakPageScaffold(
     showBackButton: Boolean = true,
     backgroundColor: Color = MaterialTheme.colorScheme.background,
     contentModifier: Modifier = Modifier,
+    limitContentWidth: Boolean = true,
     topBarLeading: @Composable RowScope.() -> Unit = {},
     topBarCenter: @Composable BoxScope.() -> Unit = {},
     topBarActions: @Composable RowScope.() -> Unit = {},
@@ -293,7 +294,7 @@ fun TeakPageScaffold(
                     .fillMaxSize()
                     .layerBackdrop(backdrop)
                     .then(contentModifier)
-                    .then(if (title != null) Modifier.centeredListWidth(scrollState = pageState.scrollableState) else Modifier),
+                    .then(if (title != null && limitContentWidth) Modifier.centeredListWidth(scrollState = pageState.scrollableState) else Modifier),
             ) {
                 content()
             }

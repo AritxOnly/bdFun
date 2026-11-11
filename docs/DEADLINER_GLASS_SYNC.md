@@ -36,3 +36,11 @@ Run `:app:assembleDebug :app:testDebugUnitTest :TeakUI:testDebugUnitTest`. Host 
 - 宽折叠顶栏 Actions 使用和窄屏相同的 12dp 右侧安全区内边距、8dp 按钮间距；正文限宽不作用于顶栏。消息操作图标使用固定 Miuix 源码中的 `MiuixIcons.Delete`，保留原有全部已读行为。
 - 播放页背景铺满窗口，安全区只约束内容与控件；右侧详情延伸至状态栏，弹幕输入入口与开关放在简介/评论右侧。窄栏统计按整项换行，五个互动操作等分可用宽度。
 - 非全屏播放采用系统用户方向策略，旋转/折叠变化不会留下强制竖屏限制；分栏按当前测量约束更新。Manifest 显式关闭系统 Activity embedding override，由应用维护自己的分栏，参见 [Android activity embedding](https://developer.android.com/develop/ui/views/layout/activity-embedding)。这不宣称能覆盖所有厂商自定义的平行视窗实现。
+
+### 平板与状态栏边界修复（2026-11-11）
+
+- Android 窗口启用 edge-to-edge / display-cutout ALWAYS，并使用当前主题填充 window background；关闭 navigation bar contrast scrim，避免播放器侧边安全区露出默认白底。
+- 固定宽屏顶栏仅保留顶部系统栏间距，不再对整个标题栏施加横向系统 inset；标题栏仍位于内容限宽层之外。
+- 消息和设置列表将状态栏留白放入 contentPadding，滚动视口及 backdrop 覆盖窗口顶部。
+- 空间页关闭外壳单列限宽，改为自行管理宽屏资料/内容分栏；窄屏使用同一 LazyColumn 承载头图与内容，去掉消费拖动距离的手动折叠头部。
+- 上述修改只涉及布局、窗口和滚动状态；玻璃的光学参数、配方与渲染 fallback 保持原值。

@@ -32,6 +32,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -80,7 +82,7 @@ fun HomeTopBar(
     onOpenMessages: () -> Unit,
     onOpenProfile: () -> Unit,
     modifier: Modifier = Modifier,
-    unread: Boolean = true,
+    unreadCount: Int = 0,
     searchActive: Boolean = false,
     searchQuery: String = "",
     onQueryChange: (String) -> Unit = {},
@@ -152,7 +154,6 @@ fun HomeTopBar(
                 .height(HomeTopBarHeight),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (!wide || searchActive) {
             Crossfade(
                 targetState = searchActive,
                 animationSpec = tween(durationMillis = 160),
@@ -170,7 +171,6 @@ fun HomeTopBar(
                 }
             }
             Spacer(Modifier.width(10.dp))
-            }
 
             TeakGlassSurface(
                 modifier = Modifier
@@ -358,12 +358,13 @@ fun HomeTopBar(
                             tint = BrandPink,
                             modifier = Modifier.size(19.dp),
                         )
-                        if (unread) {
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .size(7.dp)
-                                    .background(MaterialTheme.colorScheme.error, Capsule()),
+                        if (unreadCount > 0) {
+                            Text(
+                                text = if (unreadCount > 99) "99+" else unreadCount.toString(),
+                                color = Color.White, fontSize = 9.sp, lineHeight = 12.sp,
+                                modifier = Modifier.align(Alignment.TopEnd).offset(x = 9.dp, y = (-7).dp)
+                                    .background(MaterialTheme.colorScheme.error, Capsule())
+                                    .padding(horizontal = 4.dp, vertical = 1.dp),
                             )
                         }
                     }

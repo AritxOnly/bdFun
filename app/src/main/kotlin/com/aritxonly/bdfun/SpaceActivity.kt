@@ -28,6 +28,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import com.aritxonly.teak.common.chrome.centeredListWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -160,6 +162,7 @@ class SpaceActivity : ComponentActivity() {
                 settings = settings,
                 onBack = { finish() },
                 title = title,
+                limitContentWidth = false,
                 barBlurFraction = barBlurFraction,
                 topBarGlyphColor = topGlyph,
                 topBarActions = {
@@ -267,7 +270,7 @@ private fun SpaceScreen(
     var shopLoaded by remember(mid) { mutableStateOf(false) }
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    // 头图和 Tab 固定，只有下面的内容用 pager 左右滑。
+    // 每个内容分类保留独立列表；宽屏资料单独放在左栏。
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { 4 })
     val pagePosition = remember(pagerState) {
         derivedStateOf { pagerState.currentPage + pagerState.currentPageOffsetFraction }
@@ -469,54 +472,22 @@ private fun SpaceScreen(
     val listState = tabListStates[selectedTab.coerceIn(0, 3)]
     RegisterScrollTop(listState, "space")
 
-    // 头部高度 / 收起位移：先正常往上滚，滚到 Tab 停在顶部栏下方时不再继续收。
-    var headerHeightPx by remember { mutableIntStateOf(0) }
-    var headerCollapsePx by remember { mutableFloatStateOf(0f) }
     val blurDensity = LocalDensity.current
-    val windowWidth = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
-    val contentWidth = if (windowWidth >= 600.dp) minOf(windowWidth * 0.7f, 680.dp) else windowWidth
+    val windowSize = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
+    val windowWidth = with(blurDensity) { windowSize.width.toDp() }
+    val wideSpace = windowWidth >= 736.dp
+    val profileWidth = (windowWidth * 0.32f).coerceIn(300.dp, 360.dp)
+    val contentWidth = if (wideSpace) profileWidth else minOf(windowWidth, 680.dp)
     val bannerHeightPx = with(blurDensity) { (contentWidth * 0.625f).toPx() }
-    val statusBarPx = with(blurDensity) {
-        WindowInsets.statusBars.asPaddingValues().calculateTopPadding().toPx()
-    }
-    // Tab 最终固定在“状态栏 + 顶部按钮那一行”的位置。
-    // 有且只有 Tab 固定：头像 / 等级 / 简介会完整滚出屏幕，不再留一截。
-    val pinHeightPx = statusBarPx + with(blurDensity) { 56.dp.toPx() }
-    // 资料列自己用 trimBottom 收掉视觉上移留下的空白，这里不再额外扣。
-    val headerVisualTrimPx = 0f
-    // Tab 与 UID 的视觉间距。
-    val tabGapPx = with(blurDensity) { 7.dp.toPx() }
-
-    // 头部整块都可以被移出屏幕；Tab 现在是内容的一部分，会跟着一起滚走。
-    val headerMaxCollapsePx = headerHeightPx.toFloat()
-    LaunchedEffect(headerMaxCollapsePx) {
-        if (headerCollapsePx > headerMaxCollapsePx) {
-            headerCollapsePx = headerMaxCollapsePx
-        }
-    }
-
-    val barBlurProgress by remember(bannerHeightPx) {
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val barBlurProgress by remember(listState, bannerHeightPx, wideSpace) {
         derivedStateOf {
-            (headerCollapsePx / (bannerHeightPx * 0.5f)).coerceIn(0f, 1f)
+            if (wideSpace || listState.firstVisibleItemIndex > 0) 1f
+            else (listState.firstVisibleItemScrollOffset / (bannerHeightPx * 0.5f)).coerceIn(0f, 1f)
         }
     }
     androidx.compose.runtime.SideEffect { onBarBlurFractionChange(barBlurProgress) }
-
-    LaunchedEffect(
-        headerCollapsePx,
-        headerHeightPx,
-        listState.firstVisibleItemIndex,
-        listState.firstVisibleItemScrollOffset,
-    ) {
-        val maxCollapse = headerMaxCollapsePx
-        val headerDone = maxCollapse > 0f && headerCollapsePx >= maxCollapse - 1f
-        val extra = if (headerDone) listState.firstVisibleItemScrollOffset.toFloat() else 0f
-        val index = if (headerDone && listState.firstVisibleItemIndex > 0) 1 else 0
-        pageChrome.update(index, headerCollapsePx + extra, density = blurDensity.density)
-    }
-
-    // 1 = 新页从右边进，-1 = 从左边进。点 Tab 和左右滑都走同一套。
-    var tabDirection by remember { mutableIntStateOf(1) }
+    TrackTeakPageScroll(listState, pageChrome)
 
     fun selectTab(index: Int) {
         if (index !in 0..3 || index == selectedTab) return
@@ -526,44 +497,6 @@ private fun SpaceScreen(
 
     // 页面切换改为和首页 / 动态页一样的整页横向滑动（AnimatedContent 同时保留旧页和新页）。
     val tabEnterModifier = Modifier
-
-    // 横划只翻一页；竖向滑动完全不拦截。
-    val viewConfig = androidx.compose.ui.platform.LocalViewConfiguration.current
-    val swipeSlop = viewConfig.touchSlop
-    val swipeThreshold = with(LocalDensity.current) { 56.dp.toPx() }
-    val swipeModifier = Modifier.pointerInput(selectedTab) {
-        awaitEachGesture {
-            val down = awaitFirstDown(requireUnconsumed = false)
-            var totalX = 0f
-            var totalY = 0f
-            var horizontal: Boolean? = null
-            var childTookIt = false
-            while (true) {
-                val event = awaitPointerEvent()
-                val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                if (change.isConsumed) {
-                    // 横向列表（合集、投稿筛选）已经接走了这次拖动，不当作翻页。
-                    childTookIt = true
-                    break
-                }
-                totalX += change.position.x - change.previousPosition.x
-                totalY += change.position.y - change.previousPosition.y
-                if (horizontal == null &&
-                    (kotlin.math.abs(totalX) > swipeSlop || kotlin.math.abs(totalY) > swipeSlop)
-                ) {
-                    horizontal = kotlin.math.abs(totalX) > kotlin.math.abs(totalY) * 1.3f
-                }
-                if (horizontal == true) change.consume()
-                if (!change.pressed) break
-            }
-            if (!childTookIt && horizontal == true &&
-                kotlin.math.abs(totalX) >= swipeThreshold
-            ) {
-                val next = if (totalX < 0f) selectedTab + 1 else selectedTab - 1
-                selectTab(next)
-            }
-        }
-    }
 
     // 滚到底部时翻页。
     LaunchedEffect(listState, selectedTab, submissionMode) {
@@ -898,9 +831,8 @@ private fun SpaceScreen(
                                 fontSize = 10.5.sp,
                             )
                         }
-                        // Tab 作为资料区的一部分，跟着上下滚走；不放进横向 Pager，
-                        // 所以左右切页时它不会跟着横移。
-                        Row(
+                        // 窄屏 Tab 跟随资料滚动；宽屏在右侧内容列提供 Tab。
+                        if (!wideSpace) Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 9.dp, bottom = 6.dp),
@@ -923,58 +855,6 @@ private fun SpaceScreen(
         // 等滑动真正停下来再改 selectedTab，避免划过中间页时误触发那一页的加载。
         snapshotFlow { pagerState.settledPage }.collect { selectedTab = it }
     }
-    // 内容列表往上滑时先收起头部，收到 Tab 固定位置后，剩下的位移才交给列表。
-    val headerScrollConnection = remember(headerMaxCollapsePx) {
-        val maxCollapse = headerMaxCollapsePx
-        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
-            override fun onPreScroll(
-                available: androidx.compose.ui.geometry.Offset,
-                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource,
-            ): androidx.compose.ui.geometry.Offset {
-                if (available.y < 0f && headerCollapsePx < maxCollapse) {
-                    val consume = (-available.y).coerceAtMost(maxCollapse - headerCollapsePx)
-                    headerCollapsePx += consume
-                    return androidx.compose.ui.geometry.Offset(0f, -consume)
-                }
-                return androidx.compose.ui.geometry.Offset.Zero
-            }
-
-            override fun onPostScroll(
-                consumed: androidx.compose.ui.geometry.Offset,
-                available: androidx.compose.ui.geometry.Offset,
-                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource,
-            ): androidx.compose.ui.geometry.Offset {
-                if (available.y > 0f && headerCollapsePx > 0f) {
-                    val consume = available.y.coerceAtMost(headerCollapsePx)
-                    headerCollapsePx -= consume
-                    return androidx.compose.ui.geometry.Offset(0f, consume)
-                }
-                return androidx.compose.ui.geometry.Offset.Zero
-            }
-        }
-    }
-
-    // 头图 / 上方空白区域也能上下拖动整页：先收头部，收到 Tab 固定位置后再滚当前列表。
-    fun applyPageDrag(dragY: Float) {
-        val maxCollapse = headerMaxCollapsePx
-        if (dragY < 0f) {
-            val collapse = (-dragY).coerceAtMost(
-                (maxCollapse - headerCollapsePx).coerceAtLeast(0f),
-            )
-            if (collapse > 0f) headerCollapsePx += collapse
-            val remain = -dragY - collapse
-            if (remain > 0f) listState.dispatchRawDelta(remain)
-        } else {
-            val atListTop = listState.firstVisibleItemIndex == 0 &&
-                listState.firstVisibleItemScrollOffset == 0
-            if (headerCollapsePx > 0f && atListTop) {
-                headerCollapsePx = (headerCollapsePx - dragY).coerceAtLeast(0f)
-            } else {
-                listState.dispatchRawDelta(-dragY)
-            }
-        }
-    }
-
     if (loading || !bannerReady) {
         Column(modifier = Modifier.fillMaxSize()) {
             bannerBitmap?.let { SpaceBanner(bitmap = it) }
@@ -989,37 +869,18 @@ private fun SpaceScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // 固定头部：只上下收，不跟着 Tab 左右移动。
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .collapseHeaderContainer(
-                        headerHeightPx,
-                        headerCollapsePx,
-                        headerVisualTrimPx.roundToInt(),
-                    )
-                    .pointerInput(selectedTab, headerMaxCollapsePx) {
-                        detectVerticalDragGestures { change, dragAmount ->
-                            change.consume()
-                            applyPageDrag(dragAmount)
-                        }
-                    },
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onSizeChanged { headerHeightPx = it.height }
-                        .graphicsLayer { translationY = -headerCollapsePx },
-                ) {
-                    headerContent()
-                }
+        Row(modifier = Modifier.fillMaxSize()) {
+            if (wideSpace) {
+                LazyColumn(
+                    modifier = Modifier.width(profileWidth).fillMaxHeight(),
+                    contentPadding = PaddingValues(top = statusBarTop + 56.dp, bottom = 24.dp),
+                ) { item(key = "profile") { headerContent() } }
             }
 
             androidx.compose.foundation.pager.HorizontalPager(
                 state = pagerState,
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxHeight()
                     .weight(1f),
                 // 相邻页也保持组合，滑过去时内容已经就位。
                 beyondViewportPageCount = 1,
@@ -1029,14 +890,21 @@ private fun SpaceScreen(
                     state = tabListStates[page.coerceIn(0, 3)],
                     modifier = Modifier
                         .fillMaxSize()
-                        .nestedScroll(headerScrollConnection),
+                        .centeredListWidth(maxWidth = if (wideSpace) 1000.dp else 680.dp),
                     // 「主页」内容本来就短，再留底部空白会被误认为还能继续滑一截。
                     contentPadding = PaddingValues(
-                        top = 0.dp,
-                        bottom = if (page == 0) 0.dp else 90.dp,
+                        top = if (wideSpace) statusBarTop + 56.dp else 0.dp,
+                        bottom = 40.dp,
                     ),
                     overscrollEffect = null,
                 ) {
+                    if (!wideSpace) item(key = "profile") { headerContent() }
+                    else item(key = "space-tabs") {
+                        Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.Center) {
+                            TeakPagerTabs(options = listOf("主页", "动态", "投稿", "小店"),
+                                selected = pagerState.currentPage, onSelect = { selectTab(it) }, position = pagePosition, backdrop = null)
+                        }
+                    }
             when (page) {
                 0 -> {
                     item(key = "home-videos-title") {

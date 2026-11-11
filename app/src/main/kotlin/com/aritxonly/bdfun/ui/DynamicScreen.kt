@@ -37,6 +37,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -219,7 +221,7 @@ fun DynamicScreen(
     LaunchedEffect(state.type, state.filterMid) { state.listState.scrollToItem(0) }
     LaunchedEffect(state, state.type, state.filterMid) {
         snapshotFlow {
-            state.listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index to state.items.size
+            state.listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index to state.listState.layoutInfo.totalItemsCount
         }.collect { (last, count) ->
             if (count > 0 && last != null && last >= count - 2 && state.error == null) {
                 state.loadMore(loggedIn)
@@ -254,32 +256,26 @@ fun DynamicScreen(
                 val center = (info.viewportStartOffset + info.viewportEndOffset) / 2f
                 val nearest = info.visibleItemsInfo.minByOrNull {
                     kotlin.math.abs(it.offset + it.size / 2f - center)
-                }?.index
+                }?.key
                 state.listState.isScrollInProgress to nearest
             }.collect { (scrolling, index) ->
                 if (scrolling) return@collect
-                // 列表第 0 项是头像卡片
-                val itemIndex = (index ?: -1) - 1
-                autoPlayId = visible.getOrNull(itemIndex)
+                // Row keys identify the first card in either a single- or double-column row.
+                autoPlayId = visible.firstOrNull { it.id == index }
                     ?.takeIf { it.video != null || it.orig?.video != null }
                     ?.id
             }
         }
 
         BoxWithConstraints(Modifier.fillMaxSize()) {
-        val split = maxWidth >= 840.dp
+        val columns = dynamicFeedColumns(maxWidth.value)
         Row(Modifier.fillMaxSize()) {
-        if (split) {
-            Box(Modifier.width(112.dp).padding(top = statusTop + DynamicTopBarHeight + 8.dp, bottom = 100.dp)) {
-                DynamicAvatarCard(state = state)
-            }
-        }
         LazyColumn(
             state = state.listState,
             modifier = Modifier
                 .fillMaxSize()
                 .weight(1f)
-                .centeredListWidth(scrollState = state.listState)
+                .centeredListWidth(maxWidth = if (columns == 2) 1320.dp else 680.dp)
                 .offset { IntOffset(0, pull.roundToInt()) }
                 .nestedScroll(connection),
             contentPadding = PaddingValues(
@@ -292,12 +288,16 @@ fun DynamicScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item(key = "avatar-card") {
-                if (!split) DynamicAvatarCard(
+                DynamicAvatarCard(
                     state = state,
                     modifier = Modifier.padding(bottom = 2.dp),
                 )
             }
-            items(visible, key = { it.id }) { item ->
+            items(visible.chunked(columns), key = { it.first().id }) { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                row.forEach { item ->
+                androidx.compose.runtime.key(item.id) {
+                Box(Modifier.weight(1f)) {
                 val likedNow = state.liked[item.id] ?: item.liked
                 val countNow = state.likeCounts[item.id] ?: item.like
                 DynamicCard(
@@ -335,6 +335,11 @@ fun DynamicScreen(
                 )
             }
 
+                }
+                }
+                if (row.size < columns) Spacer(Modifier.weight(1f))
+                }
+            }
             if (visible.isEmpty() && !state.refreshing && !state.loading && state.error == null) {
                 item(key = "empty") {
                     Text(
@@ -479,18 +484,26 @@ fun DynamicAvatarCard(
             if (count > 0 && last >= count - 3 && state.authorsError == null) state.loadMoreAuthors()
         }
     }
-    BoxWithConstraints(modifier.fillMaxWidth().clip(ContinuousCornerShape(18.dp)).background(colors.surface)) {
-        val vertical = maxWidth < 200.dp
-        val entries: LazyListScope.() -> Unit = {
-            item(key = "live-toggle") {
-                Text("直播 (${state.liveCount})", color = colors.primary,
-                    modifier = Modifier.clickable { state.showLive = !state.showLive }.padding(12.dp))
+    Column(modifier.fillMaxWidth().clip(ContinuousCornerShape(18.dp)).background(colors.surface)) {
+        if (state.liveCount > 0) {
+            Row(Modifier.fillMaxWidth().clickable { state.showLive = !state.showLive }
+                .padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("正在直播 · ${state.liveCount}", color = colors.onSurface, fontSize = 14.sp,
+                    modifier = Modifier.weight(1f))
+                Text(if (state.showLive) "收起" else "展开", color = colors.onSurfaceVariantSummary, fontSize = 12.sp)
             }
-            if (state.showLive) items(state.liveUsers, key = { "live-${it.roomId}" }) { live ->
-                AuthorAvatar(name = live.name, face = live.face, selected = false, badge = "直播") {
-                    openDynamicLive(context, live.roomId)
+            if (state.showLive) LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                items(state.liveUsers, key = { it.roomId }) { live ->
+                    AuthorAvatar(name = live.name, face = live.face, selected = false, badge = "直播") {
+                        openDynamicLive(context, live.roomId)
+                    }
                 }
             }
+        }
+        val entries: LazyListScope.() -> Unit = {
             item(key = "all-dynamics") {
                 AllDynamicAvatar(selected = state.type == "all") {
                     scope.launch { state.listState.scrollToItem(0); state.clearFilter() }
@@ -526,9 +539,7 @@ fun DynamicAvatarCard(
                 }
             }
         }
-        if (vertical) LazyColumn(state = authorScroll, horizontalAlignment = Alignment.CenterHorizontally,
-            contentPadding = PaddingValues(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = entries)
-        else LazyRow(state = authorScroll, verticalAlignment = Alignment.CenterVertically,
+        LazyRow(state = authorScroll, verticalAlignment = Alignment.CenterVertically,
             contentPadding = PaddingValues(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), content = entries)
     }
 }
@@ -545,15 +556,15 @@ private fun AuthorAvatar(
     val colors = MiuixTheme.colorScheme
     val ring = rememberManualProgress(if (selected) 1f else 0f, 200f)
     Column(
-        horizontalAlignment = Alignment.Start,
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .width(56.dp)
+            .semantics { stateDescription = if (hasUpdate) "有更新" else badge.orEmpty() }
             .clickable(interactionSource = null, indication = null, onClick = onClick),
     ) {
         Box(
             modifier = Modifier
                 .size(46.dp)
-                .clip(CircleShape)
                 .border(
                     1.4.dp,
                     Brush.verticalGradient(
@@ -574,6 +585,14 @@ private fun AuthorAvatar(
                     .clip(CircleShape)
                     .background(colors.surfaceContainerHigh),
             )
+            if (hasUpdate) {
+                Box(Modifier.align(Alignment.TopEnd).size(8.dp).background(colors.primary, CircleShape))
+            }
+            if (badge != null) {
+                Text(badge, color = colors.onPrimary, fontSize = 9.sp,
+                    modifier = Modifier.align(Alignment.BottomCenter).clip(Capsule())
+                        .background(colors.primary).padding(horizontal = 4.dp))
+            }
             // 选中圈只做透明度渐显，不改变头像尺寸和位置
             if (ring > 0.01f) {
                 Box(
@@ -587,7 +606,6 @@ private fun AuthorAvatar(
                 )
             }
         }
-        if (badge != null || hasUpdate) Text(badge ?: "有更新", color = colors.primary, fontSize = 9.sp)
         Text(
             text = name,
             color = colors.onBackgroundVariant,
@@ -606,7 +624,7 @@ private fun AllDynamicAvatar(selected: Boolean, onClick: () -> Unit) {
     val colors = MiuixTheme.colorScheme
     val ring = rememberManualProgress(if (selected) 1f else 0f, 200f)
     Column(
-        horizontalAlignment = Alignment.Start,
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .width(56.dp)
             .clickable(interactionSource = null, indication = null, onClick = onClick),
