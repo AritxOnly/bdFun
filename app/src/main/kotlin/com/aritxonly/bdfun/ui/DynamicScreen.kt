@@ -564,17 +564,7 @@ private fun AuthorAvatar(
     ) {
         Box(
             modifier = Modifier
-                .size(46.dp)
-                .border(
-                    1.4.dp,
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.White.copy(alpha = 0.85f),
-                            Color.White.copy(alpha = 0.25f),
-                        ),
-                    ),
-                    CircleShape,
-                ),
+                .size(46.dp),
         ) {
             AsyncImage(
                 model = rememberImageRequest(face),
@@ -632,17 +622,7 @@ private fun AllDynamicAvatar(selected: Boolean, onClick: () -> Unit) {
         Box(
             modifier = Modifier
                 .size(46.dp)
-                .clip(CircleShape)
-                .border(
-                    1.4.dp,
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.White.copy(alpha = 0.85f),
-                            Color.White.copy(alpha = 0.25f),
-                        ),
-                    ),
-                    CircleShape,
-                ),
+                .clip(CircleShape),
         ) {
             Box(
                 modifier = Modifier

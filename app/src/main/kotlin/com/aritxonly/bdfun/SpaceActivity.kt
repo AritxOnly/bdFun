@@ -466,14 +466,91 @@ private fun SpaceScreen(
     val bannerHeightPx = with(blurDensity) { (contentWidth * if (wideSpace) (1f / 2.35f) else 0.625f).toPx() }
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val headerScrollState = if (wideSpace) profileListState else listState
-    val barBlurProgress by remember(headerScrollState, bannerHeightPx) {
+
+    // ---- 竖屏：资料头部整块收起（合并前的旧逻辑）；宽屏沿用现有滚动追踪 ----
+    var headerHeightPx by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    var headerCollapsePx by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    val headerMaxCollapsePx = headerHeightPx.toFloat()
+    LaunchedEffect(headerMaxCollapsePx) {
+        if (headerCollapsePx > headerMaxCollapsePx) headerCollapsePx = headerMaxCollapsePx
+    }
+
+    // 内容列表往上滑时先收起头部，收完再交给列表自己滚
+    val headerScrollConnection = remember(headerMaxCollapsePx) {
+        val maxCollapse = headerMaxCollapsePx
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPreScroll(
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource,
+            ): androidx.compose.ui.geometry.Offset {
+                if (available.y < 0f && headerCollapsePx < maxCollapse) {
+                    val consume = (-available.y).coerceAtMost(maxCollapse - headerCollapsePx)
+                    headerCollapsePx += consume
+                    return androidx.compose.ui.geometry.Offset(0f, -consume)
+                }
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+
+            override fun onPostScroll(
+                consumed: androidx.compose.ui.geometry.Offset,
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource,
+            ): androidx.compose.ui.geometry.Offset {
+                if (available.y > 0f && headerCollapsePx > 0f) {
+                    val consume = available.y.coerceAtMost(headerCollapsePx)
+                    headerCollapsePx -= consume
+                    return androidx.compose.ui.geometry.Offset(0f, consume)
+                }
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+        }
+    }
+
+    // 头图区域也能上下拖动整页：先收头部，收完再滚当前列表
+    fun applyPageDrag(dragY: Float) {
+        val maxCollapse = headerMaxCollapsePx
+        if (dragY < 0f) {
+            val collapse = (-dragY).coerceAtMost((maxCollapse - headerCollapsePx).coerceAtLeast(0f))
+            if (collapse > 0f) headerCollapsePx += collapse
+            val remain = -dragY - collapse
+            if (remain > 0f) listState.dispatchRawDelta(remain)
+        } else {
+            val atListTop = listState.firstVisibleItemIndex == 0 &&
+                listState.firstVisibleItemScrollOffset == 0
+            if (headerCollapsePx > 0f && atListTop) {
+                headerCollapsePx = (headerCollapsePx - dragY).coerceAtLeast(0f)
+            } else {
+                listState.dispatchRawDelta(-dragY)
+            }
+        }
+    }
+
+    val barBlurProgress by remember(wideSpace, headerScrollState, bannerHeightPx) {
         derivedStateOf {
-            if (headerScrollState.firstVisibleItemIndex > 0) 1f
-            else (headerScrollState.firstVisibleItemScrollOffset / (bannerHeightPx * 0.5f)).coerceIn(0f, 1f)
+            if (!wideSpace) {
+                (headerCollapsePx / (bannerHeightPx * 0.5f)).coerceIn(0f, 1f)
+            } else if (headerScrollState.firstVisibleItemIndex > 0) {
+                1f
+            } else {
+                (headerScrollState.firstVisibleItemScrollOffset / (bannerHeightPx * 0.5f)).coerceIn(0f, 1f)
+            }
         }
     }
     androidx.compose.runtime.SideEffect { onBarBlurFractionChange(barBlurProgress) }
-    TrackTeakPageScroll(listState, pageChrome)
+    if (wideSpace) TrackTeakPageScroll(listState, pageChrome)
+    if (!wideSpace) {
+        LaunchedEffect(
+            headerCollapsePx,
+            headerHeightPx,
+            listState.firstVisibleItemIndex,
+            listState.firstVisibleItemScrollOffset,
+        ) {
+            val headerDone = headerMaxCollapsePx > 0f && headerCollapsePx >= headerMaxCollapsePx - 1f
+            val extra = if (headerDone) listState.firstVisibleItemScrollOffset.toFloat() else 0f
+            val index = if (headerDone && listState.firstVisibleItemIndex > 0) 1 else 0
+            pageChrome.update(index, headerCollapsePx + extra, density = blurDensity.density)
+        }
+    }
 
     suspend fun retainPinnedHeader(target: Int) {
         if (wideSpace || target == selectedTab || target !in tabListStates.indices) return
@@ -507,14 +584,25 @@ private fun SpaceScreen(
             )
         }
     }
+    // 下面这几个值都来自 snapshot state（滚动位置、pager 页码、加载状态）。
+    // 必须在组合阶段读取，才会在滚动时触发重组；只在 SideEffect 里读的话，
+    // 组合永远不会因滚动而重跑，写进顶栏的永远是首次进入时的值 ——
+    // 表现就是：分段栏不出现、上滑也没有渐进模糊。
+    val chromeHeaderProgress = barBlurProgress
+    val chromeContentProgress = pageChrome.materialProgress
+    val chromeTabY = tabAnchor
+    val chromeVisible = !loading && bannerReady
+    val chromeSelected = pagerState.currentPage
+
     androidx.compose.runtime.SideEffect {
         chrome.wide = wideSpace
+        chrome.title = profile?.name.orEmpty().ifBlank { "个人主页" }
         chrome.profileWidth = profileWidth
-        chrome.headerProgress = barBlurProgress
-        chrome.contentProgress = pageChrome.materialProgress
-        chrome.tabY = tabAnchor
-        chrome.visible = !loading && bannerReady
-        chrome.selected = pagerState.currentPage
+        chrome.headerProgress = chromeHeaderProgress
+        chrome.contentProgress = chromeContentProgress
+        chrome.tabY = chromeTabY
+        chrome.visible = chromeVisible
+        chrome.selected = chromeSelected
         chrome.position = pagePosition
         chrome.onSelect = ::selectTab
     }
@@ -844,6 +932,23 @@ private fun SpaceScreen(
                                 fontSize = 10.5.sp,
                             )
                         }
+                        // 分段栏作为资料区的一部分，跟着内容一起上下滚（竖屏旧逻辑）。
+                        // 宽屏用的是顶栏那一份，这里只在竖屏出现。
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 9.dp, bottom = 6.dp),
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            TeakPagerTabs(
+                                options = listOf("主页", "动态", "投稿", "小店"),
+                                selected = selectedTab,
+                                onSelect = ::selectTab,
+                                position = pagePosition,
+                                // 这一份在页面内容里（会被录进页面 backdrop），不能再采样它
+                                backdrop = null,
+                            )
+                        }
                     }
                 }
     }
@@ -896,11 +1001,35 @@ private fun SpaceScreen(
                 } }
             }
 
+            Column(modifier = Modifier.fillMaxHeight().weight(1f)) {
+                if (!wideSpace) {
+                    // 竖屏旧逻辑：资料头部（含分段栏）在 Pager 之外，
+                    // 切分段时只有下方内容横向移动，头部不动。
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .collapseHeaderContainer(headerHeightPx, headerCollapsePx, 0)
+                            .pointerInput(selectedTab, headerMaxCollapsePx) {
+                                detectVerticalDragGestures { change, dragAmount ->
+                                    change.consume()
+                                    applyPageDrag(dragAmount)
+                                }
+                            },
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onSizeChanged { headerHeightPx = it.height }
+                                .graphicsLayer { translationY = -headerCollapsePx },
+                        ) {
+                            headerContent()
+                        }
+                    }
+                }
+
             androidx.compose.foundation.pager.HorizontalPager(
                 state = pagerState,
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .weight(1f),
+                modifier = Modifier.fillMaxWidth().weight(1f),
                 // 相邻页也保持组合，滑过去时内容已经就位。
                 beyondViewportPageCount = 1,
                 overscrollEffect = null,
@@ -910,7 +1039,8 @@ private fun SpaceScreen(
                     state = tabListStates[page.coerceIn(0, 3)],
                     modifier = Modifier
                         .fillMaxSize()
-                        .centeredListWidth(maxWidth = if (wideSpace) 1000.dp else 680.dp),
+                        .centeredListWidth(maxWidth = if (wideSpace) 1000.dp else 680.dp)
+                        .nestedScroll(headerScrollConnection),
                     // 「主页」内容本来就短，再留底部空白会被误认为还能继续滑一截。
                     contentPadding = PaddingValues(
                         top = if (wideSpace) statusBarTop + 56.dp else 0.dp,
@@ -918,8 +1048,6 @@ private fun SpaceScreen(
                     ),
                     overscrollEffect = null,
                 ) {
-                    if (!wideSpace) item(key = "profile") { headerContent() }
-                    if (!wideSpace) item(key = "space-tabs") { Spacer(Modifier.height(56.dp)) }
             when (page) {
                 0 -> {
                     item(key = "home-videos-title") {
@@ -1256,6 +1384,7 @@ private fun SpaceScreen(
         }
     }
 }
+}
 
 // ---------------------------------------------------------------- 头部组件
 
@@ -1336,11 +1465,6 @@ private fun FollowCapsule(
             .height(34.dp)
             .clip(shape)
             .background(if (followed) colors.surfaceContainerHigh else colors.primary)
-            .border(
-                width = 1.dp,
-                color = Color.White.copy(alpha = 0.45f),
-                shape = shape,
-            )
             .clickable(interactionSource = null, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -1926,6 +2050,7 @@ private fun bitmapLuminance(bitmap: android.graphics.Bitmap): Float {
 /** Chrome stays outside the content recorder; the marker in each list only reserves tab space. */
 private class SpaceChromeState {
     var wide by mutableStateOf(false)
+    var title by mutableStateOf("")
     var profileWidth by mutableStateOf(320.dp)
     var headerProgress by mutableFloatStateOf(0f)
     var contentProgress by mutableFloatStateOf(0f)
@@ -1994,26 +2119,30 @@ private fun SpaceTopChrome(state: SpaceChromeState, onBack: () -> Unit) {
             }
         }
     } else {
-        val density = LocalDensity.current
-        val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-        val pinY = with(density) { (statusTop + 56.dp).toPx() }
-        val pinned = state.visible && state.tabY <= pinY + 1f
         androidx.compose.runtime.CompositionLocalProvider(
             com.aritxonly.teak.common.chrome.LocalTopBarScrollProgress provides state.headerProgress,
         ) {
             com.aritxonly.teak.common.chrome.ProgressiveTopBarMaterial {
-                Column {
-                    com.aritxonly.teak.common.chrome.TeakTopOverlay(
-                        revealed = state.headerProgress > 0f, onBack = onBack, glyphColor = glyph,
-                        trailing = { actions(glyph) },
-                    )
-                    if (pinned) Spacer(Modifier.height(56.dp))
-                }
+                com.aritxonly.teak.common.chrome.TeakTopOverlay(
+                    revealed = state.headerProgress > 0f, onBack = onBack, glyphColor = glyph,
+                    trailing = { actions(glyph) },
+                    // 竖屏滚动后顶栏显示一个小标题（UP 昵称），和合并前一致
+                    center = {
+                        val shown = ((state.headerProgress - 0.55f) / 0.45f).coerceIn(0f, 1f)
+                        if (shown > 0.01f && state.title.isNotBlank()) {
+                            Text(
+                                text = state.title,
+                                color = colors.onBackground,
+                                fontSize = com.aritxonly.teak.common.chrome.TeakChromeDefaults.SmallTitleFontSize,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.graphicsLayer { alpha = shown },
+                            )
+                        }
+                    },
+                )
             }
-        }
-        if (state.visible && state.tabY.isFinite()) {
-            Box(Modifier.fillMaxWidth().offset { androidx.compose.ui.unit.IntOffset(0, state.tabY.roundToInt()) }
-                .height(56.dp), contentAlignment = Alignment.Center) { tabs(74.dp) }
         }
     }
 }

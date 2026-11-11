@@ -1272,12 +1272,11 @@ fun VideoScreen(
                             )
                         }
                         Spacer(Modifier.width(10.dp))
-                        // 纯色 + 高光描边的关注按钮
+                        // 纯色关注按钮（不再加高光描边）
                         Box(
                             modifier = Modifier
                                 .clip(Capsule())
                                 .background(BrandPink)
-                                .border(1.dp, Color.White.copy(alpha = 0.45f), Capsule())
                                 .clickable(interactionSource = null, indication = null) {
                                     toggleFollow()
                                 }
