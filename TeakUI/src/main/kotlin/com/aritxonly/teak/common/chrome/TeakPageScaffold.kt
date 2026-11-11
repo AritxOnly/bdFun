@@ -57,7 +57,7 @@ object TeakChromeDefaults {
     val ContentBottomPadding: Dp = 40.dp
 
     /** 大标题上方留白：让大标题落在返回键下方。 */
-    val LargeTitleTopSpacer: Dp = 40.dp
+    val LargeTitleTopSpacer: Dp = 52.dp
 
     /** 大标题 / 副标题相对内容区的左边距，以及两者间距。 */
     val LargeTitleStartPadding: Dp = 10.dp
