@@ -284,6 +284,7 @@ fun TeakPageScaffold(
         drawRect(backgroundColor)
         drawContent()
     }
+    com.aritxonly.teak.common.modal.RegisterAdvancedMaterialModalBackdrop(backdrop)
     CompositionLocalProvider(LocalTeakBackdrop provides backdrop, LocalTeakPageScrollState provides pageState) {
         Box(
             modifier = modifier

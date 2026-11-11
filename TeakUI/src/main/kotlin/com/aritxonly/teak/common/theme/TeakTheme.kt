@@ -105,7 +105,7 @@ fun TeakTheme(
         MiuixTheme(controller = controller) {
             MaterialTheme(colorScheme = materialColors) {
                 CompositionLocalProvider(LocalTeakMaterialSpec provides materialSpec) {
-                    content()
+                    com.aritxonly.teak.common.modal.TeakModalHost { content() }
                 }
             }
         }
