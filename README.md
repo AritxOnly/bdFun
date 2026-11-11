@@ -122,3 +122,12 @@ Copyright (C) 2026 bdFun contributors
 - 所有视频、音频、图片、弹幕等内容版权归哔哩哔哩及相应权利人所有，本项目不主张任何内容权利。
 - 因官方接口变更、策略调整或不可抗力导致的功能失效或损失，开发者不承担责任。
 - 使用本项目即表示你已阅读并同意完整的使用须知；如不同意，请停止使用并删除本项目。
+
+### 固定 Miuix 快照
+
+`miuix-glass` 来自 `45645854cd46c32275c5666e3aafa9980d8f104e` 快照，不能假定 Maven 上的 `0.9.4` 包含它。
+先运行 `python3 tools/setup-miuix.py`（也可用 `--source /path/to/snapshot` 复制本机快照）。
+源码存入被 Git 忽略的 `.local/`，Gradle 自动使用；仍可通过 `MIUIX_SOURCE` 或 `-PmiuixSource=` 覆盖。
+快照采用 Apache-2.0 许可证，脚本保留其 LICENSE；不把临时路径写进版本库。
+
+核心边界验证：`python3 tools/check-layering.py`，或运行 Gradle `checkLayering`。

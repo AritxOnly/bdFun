@@ -36,7 +36,7 @@ gradlew.bat :danmaku-engine:test
 
 **构建前必须知道的三件事**：
 
-1. 本项目用**本地 Miuix 源码**参与 composite build。源码放在 `../miuix-src/miuix-45645854cd46c32275c5666e3aafa9980d8f104e`，或用环境变量 `MIUIX_SOURCE` 指定。找不到时回退到 Maven 依赖，但**版本必须对齐**（AGP 9.5.1 不能和别的 AGP 混用）。
+1. 本项目用**本地 Miuix 源码**参与 composite build。源码放在 `../miuix-src/miuix-45645854cd46c32275c5666e3aafa9980d8f104e`，或用环境变量 `MIUIX_SOURCE` 指定。也可运行 `python3 tools/setup-miuix.py` 准备 `.local/` 下的固定快照；找不到时回退到 Maven 依赖，但**版本必须对齐**（AGP 9.5.1 不能和别的 AGP 混用）。
 2. 每次构建会把时间戳写进 `BuildConfig.BUILD_STAMP` 和 `versionName`，所以**每次构建产物的版本号都不同**，这是故意的，别当 bug 修。
 3. 可以用 `-Ppkg=com.example.app` 覆盖包名做实验，不加时 debug 包名是 `com.aritxonly.bdfun.debug`。
 
@@ -55,6 +55,12 @@ gradlew.bat :danmaku-engine:test
 | `.../top/yukonga/miuix/kmp/effect/bg/` | 背景特效（随项目内联的 miuix 片段） | 纯 UI，与业务无关 |
 | `TeakUI/` | 设计系统模块（玻璃材质、页面骨架、导航组件） | **已分层，勿动** |
 | `danmaku-engine/` | 弹幕解析与渲染引擎 | **已分层、19 个测试，勿动** |
+| `core/model/` | P0-01 纯 Kotlin 业务模型（迁移期与旧模型并存） | 已建骨架 |
+| `core/common/`、`core/domain/` | 格式化、结果类型与只读仓储接口 | P0 骨架 |
+| `core/application/`、`core/navigation/` | SessionStore 与 Route 契约 | P0 空壳，未替换运行时 |
+| `app/.../di/AppContainer.kt` | 进程依赖创建与初始化 | AppGraph 委托 |
+| `infra/bili/` | HTTP 执行、取消、重试与异常类型 | P1 迁移中 |
+| `tools/` | 核心层依赖检查、固定 Miuix 快照准备脚本 | Python 3 |
 | `docs/` | 架构审查、对齐文档、来源说明 | |
 
 ### 现状规模（2026-11 实测，别当永久事实）

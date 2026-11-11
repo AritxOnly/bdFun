@@ -103,7 +103,13 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":infra:bili"))
+    implementation(project(":core:navigation"))
+    implementation(project(":core:application"))
+    implementation(project(":core:domain"))
+    implementation(project(":core:common"))
     testImplementation("junit:junit:4.13.2")
+    implementation(project(":core:model"))
     implementation(project(":TeakUI"))
     implementation(project(":danmaku-engine"))
 

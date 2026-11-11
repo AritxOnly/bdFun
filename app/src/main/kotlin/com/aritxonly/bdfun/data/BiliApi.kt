@@ -10,14 +10,11 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import okhttp3.Call
-import okhttp3.Callback
 import okhttp3.Dispatcher
 import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -25,7 +22,6 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
 import org.xmlpull.v1.XmlPullParser
@@ -37,8 +33,6 @@ import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 import java.util.zip.GZIPInputStream
 import java.util.zip.InflaterInputStream
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 import kotlin.math.roundToInt
 
 class BiliApi(context: Context) : DynamicFeedSource {
@@ -48,6 +42,12 @@ class BiliApi(context: Context) : DynamicFeedSource {
     private val client = HttpClients.base.newBuilder()
         .cookieJar(cookieJar)
         .build()
+
+    private val http = com.aritxonly.bdfun.infra.bili.BiliHttpClient(
+        client = client,
+        debug = BuildConfig.DEBUG,
+        log = LogCollector::record,
+    )
 
     private val buvidMutex = Mutex()
     private val wbiMutex = Mutex()
@@ -540,7 +540,7 @@ class BiliApi(context: Context) : DynamicFeedSource {
             .header("Referer", "https://www.bilibili.com/")
             .get()
             .build()
-        return client.newCall(request).awaitResponse().use { response ->
+        return http.await(request).use { response ->
             if (!response.isSuccessful) return null
             response.body?.bytes()?.takeIf { it.isNotEmpty() }
         }
@@ -553,7 +553,7 @@ class BiliApi(context: Context) : DynamicFeedSource {
             .header("Referer", "https://www.bilibili.com/")
             .get()
             .build()
-        val bytes = client.newCall(request).awaitResponse().use { response ->
+        val bytes = http.await(request).use { response ->
             if (!response.isSuccessful) return@withContext emptyList()
             response.body?.bytes() ?: return@withContext emptyList()
         }
@@ -574,7 +574,7 @@ class BiliApi(context: Context) : DynamicFeedSource {
                 .header("User-Agent", UA)
                 .get()
                 .build()
-            val text = client.newCall(request).awaitResponse().use { response ->
+            val text = http.await(request).use { response ->
                 if (!response.isSuccessful) return@runCatching emptyList()
                 response.body?.string().orEmpty()
             }
@@ -734,7 +734,7 @@ class BiliApi(context: Context) : DynamicFeedSource {
                 .header("Origin", "https://www.bilibili.com")
                 .post(body)
                 .build()
-            val json = client.newCall(request).awaitResponse().use { response ->
+            val json = http.await(request).use { response ->
                 val text = response.body?.string().orEmpty()
                 if (text.isBlank()) return@use null
                 JSONObject(text)
@@ -1417,7 +1417,7 @@ class BiliApi(context: Context) : DynamicFeedSource {
                 .header("Referer", "https://www.bilibili.com/")
                 .get()
                 .build()
-            val text = client.newCall(request).awaitResponse().use { response ->
+            val text = http.await(request).use { response ->
                 if (!response.isSuccessful) return@runCatching emptyList()
                 response.body?.string().orEmpty()
             }
@@ -1666,7 +1666,7 @@ class BiliApi(context: Context) : DynamicFeedSource {
                 .header("Content-Type", "application/json")
                 .post(jsonBody.toRequestBody("application/json".toMediaTypeOrNull()))
                 .build()
-            client.newCall(request).awaitResponse().use { response ->
+            http.await(request).use { response ->
                 val body = response.body?.string().orEmpty()
                 if (body.isBlank()) throw BiliException(-1, "服务器返回为空")
                 val json = JSONObject(body)
@@ -2123,7 +2123,7 @@ class BiliApi(context: Context) : DynamicFeedSource {
                 .header("Referer", "https://mall.bilibili.com/")
                 .header("Origin", "https://mall.bilibili.com")
                 .build()
-            val root = executeOnce(request, tolerateEmptyBody = true)
+            val root = http.executeOnce(request, tolerateEmptyBody = true)
             if (root.optInt("code", 0) != 0) return@runCatching emptyList()
             val data = root.optJSONObject("data") ?: return@runCatching emptyList()
             data.optJSONArray("data").objects().mapNotNull { item ->
@@ -2845,7 +2845,7 @@ class BiliApi(context: Context) : DynamicFeedSource {
             .url("https://message.bilibili.com/x/sys-msg/del_notify_list?mobi_app=android&csrf=${encode(csrf)}")
             .header("User-Agent", UA).header("Referer", "https://message.bilibili.com/")
             .post(body.toString().toRequestBody("application/json".toMediaTypeOrNull())).build()
-        val response = executeOnce(request, false)
+        val response = http.executeOnce(request, false)
         val code = response.optInt("code")
         if (code != 0) throw BiliException(code, apiMessage(code, response.optString("message")))
     }
@@ -3312,7 +3312,7 @@ class BiliApi(context: Context) : DynamicFeedSource {
                     .header("Referer", "https://www.bilibili.com/")
                     .get()
                     .build()
-                client.newCall(request).awaitResponse().use { response ->
+                http.await(request).use { response ->
                     if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
                     val body = response.body?.string().orEmpty()
                     val data = JSONObject(body).optJSONObject("data")
@@ -3404,78 +3404,6 @@ class BiliApi(context: Context) : DynamicFeedSource {
         return root.optJSONObject("data") ?: JSONObject()
     }
 
-    private class RetryableHttpException(val statusCode: Int) : IOException("HTTP $statusCode")
-
-    /** OkHttp 的异步回调转成可取消的 suspend，避免 execute() 占死 IO 线程且无法随页面取消。 */
-    private suspend fun Call.awaitResponse(): Response = suspendCancellableCoroutine { continuation ->
-        enqueue(
-            object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    if (!continuation.isCancelled) continuation.resumeWithException(e)
-                }
-
-                override fun onResponse(call: Call, response: Response) {
-                    if (continuation.isActive) {
-                        continuation.resume(response)
-                    } else {
-                        response.close()
-                    }
-                }
-            },
-        )
-        continuation.invokeOnCancellation { runCatching { cancel() } }
-    }
-
-    private fun retryDelayMs(attempt: Int): Long =
-        350L * (1L shl attempt) + (0..180).random().toLong()
-
-    private suspend fun executeOnce(
-        request: Request,
-        tolerateEmptyBody: Boolean,
-    ): JSONObject = client.newCall(request).awaitResponse().use { response ->
-        if (response.code == 408 || response.code == 429 || response.code >= 500) {
-            throw RetryableHttpException(response.code)
-        }
-        if (response.code >= 400) {
-            throw BiliException(response.code, "网络错误 HTTP ${response.code}")
-        }
-        val body = response.body?.string().orEmpty()
-        if (request.url.encodedPath.contains("playurl")) {
-            val safeBody = body
-                .replace(Regex("https?://[^\"\\s]+"), "[url]")
-                .replace(
-                    Regex("\"(e|upsig|sign|deadline|trid|w_rid|uipk|qn_dyeid)\":\"[^\"]*\""),
-                    "\"\$1\":\"[redacted]\"",
-                )
-                .take(1600)
-            LogCollector.record(
-                "API",
-                "http playurl code=${response.code} type=${response.header("Content-Type")} " +
-                    "len=${response.header("Content-Length")} bodyLen=${body.length} " +
-                    "encoding=${response.header("Content-Encoding")} " +
-                    "server=${response.header("Server")} via=${response.header("Via")} " +
-                    "body=$safeBody",
-            )
-        }
-        if (body.isBlank()) {
-            // 点赞/投币/收藏等动作接口成功时偶尔返回 2xx 空 body，不能当成“解析失败”
-            if (tolerateEmptyBody && response.code in 200..299) return@use JSONObject()
-            throw BiliException(-1, "服务器返回为空")
-        }
-        val json = try {
-            JSONObject(body)
-        } catch (e: Exception) {
-            throw BiliException(-1, "数据解析失败")
-        }
-        if (BuildConfig.DEBUG) {
-            android.util.Log.d(
-                "BiliApi",
-                "response ${request.url} http=${response.code} code=${json.optInt("code", 0)}",
-            )
-        }
-        json
-    }
-
     private suspend fun rawRequest(
         path: String,
         params: Map<String, String>,
@@ -3520,39 +3448,7 @@ class BiliApi(context: Context) : DynamicFeedSource {
         val request = builder.build()
         if (BuildConfig.DEBUG) android.util.Log.d("BiliApi", "request ${request.url.encodedPath}")
 
-        // 只对 GET 做自动重试：POST 可能是投币/点赞，重复发送会有副作用。
-        // 最多两次：一次正常、一次重试；避免网络完全断开时转圈太久。
-        val attempts = if (method == "GET") 2 else 1
-        var lastError: Exception? = null
-        for (attempt in 0 until attempts) {
-            try {
-                return@withContext executeOnce(request, tolerateEmptyBody)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: BiliException) {
-                // 200 空 body / 解析失败也当作可重试的瞬时问题（仅 GET）。
-                if (method == "GET" && e.code == -1 && attempt < attempts - 1) {
-                    lastError = e
-                } else {
-                    throw e
-                }
-            } catch (e: RetryableHttpException) {
-                lastError = BiliException(e.statusCode, "网络错误 HTTP ${e.statusCode}")
-            } catch (e: IOException) {
-                lastError = BiliException(-1, "网络连接失败，请检查网络后重试")
-            } catch (e: Exception) {
-                lastError = BiliException(-1, "网络连接失败，请检查网络后重试")
-            }
-            if (attempt < attempts - 1) delay(retryDelayMs(attempt))
-        }
-        val error = lastError ?: BiliException(-1, "网络连接失败，请检查网络后重试")
-        LogCollector.record(
-            "API",
-            "fail path=${request.url.encodedPath} status=${(error as? BiliException)?.code} " +
-                "message=${error.message}",
-        )
-        if (BuildConfig.DEBUG) android.util.Log.w("BiliApi", "network error ${request.url.encodedPath}", error)
-        throw error
+        http.execute(request, method, tolerateEmptyBody)
     }
 
     private suspend fun postRequest(

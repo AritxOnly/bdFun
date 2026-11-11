@@ -38,3 +38,6 @@ signing.properties
 
 # Generated configs
 .gradle-cache/
+
+# Pinned local composite dependency
+.local/

@@ -14,6 +14,7 @@ import com.aritxonly.bdfun.data.CdnAutoSelector
 import com.aritxonly.bdfun.data.SettingsStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     private lateinit var api: BiliApi
@@ -40,9 +41,9 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.attributes = window.attributes.apply { preferredRefreshRate = 60f }
         }
-        api = BiliApi(applicationContext)
-        settings = SettingsStore(applicationContext)
-        AppGraph.init(api = api, settings = settings, context = applicationContext)
+        AppGraph.ensure(applicationContext)
+        api = AppGraph.api
+        settings = AppGraph.settings
         // 自动 CDN 在冷启动先沿用上次结果，同时在后台重新测速；不阻塞首屏和播放。
         if (settings.cdnService == CdnAutoSelector.ID) {
             lifecycleScope.launch(Dispatchers.IO) {
@@ -88,11 +89,9 @@ class MainActivity : ComponentActivity() {
         if (text.isBlank() || text == lastHandledLink) return
         if (!BiliLink.isVideoLink(text)) return
         lastHandledLink = text
-        Thread {
-            val bvid = BiliLink.resolve(text)
-            if (bvid != null) {
-                runOnUiThread { TeakNavigator.openVideoByBvid(this, bvid) }
-            }
-        }.start()
+        lifecycleScope.launch {
+            val bvid = withContext(Dispatchers.IO) { BiliLink.resolve(text) }
+            if (bvid != null) TeakNavigator.openVideoByBvid(this@MainActivity, bvid)
+        }
     }
 }
