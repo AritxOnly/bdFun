@@ -1726,7 +1726,7 @@ class BiliApi(context: Context) : DynamicFeedSource {
             ?.s("default_image")
             .orEmpty()
             .ifBlank { collectionFirst?.s("cover").orEmpty() }
-        return image(collectionCover.ifBlank { day.ifBlank { night } }, 1080)
+        return image(collectionCover.ifBlank { day.ifBlank { night } })
     }
 
     /** 空间头图：优先 App 聚合接口 /x/v2/space 的 images，失败回退网页 acc/info 的 top_photo。 */
@@ -1848,7 +1848,7 @@ class BiliApi(context: Context) : DynamicFeedSource {
                         val raw = info.s("top_photo")
                             .ifBlank { card?.s("top_photo").orEmpty() }
                             .ifBlank { info.optJSONObject("space")?.s("top_photo").orEmpty() }
-                        runCatching { image(raw, 1080) }.getOrDefault("")
+                        runCatching { image(raw) }.getOrDefault("")
                     },
                 officialTitle = official?.s("title").orEmpty(),
                 officialDesc = official?.s("desc").orEmpty(),

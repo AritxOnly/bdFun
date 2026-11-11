@@ -243,7 +243,7 @@ fun MessageScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 18.dp)
-                        .clip(RoundedCornerShape(18.dp))
+                        .clip(com.aritxonly.teak.common.chrome.TeakContinuousCornerShape(22.dp))
                         .background(colors.surface)
                         .padding(vertical = 10.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -428,7 +428,7 @@ private fun SessionCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(com.aritxonly.teak.common.chrome.TeakContinuousCornerShape(22.dp))
             .background(colors.surface),
     ) {
         if (sessions.isEmpty() && !loading) {
@@ -721,7 +721,7 @@ fun MessageDetailScreen(api: BiliApi, kind: MessageFeedKind) {
                         .fillMaxWidth()
                         // 新增粉丝的圆角卡片整体往下 5dp。
                         .padding(top = if (kind == MessageFeedKind.Fans) 5.dp else 0.dp)
-                        .clip(RoundedCornerShape(18.dp))
+                        .clip(com.aritxonly.teak.common.chrome.TeakContinuousCornerShape(22.dp))
                         .background(colors.surface),
                 ) {
                     when {

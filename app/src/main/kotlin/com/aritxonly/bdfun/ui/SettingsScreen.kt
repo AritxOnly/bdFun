@@ -325,11 +325,17 @@ fun SettingsScreen(
         item(key = "home") {
             TeakSettingsCard(title = "首页") {
                 TeakSettingsSwitchRow(
+                    title = "视频页退出不会继续播放",
+                    description = "返回离开视频页或关闭画中画时停止播放；从视频页切到桌面仍进入画中画",
+                    checked = settings.stopOnVideoPageExit,
+                    onCheckedChange = { settings.stopOnVideoPageExit = it },
+                )
+                TeakSettingsSwitchRow(
                     title = "退出视频后继续播放",
                     checked = settings.showDiscAfterVideo,
                     onCheckedChange = { settings.showDiscAfterVideo = it },
                 )
-                if (settings.showDiscAfterVideo) {
+                if (settings.showDiscAfterVideo && !settings.stopOnVideoPageExit) {
                     TeakSettingsDropdownRow(
                         title = "播放控件",
                         options = listOf("画中画", "唱片"),

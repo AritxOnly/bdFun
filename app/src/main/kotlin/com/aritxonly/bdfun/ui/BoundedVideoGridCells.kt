@@ -19,3 +19,9 @@ internal fun boundedVideoCellSizes(available: Int, spacing: Int, min: Int, max: 
     val remainder = if (base < max) cardSpace % count else 0
     return List(count) { base + if (it < remainder) 1 else 0 }
 }
+
+internal class BoundedVideoStaggeredGridCells(private val minSize: Dp, private val maxSize: Dp) :
+    androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells {
+    override fun Density.calculateCrossAxisCellSizes(availableSize: Int, spacing: Int): IntArray =
+        boundedVideoCellSizes(availableSize, spacing, minSize.roundToPx(), maxSize.roundToPx()).toIntArray()
+}

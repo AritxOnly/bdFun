@@ -47,6 +47,8 @@ fun TeakActivityScaffold(
     discEndPadding: androidx.compose.ui.unit.Dp? = null,
     title: String? = null,
     limitContentWidth: Boolean = true,
+    showTopBar: Boolean = true,
+    showScrollTop: Boolean = true,
     topBarLeading: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
     topBarCenter: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit = {},
     topBarActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
@@ -67,6 +69,7 @@ fun TeakActivityScaffold(
         TeakPageScaffold(
             title = title,
             limitContentWidth = limitContentWidth,
+            showTopBar = showTopBar,
             onBack = onBack,
             backRevealed = backRevealed,
             showBackButton = showBackButton,
@@ -81,7 +84,7 @@ fun TeakActivityScaffold(
             barBlurFraction = barBlurFraction,
             topBarGlyphColor = topBarGlyphColor,
             overlay = {
-                ScrollTopButton(settings)
+                if (showScrollTop) ScrollTopButton(settings)
                 overlay()
                 // 后台播放时，除了播放器页，其他任意页面也保留一张唱片。
                 if (!com.aritxonly.teak.common.chrome.isWideFoldTopBar() && showBackgroundDisc &&

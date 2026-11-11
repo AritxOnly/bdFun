@@ -21,6 +21,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -221,7 +224,7 @@ fun DynamicScreen(
     LaunchedEffect(state.type, state.filterMid) { state.listState.scrollToItem(0) }
     LaunchedEffect(state, state.type, state.filterMid) {
         snapshotFlow {
-            state.listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index to state.listState.layoutInfo.totalItemsCount
+            state.listState.layoutInfo.visibleItemsInfo.maxOfOrNull { it.index } to state.listState.layoutInfo.totalItemsCount
         }.collect { (last, count) ->
             if (count > 0 && last != null && last >= count - 2 && state.error == null) {
                 state.loadMore(loggedIn)
@@ -255,12 +258,12 @@ fun DynamicScreen(
                 val info = state.listState.layoutInfo
                 val center = (info.viewportStartOffset + info.viewportEndOffset) / 2f
                 val nearest = info.visibleItemsInfo.minByOrNull {
-                    kotlin.math.abs(it.offset + it.size / 2f - center)
+                    kotlin.math.abs(it.offset.y + it.size.height / 2f - center)
                 }?.key
                 state.listState.isScrollInProgress to nearest
             }.collect { (scrolling, index) ->
                 if (scrolling) return@collect
-                // Row keys identify the first card in either a single- or double-column row.
+                // Stable item keys identify the nearest visible card independently of its lane.
                 autoPlayId = visible.firstOrNull { it.id == index }
                     ?.takeIf { it.video != null || it.orig?.video != null }
                     ?.id
@@ -268,14 +271,19 @@ fun DynamicScreen(
         }
 
         BoxWithConstraints(Modifier.fillMaxSize()) {
-        val columns = dynamicFeedColumns(maxWidth.value)
+        val wide = maxWidth >= 736.dp
+        val sidebarWidth = dynamicSidebarWidth(maxWidth.value).dp
         Row(Modifier.fillMaxSize()) {
-        LazyColumn(
+        if (wide) DynamicAuthorSidebar(state, Modifier.width(sidebarWidth)
+            .padding(top = statusTop + DynamicTopBarHeight, bottom = 100.dp))
+        LazyVerticalStaggeredGrid(
+            columns = if (wide) BoundedVideoStaggeredGridCells(DynamicCardMinWidth.dp, DynamicCardMaxWidth.dp)
+                else androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells.Fixed(1),
             state = state.listState,
             modifier = Modifier
                 .fillMaxSize()
                 .weight(1f)
-                .centeredListWidth(maxWidth = if (columns == 2) 1320.dp else 680.dp)
+
                 .offset { IntOffset(0, pull.roundToInt()) }
                 .nestedScroll(connection),
             contentPadding = PaddingValues(
@@ -285,19 +293,16 @@ fun DynamicScreen(
                 end = 8.dp,
                 bottom = 100.dp,
             ),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalItemSpacing = 10.dp,
+            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
         ) {
-            item(key = "avatar-card") {
+            if (!wide) item(key = "avatar-card", span = StaggeredGridItemSpan.FullLine) {
                 DynamicAvatarCard(
                     state = state,
                     modifier = Modifier.padding(bottom = 2.dp),
                 )
             }
-            items(visible.chunked(columns), key = { it.first().id }) { row ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                row.forEach { item ->
-                androidx.compose.runtime.key(item.id) {
-                Box(Modifier.weight(1f)) {
+            items(visible, key = { it.id }, contentType = { if (it.video != null) "video" else "dynamic" }) { item ->
                 val likedNow = state.liked[item.id] ?: item.liked
                 val countNow = state.likeCounts[item.id] ?: item.like
                 DynamicCard(
@@ -334,14 +339,8 @@ fun DynamicScreen(
                     },
                 )
             }
-
-                }
-                }
-                if (row.size < columns) Spacer(Modifier.weight(1f))
-                }
-            }
             if (visible.isEmpty() && !state.refreshing && !state.loading && state.error == null) {
-                item(key = "empty") {
+                item(key = "empty", span = StaggeredGridItemSpan.FullLine) {
                     Text(
                         if (state.type == "up" && state.filterMid == null) "选择一位 UP 主查看动态" else "暂无动态",
                         color = colors.onBackgroundVariant,
@@ -350,13 +349,13 @@ fun DynamicScreen(
                 }
             }
             if (state.hasMore && visible.isNotEmpty() && !state.activeLoading && !state.refreshing && state.error == null) {
-                item(key = "more") {
+                item(key = "more", span = StaggeredGridItemSpan.FullLine) {
                     Text("加载更多", color = colors.primary, modifier = Modifier
                         .fillMaxWidth().clickable { scope.launch { state.loadMore(loggedIn) } }.padding(16.dp))
                 }
             }
             state.error?.let { message ->
-                item(key = "error") {
+                item(key = "error", span = StaggeredGridItemSpan.FullLine) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -382,7 +381,7 @@ fun DynamicScreen(
                 }
             }
             if (state.activeLoading) {
-                item(key = "loading") {
+                item(key = "loading", span = StaggeredGridItemSpan.FullLine) {
                     Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                         TeakLoading(size = 34.dp)
                     }
@@ -448,12 +447,13 @@ fun DynamicTopBar(
                 .padding(vertical = 8.dp),
         ) {
             TeakSegmentedBar(
-                options = DynamicFeedContract.labels,
-                selected = DynamicFeedContract.types.indexOf(state.type),
-                itemWidth = 56.dp,
+                options = listOf("全部", "视频", "番剧"),
+                selected = listOf("all", "video", "pgc").indexOf(state.type).coerceAtLeast(0),
+                itemWidth = 64.dp,
+                materialAlpha = com.aritxonly.teak.common.chrome.LocalTopBarButtonMaterialProgress.current,
                 onSelect = { index ->
                     scope.launch {
-                        state.switchTo(DynamicFeedContract.types[index], loggedIn)
+                        state.switchTo(listOf("all", "video", "pgc")[index], loggedIn)
                     }
                 },
                 modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -1663,5 +1663,78 @@ private fun DynamicLiveCard(live: DynamicLiveRecommendation) {
             modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp))
         Text(listOf(live.areaName, live.watched).filter { it.isNotBlank() }.joinToString(" · "),
             color = colors.onSurfaceVariantSummary, fontSize = 12.sp, modifier = Modifier.padding(12.dp))
+    }
+}
+
+/** Wide screens keep author navigation separate from the independently scrolling masonry feed. */
+@Composable
+private fun DynamicAuthorSidebar(state: DynamicFeedState, modifier: Modifier = Modifier) {
+    val colors = MiuixTheme.colorScheme
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val authorState = rememberLazyListState()
+    LaunchedEffect(state, authorState) {
+        snapshotFlow {
+            authorState.layoutInfo.visibleItemsInfo.lastOrNull()?.index to authorState.layoutInfo.totalItemsCount
+        }.collect { (last, count) ->
+            if (count > 0 && last != null && last >= count - 3 && state.authorsError == null) state.loadMoreAuthors()
+        }
+    }
+    LazyColumn(state = authorState, modifier = modifier, contentPadding = PaddingValues(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        item(key = "all") {
+            DynamicAuthorRow("全部动态", "", state.filterMid == null, false) {
+                scope.launch { state.clearFilter() }
+            }
+        }
+        if (state.liveCount > 0) {
+            item(key = "live-toggle") {
+                Text("正在直播 · ${state.liveCount}  ${if (state.showLive) "收起" else "展开"}",
+                    fontSize = 12.sp, color = colors.onBackgroundVariant,
+                    modifier = Modifier.fillMaxWidth().clickable { state.showLive = !state.showLive }.padding(10.dp))
+            }
+            if (state.showLive) items(state.liveUsers, key = { "live-${it.roomId}" }) { live ->
+                DynamicAuthorRow(live.name, live.face, false, false, live = true) { openDynamicLive(context, live.roomId) }
+            }
+        }
+        AppGraph.session.value?.let { me ->
+            item(key = "me") {
+                DynamicAuthorRow("我", me.face, state.filterMid == me.mid, false) {
+                    scope.launch { state.filterTo(me.mid) }
+                }
+            }
+        }
+        items(state.authors, key = { "author-${it.mid}" }) { author ->
+            DynamicAuthorRow(author.name, author.face, state.filterMid == author.mid, author.hasUpdate) {
+                scope.launch { state.filterTo(author.mid) }
+            }
+        }
+        if (state.authorsLoading) item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { TeakLoading(size = 28.dp) } }
+        if (state.authorsError != null || state.authorsHasMore) item {
+            Text(if (state.authorsError != null) "加载失败，点击重试" else "更多 UP", color = colors.primary, fontSize = 12.sp,
+                modifier = Modifier.fillMaxWidth().clickable { scope.launch {
+                    if (state.authorsHasMore) state.loadMoreAuthors() else state.refreshAuthors()
+                } }.padding(12.dp))
+        }
+    }
+}
+
+@Composable
+private fun DynamicAuthorRow(name: String, face: String, selected: Boolean, updated: Boolean,
+    live: Boolean = false, onClick: () -> Unit) {
+    val colors = MiuixTheme.colorScheme
+    Row(Modifier.fillMaxWidth().clip(ContinuousCornerShape(14.dp))
+        .background(if (selected) colors.surface else Color.Transparent)
+        .clickable(onClick = onClick).padding(8.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.size(38.dp).semantics { stateDescription = if (updated) "有更新" else if (live) "直播中" else "" }) {
+            if (face.isBlank()) Box(Modifier.fillMaxSize().background(colors.primary, CircleShape), contentAlignment = Alignment.Center) {
+                Text("全", color = colors.onPrimary, fontSize = 16.sp)
+            } else AsyncImage(model = rememberImageRequest(face), contentDescription = null,
+                contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(CircleShape))
+            if (updated || live) Box(Modifier.align(Alignment.TopEnd).size(8.dp).background(colors.primary, CircleShape))
+        }
+        Text(name, color = if (selected) colors.primary else colors.onBackground, fontSize = 12.sp,
+            maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
     }
 }

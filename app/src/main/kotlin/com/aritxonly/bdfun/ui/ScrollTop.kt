@@ -150,3 +150,28 @@ fun RegisterScrollTop(state: LazyGridState, page: String) {
         }.collect { ScrollTopBus.scrolled = it }
     }
 }
+
+@Composable
+fun RegisterScrollTop(state: androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState, page: String) {
+    val scope = rememberCoroutineScope()
+    val action: () -> Unit = {
+        scope.launch { state.animateScrollToItem(0) }
+    }
+    DisposableEffect(state, page) {
+        ScrollTopBus.action = action
+        ScrollTopBus.page = page
+        ScrollTopBus.scrolled = false
+        onDispose {
+            if (ScrollTopBus.action === action) {
+                ScrollTopBus.action = null
+                ScrollTopBus.page = null
+                ScrollTopBus.scrolled = false
+            }
+        }
+    }
+    LaunchedEffect(state, page) {
+        snapshotFlow {
+            scrolledEnough(state.firstVisibleItemIndex, state.firstVisibleItemScrollOffset)
+        }.collect { ScrollTopBus.scrolled = it }
+    }
+}

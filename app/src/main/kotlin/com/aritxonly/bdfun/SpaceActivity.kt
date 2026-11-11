@@ -4,6 +4,7 @@ import com.aritxonly.teak.common.chrome.TrackTeakPageScroll
 import com.aritxonly.teak.common.chrome.TeakPageChrome
 import com.aritxonly.bdfun.ui.rememberImageRequest
 
+import androidx.core.graphics.drawable.toBitmap
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -140,57 +141,14 @@ class SpaceActivity : ComponentActivity() {
         }
         setContent {
             val settings = AppGraph.settings
-            var title by remember { mutableStateOf("个人主页") }
-            var barBlurFraction by remember { mutableFloatStateOf(0f) }
-            // 顶栏图标：头图深色时先白，玻璃一出现再渐变回正常主题色。
-            var bannerIsDark by remember { mutableStateOf(true) }
-            // 注意：这里在 TeakTheme 外面，不能读 MiuixTheme（会拿到默认浅色）。直接用设置判断。
-            val darkTheme = when (settings.darkMode) {
-                1 -> false
-                2 -> true
-                else -> androidx.compose.foundation.isSystemInDarkTheme()
-            }
-            val darkGlyph = teakGlassGlyphColor()
-            val pageGlyph = if (darkTheme) Color.White else darkGlyph
-            val onBannerGlyph = if (bannerIsDark) Color.White else darkGlyph
-            val topGlyph = androidx.compose.ui.graphics.lerp(
-                onBannerGlyph,
-                pageGlyph,
-                barBlurFraction.coerceIn(0f, 1f),
-            )
+            val chrome = remember { SpaceChromeState() }
             TeakActivityScaffold(
-                settings = settings,
-                onBack = { finish() },
-                title = title,
-                limitContentWidth = false,
-                barBlurFraction = barBlurFraction,
-                topBarGlyphColor = topGlyph,
-                topBarActions = {
-                    // 和返回键同一套玻璃显隐：滚动到一定距离后才出玻璃背景。
-                    TeakTopGlassButton(onClick = {}) {
-                        Icon(
-                            imageVector = MiuixIcons.Search,
-                            contentDescription = "搜索",
-                            tint = topGlyph,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                    TeakTopGlassButton(onClick = {}) {
-                        Icon(
-                            imageVector = MiuixIcons.More,
-                            contentDescription = "更多",
-                            tint = topGlyph,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                },
+                settings = settings, onBack = { finish() },
+                showTopBar = false, limitContentWidth = false,
+                overlay = { SpaceTopChrome(chrome, onBack = { finish() }) },
             ) {
-                SpaceScreen(
-                    mid = mid,
-                    onTitleChange = { if (it.isNotBlank()) title = it },
-                    onBarBlurFractionChange = { barBlurFraction = it },
-                    onBannerDarkChange = { bannerIsDark = it },
-                )
+                SpaceScreen(mid = mid, onTitleChange = {}, chrome = chrome,
+                    onBarBlurFractionChange = {}, onBannerDarkChange = { chrome.bannerIsDark = it })
             }
         }
     }
@@ -215,6 +173,7 @@ private fun SpaceScreen(
     onTitleChange: (String) -> Unit,
     onBarBlurFractionChange: (Float) -> Unit,
     onBannerDarkChange: (Boolean) -> Unit,
+    chrome: SpaceChromeState,
 ) {
     val pageChrome = com.aritxonly.teak.common.chrome.LocalTeakPageScrollState.current
     val colors = MiuixTheme.colorScheme
@@ -399,13 +358,13 @@ private fun SpaceScreen(
             val fetched = spaceDeferred.await()
             if (fetched != null) space = fetched
             // 先把头图加载出来让用户先看到，剩下的资料/投稿/动态继续并行等待。
-            val bannerUrl = (fetched ?: space)?.profile?.banner.orEmpty()
+            val bannerUrl = (fetched ?: space)?.profile?.banner.orEmpty().ifBlank { DEFAULT_SPACE_BANNER }
             val bitmap = if (bannerUrl.isNotBlank()) {
                 runCatching { loadSpaceBannerBitmap(context, bannerUrl) }.getOrNull()
             } else {
                 null
             }
-            bannerBitmap = bitmap
+            bannerBitmap = bitmap ?: bannerBitmap
             if (bitmap != null && !bitmap.isRecycled) {
                 onBannerDarkChange(bitmapLuminance(bitmap) < 0.5f)
             }
@@ -476,23 +435,63 @@ private fun SpaceScreen(
     val windowSize = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
     val windowWidth = with(blurDensity) { windowSize.width.toDp() }
     val wideSpace = windowWidth >= 736.dp
-    val profileWidth = (windowWidth * 0.32f).coerceIn(300.dp, 360.dp)
+    val profileWidth = (windowWidth * 0.40f).coerceIn(280.dp, 440.dp)
+    val profileListState = androidx.compose.foundation.lazy.rememberLazyListState()
     val contentWidth = if (wideSpace) profileWidth else minOf(windowWidth, 680.dp)
-    val bannerHeightPx = with(blurDensity) { (contentWidth * 0.625f).toPx() }
+    val bannerHeightPx = with(blurDensity) { (contentWidth * if (wideSpace) (1f / 2.35f) else 0.625f).toPx() }
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val barBlurProgress by remember(listState, bannerHeightPx, wideSpace) {
+    val headerScrollState = if (wideSpace) profileListState else listState
+    val barBlurProgress by remember(headerScrollState, bannerHeightPx) {
         derivedStateOf {
-            if (wideSpace || listState.firstVisibleItemIndex > 0) 1f
-            else (listState.firstVisibleItemScrollOffset / (bannerHeightPx * 0.5f)).coerceIn(0f, 1f)
+            if (headerScrollState.firstVisibleItemIndex > 0) 1f
+            else (headerScrollState.firstVisibleItemScrollOffset / (bannerHeightPx * 0.5f)).coerceIn(0f, 1f)
         }
     }
     androidx.compose.runtime.SideEffect { onBarBlurFractionChange(barBlurProgress) }
     TrackTeakPageScroll(listState, pageChrome)
 
+    suspend fun retainPinnedHeader(target: Int) {
+        if (wideSpace || target == selectedTab || target !in tabListStates.indices) return
+        val pinY = with(blurDensity) { (statusBarTop + 56.dp).roundToPx() }
+        val current = tabListStates[selectedTab]
+        val marker = current.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "space-tabs" }
+        val wasPinned = current.firstVisibleItemIndex > 0 || (marker != null && marker.offset <= pinY)
+        val next = tabListStates[target]
+        // Preserve each tab's content position, but do not reopen the profile when changing pinned tabs.
+        if (wasPinned && next.firstVisibleItemIndex == 0) {
+            next.scrollToItem(1, -pinY)
+        }
+    }
+
     fun selectTab(index: Int) {
         if (index !in 0..3 || index == selectedTab) return
-        selectedTab = index
-        scope.launch { pagerState.animateScrollToPage(index) }
+        scope.launch {
+            retainPinnedHeader(index)
+            selectedTab = index
+            pagerState.animateScrollToPage(index)
+        }
+    }
+
+    val tabAnchor by remember(listState, wideSpace, statusBarTop) {
+        derivedStateOf {
+            val pinY = with(blurDensity) { (statusBarTop + 56.dp).toPx() }
+            val info = listState.layoutInfo
+            val tabs = info.visibleItemsInfo.firstOrNull { it.key == "space-tabs" }
+            if (wideSpace) 0f
+            else tabs?.offset?.toFloat()?.coerceAtLeast(pinY)
+                ?: if (listState.firstVisibleItemIndex > 0) pinY else Float.POSITIVE_INFINITY
+        }
+    }
+    androidx.compose.runtime.SideEffect {
+        chrome.wide = wideSpace
+        chrome.profileWidth = profileWidth
+        chrome.headerProgress = barBlurProgress
+        chrome.contentProgress = pageChrome.materialProgress
+        chrome.tabY = tabAnchor
+        chrome.visible = !loading && bannerReady
+        chrome.selected = pagerState.currentPage
+        chrome.position = pagePosition
+        chrome.onSelect = ::selectTab
     }
 
     // 页面切换改为和首页 / 动态页一样的整页横向滑动（AnimatedContent 同时保留旧页和新页）。
@@ -831,29 +830,17 @@ private fun SpaceScreen(
                                 fontSize = 10.5.sp,
                             )
                         }
-                        // 窄屏 Tab 跟随资料滚动；宽屏在右侧内容列提供 Tab。
-                        if (!wideSpace) Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 9.dp, bottom = 6.dp),
-                            horizontalArrangement = Arrangement.Center,
-                        ) {
-                            TeakPagerTabs(
-                                options = listOf("主页", "动态", "投稿", "小店"),
-                                selected = pagerState.currentPage,
-                                onSelect = { selectTab(it) },
-                                position = pagePosition,
-                                backdrop = null,
-                            )
-                        }
                     }
                 }
     }
 
     // pager 和 selectedTab 双向同步：左右滑或点 Tab 都会更新数据加载状态。
-    LaunchedEffect(pagerState) {
+    LaunchedEffect(pagerState, wideSpace, statusBarTop) {
         // 等滑动真正停下来再改 selectedTab，避免划过中间页时误触发那一页的加载。
-        snapshotFlow { pagerState.settledPage }.collect { selectedTab = it }
+        snapshotFlow { pagerState.settledPage }.collect { page ->
+            retainPinnedHeader(page)
+            selectedTab = page
+        }
     }
     if (loading || !bannerReady) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -872,9 +859,27 @@ private fun SpaceScreen(
         Row(modifier = Modifier.fillMaxSize()) {
             if (wideSpace) {
                 LazyColumn(
+                    state = profileListState,
                     modifier = Modifier.width(profileWidth).fillMaxHeight(),
-                    contentPadding = PaddingValues(top = statusBarTop + 56.dp, bottom = 24.dp),
-                ) { item(key = "profile") { headerContent() } }
+                    contentPadding = PaddingValues(bottom = 24.dp),
+                ) { item(key = "profile") {
+                    WideSpaceProfile(profile, bannerBitmap, mid, isSelf, followed, followBusy) {
+                        if (isSelf) context.showToast("编辑资料暂未接入")
+                        else if (!AppGraph.api.isLoggedIn) context.showToast("请先登录")
+                        else if (!followBusy) {
+                            followBusy = true
+                            val next = !followed
+                            scope.launch {
+                                val result = runCatching { AppGraph.api.followUser(mid, next) }
+                                followBusy = false
+                                if (result.isSuccess) {
+                                    followed = next
+                                    SpaceCache.map[mid]?.let { SpaceCache.map[mid] = it.copy(followed = next) }
+                                } else context.showToast(result.exceptionOrNull()?.message ?: "操作失败")
+                            }
+                        }
+                    }
+                } }
             }
 
             androidx.compose.foundation.pager.HorizontalPager(
@@ -899,12 +904,7 @@ private fun SpaceScreen(
                     overscrollEffect = null,
                 ) {
                     if (!wideSpace) item(key = "profile") { headerContent() }
-                    else item(key = "space-tabs") {
-                        Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.Center) {
-                            TeakPagerTabs(options = listOf("主页", "动态", "投稿", "小店"),
-                                selected = pagerState.currentPage, onSelect = { selectTab(it) }, position = pagePosition, backdrop = null)
-                        }
-                    }
+                    if (!wideSpace) item(key = "space-tabs") { Spacer(Modifier.height(56.dp)) }
             when (page) {
                 0 -> {
                     item(key = "home-videos-title") {
@@ -1244,13 +1244,13 @@ private fun SpaceScreen(
 // ---------------------------------------------------------------- 头部组件
 
 @Composable
-private fun SpaceBanner(bitmap: android.graphics.Bitmap?) {
+private fun SpaceBanner(bitmap: android.graphics.Bitmap?, aspect: Float = 16f / 10f) {
     val dark = MiuixTheme.colorScheme.background.luminance() < 0.5f
     Box(
         modifier = Modifier
             .fillMaxWidth()
             // 参考图里的头图约 960×600，也就是 16:10；高度跟着屏幕宽度走。
-            .aspectRatio(16f / 10f)
+            .aspectRatio(aspect)
             .background(MiuixTheme.colorScheme.surfaceContainerHigh),
     ) {
         if (bitmap != null && !bitmap.isRecycled) {
@@ -1261,36 +1261,7 @@ private fun SpaceBanner(bitmap: android.graphics.Bitmap?) {
                 modifier = Modifier.fillMaxSize(),
             )
         }
-        // PiliPlus 同款头图滤镜：浅色提亮，深色压暗。
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    if (dark) Color.Black.copy(alpha = 0.35f)
-                    else Color.White.copy(alpha = 0.22f),
-                ),
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.25f)),
-                    ),
-                ),
-        )
-        // 顶部压暗：大标题和状态栏图标叠在图上时仍然看得清。
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        0f to Color.Black.copy(alpha = 0.42f),
-                        0.42f to Color.Black.copy(alpha = 0.12f),
-                        0.62f to Color.Transparent,
-                    ),
-                ),
-        )
+
     }
 }
 
@@ -1949,25 +1920,23 @@ private fun Modifier.collapseHeaderContainer(
         }
     }
 
-/** B ????????????? top_photo ????? */
+/** 无自定义头图时使用 B 站默认空间背景。 */
 private const val DEFAULT_SPACE_BANNER =
     "https://i0.hdslb.com/bfs/space/cb1c3ef50e22b6096fde67febe863494caefebad.png"
 
-/** 头图单独加载成 Bitmap，不走长期缓存；每次进入都重新拿。 */
+/** 保留头图原始格式和比例，使用 Coil 缓存并转为可取色的 Bitmap。 */
 private suspend fun loadSpaceBannerBitmap(
     context: android.content.Context,
     url: String,
 ): android.graphics.Bitmap? = withContext(Dispatchers.IO) {
     val request = ImageRequest.Builder(context)
-        .data(url)
+        .data(com.aritxonly.bdfun.data.BiliApi.image(url))
+        .setHeader("Referer", "https://space.bilibili.com/")
         .size(1080, 675)
         .allowHardware(false)
-        .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
-        .diskCachePolicy(coil.request.CachePolicy.DISABLED)
         .build()
     val result = coil.Coil.imageLoader(context).execute(request)
-    (result.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap
-        ?.takeIf { !it.isRecycled }
+    result.drawable?.toBitmap()?.takeIf { !it.isRecycled }
 }
 
 /** 头图缩到 8×8 取平均亮度，决定顶栏图标先显示白还是黑。 */
@@ -1988,3 +1957,145 @@ private fun bitmapLuminance(bitmap: android.graphics.Bitmap): Float {
     return Color((r / n).toInt(), (g / n).toInt(), (b / n).toInt()).luminance()
 }
 
+
+/** Chrome stays outside the content recorder; the marker in each list only reserves tab space. */
+private class SpaceChromeState {
+    var wide by mutableStateOf(false)
+    var profileWidth by mutableStateOf(320.dp)
+    var headerProgress by mutableFloatStateOf(0f)
+    var contentProgress by mutableFloatStateOf(0f)
+    var bannerIsDark by mutableStateOf(true)
+    var tabY by mutableFloatStateOf(Float.POSITIVE_INFINITY)
+    var visible by mutableStateOf(false)
+    var selected by mutableIntStateOf(0)
+    var position: androidx.compose.runtime.State<Float>? by mutableStateOf(null)
+    var onSelect: (Int) -> Unit = {}
+}
+
+@Composable
+private fun SpaceTopChrome(state: SpaceChromeState, onBack: () -> Unit) {
+    val colors = MiuixTheme.colorScheme
+    val pageGlyph = colors.onBackground
+    val bannerGlyph = if (state.bannerIsDark) Color.White else Color.Black
+    val glyph by androidx.compose.animation.animateColorAsState(
+        targetValue = androidx.compose.ui.graphics.lerp(bannerGlyph, pageGlyph, state.headerProgress),
+        animationSpec = androidx.compose.animation.core.tween(240), label = "space-icon-contrast",
+    )
+    val context = LocalContext.current
+    androidx.compose.runtime.SideEffect {
+        (context as? android.app.Activity)?.let {
+            androidx.core.view.WindowCompat.getInsetsController(it.window, it.window.decorView)
+                .isAppearanceLightStatusBars = (if (state.wide) pageGlyph else glyph).luminance() < 0.5f
+        }
+    }
+    val actions: @Composable androidx.compose.foundation.layout.RowScope.(Color) -> Unit = { tint ->
+        TeakTopGlassButton(onClick = {}) {
+            Icon(MiuixIcons.Search, contentDescription = "搜索", tint = tint, modifier = Modifier.size(20.dp))
+        }
+        TeakTopGlassButton(onClick = {}) {
+            Icon(MiuixIcons.More, contentDescription = "更多", tint = tint, modifier = Modifier.size(20.dp))
+        }
+    }
+    val tabs: @Composable (Dp) -> Unit = { itemWidth ->
+        TeakPagerTabs(options = listOf("主页", "动态", "投稿", "小店"), selected = state.selected,
+            onSelect = { state.onSelect(it) }, position = state.position, itemWidth = itemWidth)
+    }
+    if (state.wide) {
+        Row(Modifier.fillMaxWidth()) {
+            androidx.compose.runtime.CompositionLocalProvider(
+                com.aritxonly.teak.common.chrome.LocalTopBarScrollProgress provides state.headerProgress,
+            ) {
+                com.aritxonly.teak.common.chrome.ProgressiveTopBarMaterial(modifier = Modifier.width(state.profileWidth)) {
+                    com.aritxonly.teak.common.chrome.TeakTopOverlay(revealed = state.headerProgress > 0f,
+                        onBack = onBack, glyphColor = glyph)
+                }
+            }
+            androidx.compose.runtime.CompositionLocalProvider(
+                com.aritxonly.teak.common.chrome.LocalTopBarScrollProgress provides state.contentProgress,
+            ) {
+                com.aritxonly.teak.common.chrome.ProgressiveTopBarMaterial(modifier = Modifier.weight(1f)) {
+                    Row(Modifier.fillMaxWidth().statusBarsPadding().height(56.dp).padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.weight(1f)) {
+                            if (state.visible) tabs(((maxWidth - 8.dp) / 4).coerceAtMost(74.dp))
+                        }
+                        actions(pageGlyph)
+                    }
+                }
+            }
+        }
+    } else {
+        val density = LocalDensity.current
+        val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val pinY = with(density) { (statusTop + 56.dp).toPx() }
+        val pinned = state.visible && state.tabY <= pinY + 1f
+        androidx.compose.runtime.CompositionLocalProvider(
+            com.aritxonly.teak.common.chrome.LocalTopBarScrollProgress provides state.headerProgress,
+        ) {
+            com.aritxonly.teak.common.chrome.ProgressiveTopBarMaterial {
+                Column {
+                    com.aritxonly.teak.common.chrome.TeakTopOverlay(
+                        revealed = state.headerProgress > 0f, onBack = onBack, glyphColor = glyph,
+                        trailing = { actions(glyph) },
+                    )
+                    if (pinned) Spacer(Modifier.height(56.dp))
+                }
+            }
+        }
+        if (state.visible && state.tabY.isFinite()) {
+            Box(Modifier.fillMaxWidth().offset { androidx.compose.ui.unit.IntOffset(0, state.tabY.roundToInt()) }
+                .height(56.dp), contentAlignment = Alignment.Center) { tabs(74.dp) }
+        }
+    }
+}
+
+@Composable
+private fun WideSpaceProfile(
+    profile: com.aritxonly.bdfun.data.UserProfile?, bitmap: android.graphics.Bitmap?, mid: Long,
+    isSelf: Boolean, followed: Boolean, busy: Boolean, onFollow: () -> Unit,
+) {
+    val colors = MiuixTheme.colorScheme
+    val context = LocalContext.current
+    Column(Modifier.fillMaxWidth().background(colors.background), horizontalAlignment = Alignment.CenterHorizontally) {
+        SpaceBanner(bitmap, aspect = 2.35f)
+        AsyncImage(model = rememberImageRequest(profile?.face.orEmpty()), contentDescription = "头像",
+            contentScale = ContentScale.Crop, modifier = Modifier.offset(y = (-32).dp).size(88.dp)
+                .clip(CircleShape).border(4.dp, colors.background, CircleShape))
+        Column(Modifier.fillMaxWidth().trimBottom(24.dp).padding(horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text(profile?.name.orEmpty(), color = colors.primary, fontSize = 21.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontWeight = FontWeight.Medium)
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("LV${profile?.level ?: 0}", color = colors.primary, fontSize = 13.sp)
+                if (profile?.vip == true) Text(profile.vipLabel.ifBlank { "大会员" }, color = colors.primary, fontSize = 13.sp)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                SpaceStat("粉丝", profile?.follower ?: 0, Modifier.weight(1f))
+                SpaceStat("关注", profile?.following ?: 0, Modifier.weight(1f))
+                SpaceStat("获赞", profile?.likes ?: 0, Modifier.weight(1f))
+            }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                FollowCapsule(isSelf = isSelf, followed = followed, busy = busy, modifier = Modifier.weight(1f), onClick = onFollow)
+                if (!isSelf) MessageCircleButton {
+                    context.startActivity(android.content.Intent(context, PrivateChatActivity::class.java)
+                        .putExtra("talker_id", mid).putExtra("session_type", 1)
+                        .putExtra("name", profile?.name.orEmpty()).putExtra("avatar", profile?.face.orEmpty()))
+                }
+            }
+            Text(profile?.sign.orEmpty().ifBlank { "这个人很神秘，什么都没有写" }, color = colors.onBackgroundVariant,
+                modifier = Modifier.fillMaxWidth().clip(ContinuousCornerShape(18.dp)).background(colors.surface).padding(16.dp), fontSize = 13.sp)
+            if (!profile?.officialTitle.isNullOrBlank()) Text(profile?.officialTitle.orEmpty(), color = colors.onBackgroundVariant, fontSize = 12.sp)
+            if (!profile?.officialDesc.isNullOrBlank()) Text(profile?.officialDesc.orEmpty(), color = colors.onBackgroundVariant, fontSize = 12.sp)
+            if (!profile?.fansMedalName.isNullOrBlank()) Text("${profile?.fansMedalName} · Lv${profile?.fansMedalLevel}", color = colors.primary, fontSize = 12.sp)
+            Text("UID：$mid", color = colors.onBackgroundVariant, fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
+            Text("充电 · ${formatCountNoDecimal(profile?.chargingCount ?: 0)}人已为其充电", color = colors.onBackgroundVariant,
+                fontSize = 13.sp, modifier = Modifier.fillMaxWidth().clip(ContinuousCornerShape(18.dp))
+                    .background(colors.surface).clickable {
+                        runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse("https://space.bilibili.com/$mid/upower/rank"))) }
+                            .onFailure { context.showToast("无法打开充电页") }
+                    }.padding(16.dp))
+        }
+    }
+}

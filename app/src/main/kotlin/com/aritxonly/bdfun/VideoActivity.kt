@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import com.aritxonly.bdfun.ui.resolveVideoPaneLayout
 import androidx.compose.foundation.layout.Row
@@ -80,6 +79,9 @@ class VideoActivity : ComponentActivity() {
 
     // ---- 自己监听传感器决定横竖屏 ----
     private var splitSystemBars = false
+    private var pipEntered = false
+    private var pipMode by mutableStateOf(false)
+    private var openingAnotherPage = false
 
     private fun syncVideoSystemBars(split: Boolean = splitSystemBars) {
         splitSystemBars = split
@@ -183,6 +185,8 @@ class VideoActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        openingAnotherPage = false
+        if (!isInPictureInPictureMode) pipEntered = false
         // Split panes use the page theme under system bars; stacked/fullscreen video uses light icons.
         runCatching {
             syncVideoSystemBars()
@@ -204,6 +208,12 @@ class VideoActivity : ComponentActivity() {
     /** 退出视频：若设置选择「画中画」，先进入系统画中画；否则正常关闭并交给唱片。 */
     private fun exitVideoPage() {
         val s = AppGraph.settings
+        if (s.stopOnVideoPageExit) {
+            com.aritxonly.bdfun.ui.BackgroundPlayback.cancelHandOff()
+            VideoPageBus.pauseFor(this)
+            finish()
+            return
+        }
         if (s.showDiscAfterVideo && s.exitVideoControl == 0) {
             val ok = runCatching {
                 val params = android.app.PictureInPictureParams.Builder()
@@ -214,6 +224,38 @@ class VideoActivity : ComponentActivity() {
             if (ok) return
         }
         finish()
+    }
+
+    // Home/background is distinct from navigating out of the video page.
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (AppGraph.settings.stopOnVideoPageExit && !isFinishing && !openingAnotherPage &&
+            !isInPictureInPictureMode && com.aritxonly.bdfun.ui.BackgroundPlayback.playing) {
+            val entered = runCatching { enterPictureInPictureMode(android.app.PictureInPictureParams.Builder()
+                .setAspectRatio(android.util.Rational(16, 9)).build()) }.getOrDefault(false)
+            if (entered) pipEntered = true else VideoPageBus.pauseFor(this)
+        }
+    }
+
+    override fun startActivityForResult(intent: android.content.Intent, requestCode: Int, options: Bundle?) {
+        openingAnotherPage = true
+        try { super.startActivityForResult(intent, requestCode, options) }
+        catch (error: Exception) { openingAnotherPage = false; throw error }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: android.content.res.Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        pipMode = isInPictureInPictureMode
+        if (isInPictureInPictureMode) pipEntered = true
+    }
+
+    override fun onStop() {
+        // Dismissing PiP stops the Activity without guaranteeing immediate destruction.
+        if (AppGraph.settings.stopOnVideoPageExit && (pipEntered || isFinishing) && !isChangingConfigurations) {
+            com.aritxonly.bdfun.ui.BackgroundPlayback.cancelHandOff()
+            VideoPageBus.pauseFor(this)
+        }
+        super.onStop()
     }
 
     override fun onDestroy() {
@@ -359,7 +401,7 @@ class VideoActivity : ComponentActivity() {
                 com.aritxonly.bdfun.TeakNavigator.openVideo(this@VideoActivity, next)
                 finish()
             }
-            val pageFullscreen = PlayerUiState.fullscreen
+            val pageFullscreen = PlayerUiState.fullscreen || pipMode
             val pageOverlayAlpha = rememberManualProgress(if (pageFullscreen) 0f else 1f, 200f)
             var comments by remember { mutableStateOf<VideoDetail?>(null) }
             // 从消息页进来时，消费一次「定位评论」请求，并直接打开评论页。
@@ -399,7 +441,10 @@ class VideoActivity : ComponentActivity() {
                 showBackgroundDisc = false,
                 // 返回键改由 overlay 自己画：半屏时和播放器控件一起显隐（平滑淡入淡出）
                 showBackButton = false,
-                overlay = {
+                showTopBar = false,
+                showScrollTop = !pipMode,
+                overlay = overlay@{
+                    if (pipMode) return@overlay
                     val fs = pageFullscreen
                     LaunchedEffect(fs) {
                         if (fs) {
@@ -412,8 +457,7 @@ class VideoActivity : ComponentActivity() {
                         Row(
                             modifier = Modifier
                                 .align(if (splitPanes) Alignment.TopEnd else Alignment.TopStart)
-                                .then(if (splitPanes) Modifier.width(paneLayout.detailsWidthDp.dp)
-                                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End)) else Modifier.fillMaxWidth())
+                                .then(if (splitPanes) Modifier.width(paneLayout.detailsWidthDp.dp) else Modifier.fillMaxWidth())
                                 .padding(
                                     start = if (splitPanes) 8.dp else 16.dp,
                                     end = if (splitPanes) 8.dp else 16.dp,
@@ -547,6 +591,7 @@ class VideoActivity : ComponentActivity() {
                     VideoScreen(
                         api = api,
                         video = loadedVideo,
+                        pictureInPicture = pipMode,
                         paneLayout = paneLayout,
                         defaultQuality = settings.qualityPreference,
                         onOpenComments = {
@@ -565,11 +610,6 @@ class VideoActivity : ComponentActivity() {
                         initialCommentTarget = commentRequest.second,
                         initialSeekMs = commentRequest.third,
                     )
-                    if (splitPanes) {
-                        // A shared theme-colored status area keeps both halves legible in light/dark themes.
-                        Box(Modifier.width(paneLayout.playerWidthDp.dp).height(playerTopInset)
-                            .background(MaterialTheme.colorScheme.background))
-                    }
                     // 视频底边的白色渐变放进页面录制层，Tab 玻璃采样时会把它和下方内容
                     // 当成同一张底片一起模糊，避免 Tab 内外一亮一白。
                     val fadeColor = MaterialTheme.colorScheme.background
@@ -579,7 +619,7 @@ class VideoActivity : ComponentActivity() {
                             .then(if (splitPanes) Modifier.width(paneLayout.detailsWidthDp.dp) else Modifier.fillMaxWidth())
                             .height(54.dp)
                             .graphicsLayer {
-                                alpha = pageOverlayAlpha
+                                alpha = if (pipMode) 0f else pageOverlayAlpha
                                 // 渐变紧贴播放器真实底边。
                                 translationY = if (splitPanes) playerTopInset.toPx() else VideoPageBus.playerBottomPx
                             }
@@ -598,7 +638,7 @@ class VideoActivity : ComponentActivity() {
                             .align(if (splitPanes) Alignment.BottomEnd else Alignment.BottomCenter)
                             .then(if (splitPanes) Modifier.width(paneLayout.detailsWidthDp.dp) else Modifier.fillMaxWidth())
                             .height(54.dp)
-                            .graphicsLayer { alpha = pageOverlayAlpha }
+                            .graphicsLayer { alpha = if (pipMode) 0f else pageOverlayAlpha }
                             .background(
                                 Brush.verticalGradient(
                                     listOf(
@@ -608,7 +648,7 @@ class VideoActivity : ComponentActivity() {
                                 ),
                             ),
                     )
-                    val c = comments
+                    val c = if (pipMode) null else comments
                     if (c != null) {
                         Box(
                             modifier = Modifier

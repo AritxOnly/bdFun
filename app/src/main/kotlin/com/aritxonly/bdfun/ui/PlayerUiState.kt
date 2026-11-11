@@ -112,14 +112,15 @@ object VideoPageBus {
      * 相关推荐会在旧 Activity 销毁前再开一个新播放器，单例槽位会被新实例覆盖，
      * 旧实例就再也停不下来，所以这里改成注册表，暂停时把所有实例都停掉。
      */
-    private val pauseHooks = java.util.concurrent.CopyOnWriteArrayList<(Boolean) -> Unit>()
+    private data class PauseRegistration(val owner: Any?, val pause: (Boolean) -> Unit)
+    private val pauseHooks = java.util.concurrent.CopyOnWriteArrayList<PauseRegistration>()
 
-    fun registerPause(hook: (Boolean) -> Unit) {
-        if (!pauseHooks.contains(hook)) pauseHooks.add(hook)
+    fun registerPause(owner: Any?, hook: (Boolean) -> Unit) {
+        if (pauseHooks.none { it.pause === hook }) pauseHooks.add(PauseRegistration(owner, hook))
     }
 
     fun unregisterPause(hook: (Boolean) -> Unit) {
-        pauseHooks.remove(hook)
+        pauseHooks.removeAll { it.pause === hook }
     }
 
     /**
@@ -127,8 +128,12 @@ object VideoPageBus {
      * 开着「后台听视频」去点相关推荐时传 false：新页面退场会把声音交给后台，
      * 旧页面此时再自动续播就会出现两路声音。
      */
+    fun pauseFor(owner: Any) {
+        pauseHooks.filter { it.owner === owner }.forEach { it.pause(false) }
+    }
+
     fun pauseAll(allowResume: Boolean = true) {
-        pauseHooks.toList().forEach { hook -> runCatching { hook(allowResume) } }
+        pauseHooks.toList().forEach { hook -> runCatching { hook.pause(allowResume) } }
     }
 
     /** 回复栏是否处于可编辑状态（键盘/表情面板展开）——Activity 据此决定要不要吃掉空白点击。 */

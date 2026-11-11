@@ -456,7 +456,7 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                                 LocalTeakBackdrop.current
                             },
                         ) {
-                        CompositionLocalProvider(LocalTopBarScrollProgress provides (if (showSearch) searchChrome.materialProgress else 1f)) {
+                        CompositionLocalProvider(LocalTopBarScrollProgress provides (if (showSearch) searchChrome.materialProgress else homeChrome.materialProgress)) {
                         ProgressiveTopBarMaterial(
                             modifier = Modifier.align(Alignment.TopCenter)
                                 .graphicsLayer {

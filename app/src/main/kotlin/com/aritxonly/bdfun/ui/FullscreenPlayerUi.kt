@@ -39,6 +39,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.ChevronBackward
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -2212,22 +2214,8 @@ private fun PixelIcon(
 
 @Composable
 private fun BackChevron(tint: Color = Color.White) {
-    Canvas(modifier = Modifier.size(23.5.dp)) {
-        val path = Path().apply {
-            moveTo(size.width * 0.64f, size.height * 0.12f)
-            lineTo(size.width * 0.28f, size.height * 0.5f)
-            lineTo(size.width * 0.64f, size.height * 0.88f)
-        }
-        drawPath(
-            path = path,
-            color = tint,
-            style = Stroke(
-                width = size.width * 0.095f,
-                cap = StrokeCap.Round,
-                join = StrokeJoin.Round,
-            ),
-        )
-    }
+    androidx.compose.material3.Icon(MiuixIcons.ChevronBackward, contentDescription = "返回",
+        tint = tint, modifier = Modifier.size(23.5.dp))
 }
 
 @Composable

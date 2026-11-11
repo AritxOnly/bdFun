@@ -1,6 +1,6 @@
 package com.aritxonly.bdfun.ui
 
-import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 /** Each category/UP owns its cursor and cache. Generations discard late responses after switching. */
 @Stable
 class DynamicFeedState internal constructor(private val api: DynamicFeedSource) {
-    val listState = LazyListState()
+    val listState = LazyStaggeredGridState()
     var type by mutableStateOf("all")
         private set
     var filterMid by mutableStateOf<Long?>(null)

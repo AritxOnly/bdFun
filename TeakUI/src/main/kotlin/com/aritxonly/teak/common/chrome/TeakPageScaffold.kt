@@ -57,7 +57,7 @@ object TeakChromeDefaults {
     val ContentBottomPadding: Dp = 40.dp
 
     /** 大标题上方留白：让大标题落在返回键下方。 */
-    val LargeTitleTopSpacer: Dp = 52.dp
+    val LargeTitleTopSpacer: Dp = 40.dp
 
     /** 大标题 / 副标题相对内容区的左边距，以及两者间距。 */
     val LargeTitleStartPadding: Dp = 10.dp
@@ -216,7 +216,7 @@ fun TeakLargeTitle(
     titleColor: Color = MiuixTheme.colorScheme.onBackground,
     subtitleColor: Color = MiuixTheme.colorScheme.onBackgroundVariant,
 ) {
-    if (isWideFoldTopBar()) { Spacer(Modifier.height(TeakChromeDefaults.TopOverlayHeight)); return }
+    if (isWideFoldTopBar()) { Spacer(Modifier.height(TeakChromeDefaults.TopOverlayHeight - 12.dp)); return }
     val colors = MiuixTheme.colorScheme
     val p = (pageState.collapse / TeakChromeDefaults.CollapseFadeFraction).coerceIn(0f, 1f)
     Column(
@@ -265,6 +265,7 @@ fun TeakPageScaffold(
     backgroundColor: Color = MaterialTheme.colorScheme.background,
     contentModifier: Modifier = Modifier,
     limitContentWidth: Boolean = true,
+    showTopBar: Boolean = true,
     topBarLeading: @Composable RowScope.() -> Unit = {},
     topBarCenter: @Composable BoxScope.() -> Unit = {},
     topBarActions: @Composable RowScope.() -> Unit = {},
@@ -299,7 +300,7 @@ fun TeakPageScaffold(
                 content()
             }
             Box(modifier = Modifier.fillMaxSize()) { overlay() }
-            CompositionLocalProvider(LocalTopBarScrollProgress provides (pageState.materialProgress * barBlurFraction.coerceIn(0f, 1f))) {
+            if (showTopBar) CompositionLocalProvider(LocalTopBarScrollProgress provides (pageState.materialProgress * barBlurFraction.coerceIn(0f, 1f))) {
                 ProgressiveTopBarMaterial {
                     if (title != null && !wide) {
                         TeakTopBar(

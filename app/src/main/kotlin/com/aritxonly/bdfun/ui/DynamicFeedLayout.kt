@@ -1,4 +1,7 @@
 package com.aritxonly.bdfun.ui
 
-/** Two readable 354dp cards plus a 12dp gutter and 16dp outer padding fit from 736dp. */
-internal fun dynamicFeedColumns(viewportWidthDp: Float): Int = if (viewportWidthDp >= 736f) 2 else 1
+internal const val DynamicCardMinWidth = 280
+internal const val DynamicCardMaxWidth = 560
+
+internal fun dynamicSidebarWidth(viewportWidthDp: Float): Float =
+    if (viewportWidthDp < 736f) 0f else (viewportWidthDp * 0.2f).coerceIn(148f, 196f)

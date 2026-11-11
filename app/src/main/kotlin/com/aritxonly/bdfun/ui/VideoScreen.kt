@@ -34,8 +34,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -45,7 +45,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsIgnoringVisibility
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -79,7 +78,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
@@ -176,6 +174,7 @@ fun VideoScreen(
     autoRotate: Boolean = true,
     /** 视频画面顶到状态栏下面（设置项，默认关闭）。 */
     immersiveStatusBar: Boolean = false,
+    pictureInPicture: Boolean = false,
     /** 由 Activity 从窗口根 insets 取到的状态栏高度；页面内部读到的可能被消费成 0。 */
     statusBarTop: Dp = rememberStatusBarTop(),
     /** 这个页面是从上一个视频页的相关推荐进来的：返回时回到上一页，不把声音交给后台。 */
@@ -829,7 +828,7 @@ fun VideoScreen(
     fun leaveVideo() {
         // 从相关推荐进来、返回是回到上一个视频页时，不交棒给后台：
         // 上一页会自己续播，交棒只会造成两路声音。
-        if (AppGraph.settings.showDiscAfterVideo && !openedFromVideoPage) {
+        if (AppGraph.settings.showDiscAfterVideo && !AppGraph.settings.stopOnVideoPageExit && !openedFromVideoPage) {
             com.aritxonly.bdfun.ui.BackgroundPlayback.requestHandOff()
         }
         onBack()
@@ -1096,7 +1095,7 @@ fun VideoScreen(
     LaunchedEffect(landscape) {
         if (!landscape) fullscreen = false
     }
-    val splitPanes = paneLayout.isSplit && !fullscreen
+    val splitPanes = paneLayout.isSplit && !fullscreen && !pictureInPicture
 
     val qualities = playInfo?.qualities.orEmpty()
     val activeQuality = if (autoQuality) {
@@ -1174,7 +1173,7 @@ fun VideoScreen(
                 mutableStateOf(androidx.compose.ui.unit.IntSize.Zero)
             }
             val density = LocalDensity.current
-            val freezePortrait = fullscreen &&
+            val freezePortrait = (fullscreen || pictureInPicture) &&
                 portraitContentSize.width > 0 && portraitContentSize.height > 0
             BoxWithConstraints(
                 modifier = Modifier
@@ -1190,16 +1189,15 @@ fun VideoScreen(
                         } else if (splitPanes) {
                             Modifier.width(paneLayout.detailsWidthDp.dp).fillMaxHeight()
                                 .background(colors.background)
-                                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End))
                         } else {
                             Modifier.fillMaxSize()
                         },
                     )
                     .onSizeChanged {
-                        if (!fullscreen) portraitContentSize = it
+                        if (!fullscreen && !pictureInPicture) portraitContentSize = it
                     }
-                    .graphicsLayer { alpha = if (fullscreen) 0f else 1f }
-                    .blockTouches(fullscreen),
+                    .graphicsLayer { alpha = if (fullscreen || pictureInPicture) 0f else 1f }
+                    .blockTouches(fullscreen || pictureInPicture),
             ) {
                 HorizontalPager(
                     state = pager,
@@ -1649,7 +1647,7 @@ fun VideoScreen(
 
         // 收起进度、顶部避让全部由共享位移推导（BiliPai 同款）。
         val collapseRangeDp = (expandedPlayerHeight - collapsedPlayerHeight).coerceAtLeast(0.dp)
-        val collapseProgress = if (fullscreen || splitPanes || collapseRangeDp.value <= 0f) {
+        val collapseProgress = if (fullscreen || pictureInPicture || splitPanes || collapseRangeDp.value <= 0f) {
             0f
         } else {
             ((expandedPlayerHeight.value - animatedPlayerHeight) / collapseRangeDp.value)
@@ -1663,14 +1661,13 @@ fun VideoScreen(
             VideoPageBus.playerBottomPx = with(playerDensity) { playerBlockHeight.toPx() }
         }
         Box(
-            modifier = if (fullscreen) {
+            modifier = if (fullscreen || pictureInPicture) {
                 Modifier.fillMaxSize()
             } else if (splitPanes) {
                 Modifier.align(Alignment.TopStart)
                     .width(paneLayout.playerWidthDp.dp).fillMaxHeight()
                     .background(Color.Black)
-                    .navigationBarsPadding()
-                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Start))
+                    .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
                     .padding(top = expandedTopInset)
                     .clipToBounds()
             } else {
@@ -1751,6 +1748,7 @@ fun VideoScreen(
                 onQualitySelected = { switchQuality(it) },
                 onCacheVideo = { cacheVideo(it) },
                 immersiveStatusBar = immersiveStatusBar,
+                pictureInPicture = pictureInPicture,
                 modifier = Modifier.fillMaxSize(),
             )
         }

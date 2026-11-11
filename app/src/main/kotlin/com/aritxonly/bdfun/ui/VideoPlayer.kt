@@ -256,6 +256,7 @@ internal fun VideoPlayer(
     onQualitySelected: (Int) -> Unit = {},
     onCacheVideo: (Quality) -> Unit = {},
     immersiveStatusBar: Boolean = false,
+    pictureInPicture: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -274,7 +275,7 @@ internal fun VideoPlayer(
                 exo.playbackState != androidx.media3.common.Player.STATE_IDLE
             exo.pause()
         }
-        VideoPageBus.registerPause(pauseHook)
+        VideoPageBus.registerPause(activity, pauseHook)
         onDispose {
             VideoPageBus.unregisterPause(pauseHook)
         }
@@ -766,7 +767,7 @@ internal fun VideoPlayer(
                 }
             }
             exo.removeListener(listener)
-            val handOff = AppGraph.settings.showDiscAfterVideo &&
+            val handOff = AppGraph.settings.showDiscAfterVideo && !AppGraph.settings.stopOnVideoPageExit &&
                 BackgroundPlayback.shouldHandOff() &&
                 exo.playbackState != Player.STATE_IDLE
             if (handOff) {
@@ -1379,7 +1380,7 @@ internal fun VideoPlayer(
         }
 
         // 呼出/收起必须立即响应，不做任何过渡动画
-        val controlsAlpha = if (controlsVisible) 1f else 0f
+        val controlsAlpha = if (controlsVisible && !pictureInPicture) 1f else 0f
         // 控件隐藏时画质/倍速面板一起收回（之前画质面板会一直挂着）
         LaunchedEffect(controlsVisible) {
             if (!controlsVisible) {
@@ -1572,7 +1573,7 @@ internal fun VideoPlayer(
             }
         }
 
-        if (fullscreen) {
+        if (fullscreen && !pictureInPicture) {
             FullscreenPlayerChrome(
                 info = fullscreenInfo,
                 playback = FullscreenPlaybackState(
@@ -1717,7 +1718,7 @@ internal fun VideoPlayer(
         }
 
         // 半屏播放器：参考官方横屏的紧凑条，不再使用竖屏那套完整控件
-        if (!fullscreen && !fsAudioOnly) {
+        if (!fullscreen && !fsAudioOnly && !pictureInPicture) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
