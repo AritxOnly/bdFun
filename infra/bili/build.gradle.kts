@@ -16,7 +16,12 @@ android {
 kotlin { jvmToolchain(21) }
 
 dependencies {
+    implementation(project(":core:common"))
+    implementation(project(":core:model"))
+    implementation(project(":core:domain"))
+    implementation(project(":danmaku-engine"))
     testImplementation(libs.junit)
+    testImplementation(libs.json.jvm)
     implementation(libs.okhttp)
     implementation(libs.coroutines.android)
 }

@@ -1,6 +1,11 @@
 package com.aritxonly.bdfun.di
 
 import android.content.Context
+import com.aritxonly.bdfun.core.domain.*
+import com.aritxonly.bdfun.infra.bili.BiliAccountRepository
+import com.aritxonly.bdfun.infra.bili.BiliCommentRepository
+import com.aritxonly.bdfun.infra.bili.BiliFeedRepository
+import com.aritxonly.bdfun.infra.bili.BiliVideoRepository
 import com.aritxonly.bdfun.BuildConfig
 import com.aritxonly.bdfun.ThemePalette
 import com.aritxonly.bdfun.data.*
@@ -12,6 +17,16 @@ internal class AppContainer(
     val settings: SettingsStore,
     context: Context?,
 ) {
+    val accountRepository: AccountRepository = BiliAccountRepository(api::nav, api::qrGenerate, api::qrPoll, api::logout)
+    val videoRepository: VideoRepository = BiliVideoRepository(api::view, api::related)
+    val commentRepository: CommentRepository = BiliCommentRepository(
+        { oid, type, page -> api.commentsByOid(oid, type, page) },
+        { oid, type, root, page -> api.repliesByOid(oid, type, root, page) },
+    )
+    val feedRepository: FeedRepository = BiliFeedRepository(
+        { page -> api.recommend(page, settings.recommendWeb) },
+        { offset -> api.dynamicPage("all", offset) },
+    )
     val sentHistory: SentHistoryStore? = context?.let { SentHistoryStore(it.applicationContext) }
 
     init {

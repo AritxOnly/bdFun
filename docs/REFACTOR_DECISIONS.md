@@ -54,3 +54,16 @@ P1 HTTP/请求准备与签名抽离已通过集成验证；尚余拒签后的自
 - 阶段收尾再次 fetch，origin/main 仍为 `671d264`，已是当前分支祖先。
 - 使用 Pixel_9 只读临时 AVD 完成安装、冷启动、首页真实推荐加载、视频详情与实际起播；进入作者空间并滚动，确认 main 的头部与顶栏小标题可渲染，crash 缓冲为空。未据此勾选完整播放/登录回归。
 - 临时模拟器已关闭，原 AVD 快照未保存；截图位于被忽略的 `build/reports/refactor/`。
+
+## 网络分片与核心类型接线
+
+- 旧 Models/DynamicFeedSource 改为核心类型的兼容别名；新旧调用共享一套模型，不再双份维护。
+- 原 BiliApi 的 139 个方法迁入 infra:bili；102 个公开方法通过 BiliBackend 转发，app 的兼容入口仅保留构造和静态工具转发。各网络分片文件不超过 400 行；没有增加接口或猜测字段。
+- Cookie 持久化仍为原文件/原 key/原格式；HTTP 连接池共享；自动 CDN 选择通过启动层回调接入，不让 infra 反向依赖 app。
+- 消息用户缓存和空降助手缓存从全局 object 改为 API 上下文实例，随容器持有；没有新建全局缓存。
+- 分页、推荐过滤、横幅策略及原 14 项断言迁入 core:domain，原断言未修改。
+- VideoDetailDto/VideoDetailMapper/FeedVideoMapper 用三份真实匿名 view 响应和一份 related 响应验证；测试样本目录记录来源。缺字段默认值、合集、长用户 ID、标题转换边界均有测试。
+- 新增 org.json:json 20250517 仅为 JVM 测试替代 Android stub；比引入完整 Robolectric 更小，生产依赖未改变。
+- PlaybackPolicy 与 CdnPolicy 用纯 JVM 测试固化兼容性、音轨优先级、mcdn 不换 host、备用 URL 与查询串保留规则；平台 Uri 编码仍由原 Android 适配器执行。
+- Video/Comment/Feed/Account 仓储实现已在 AppContainer 装配；失败显式转成 Outcome，取消继续传播。现有页面仍可走旧入口，后续状态迁移使用仓储接口。
+- 跨模块后 InlineVideoPlayer 只增加 audioUrl 的局部稳定值，保持原空值分支和 MediaSource 行为。

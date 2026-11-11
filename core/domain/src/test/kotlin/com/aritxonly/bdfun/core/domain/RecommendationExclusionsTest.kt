@@ -1,4 +1,6 @@
-package com.aritxonly.bdfun.data
+package com.aritxonly.bdfun.core.domain
+
+import com.aritxonly.bdfun.core.model.video.VideoItem
 
 import org.junit.Assert.*
 import org.junit.Test

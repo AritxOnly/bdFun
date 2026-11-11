@@ -1,0 +1,220 @@
+package com.aritxonly.bdfun.infra.bili
+
+import android.content.Context
+import android.net.Uri
+import android.text.Html
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import okhttp3.Dispatcher
+import okhttp3.FormBody
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
+import org.xmlpull.v1.XmlPullParser
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.net.URLEncoder
+import java.security.MessageDigest
+import java.util.concurrent.TimeUnit
+import java.util.zip.GZIPInputStream
+import java.util.zip.InflaterInputStream
+import kotlin.math.roundToInt
+
+import com.aritxonly.bdfun.core.domain.*
+import com.aritxonly.bdfun.core.model.video.*
+import com.aritxonly.bdfun.core.model.comment.*
+import com.aritxonly.bdfun.core.model.user.*
+import com.aritxonly.bdfun.core.model.feed.*
+import com.aritxonly.bdfun.core.model.message.*
+import com.aritxonly.bdfun.core.model.library.*
+import com.aritxonly.bdfun.infra.bili.mapper.*
+import com.aritxonly.bdfun.infra.bili.BiliParameters.API
+import com.aritxonly.bdfun.infra.bili.BiliParameters.APP_API
+import com.aritxonly.bdfun.infra.bili.BiliParameters.APP_UA
+import com.aritxonly.bdfun.infra.bili.BiliParameters.APP
+import com.aritxonly.bdfun.infra.bili.BiliParameters.APP_KEY
+import com.aritxonly.bdfun.infra.bili.BiliParameters.APP_SEC
+import com.aritxonly.bdfun.infra.bili.BiliParameters.TV_APP_KEY
+import com.aritxonly.bdfun.infra.bili.BiliParameters.TV_APP_SEC
+import com.aritxonly.bdfun.infra.bili.BiliParameters.APP_HEADERS
+import com.aritxonly.bdfun.infra.bili.BiliParameters.PASSPORT
+import com.aritxonly.bdfun.infra.bili.BiliParameters.VC
+import com.aritxonly.bdfun.infra.bili.BiliParameters.UA
+import com.aritxonly.bdfun.infra.bili.BiliParameters.encode
+import com.aritxonly.bdfun.infra.bili.BiliParameters.md5
+import com.aritxonly.bdfun.infra.bili.BiliParameters.image
+import com.aritxonly.bdfun.infra.bili.BiliParameters.avatar
+import com.aritxonly.bdfun.infra.bili.BiliParameters.cleanHtml
+import com.aritxonly.bdfun.infra.bili.BiliParameters.aidToBvid
+import com.aritxonly.bdfun.infra.bili.BiliParameters.parseCountText
+import com.aritxonly.bdfun.infra.bili.BiliParameters.parseDurationText
+import com.aritxonly.bdfun.infra.bili.BiliParameters.qualityLabel
+
+internal suspend fun BiliApiContext.nav(): UserProfile? = withContext(Dispatchers.IO) {
+    val root = rawRequest("/x/web-interface/nav", emptyMap())
+    parseWbi(root.optJSONObject("data")?.optJSONObject("wbi_img"))
+    val data = root.optJSONObject("data") ?: return@withContext null
+    if (!data.optBoolean("isLogin")) return@withContext null
+    val level = data.optJSONObject("level_info")?.optInt("current_level") ?: 0
+    val vip = data.optJSONObject("vip_label")
+    UserProfile(
+        mid = data.l("mid"),
+        name = data.s("uname"),
+        face = avatar(data.s("face"), 160),
+        sign = data.s("sign"),
+        level = level,
+        coins = data.optDouble("money", 0.0),
+        vip = data.optInt("vipStatus") == 1,
+        vipLabel = vip?.s("text").orEmpty(),
+    )
+}
+
+/**
+ * App / TV 端扫码登录：比网页扫码多拿一个 access_key。
+ * access_key 存在 cookieJar 里，`signAppParams` 会自动带上，
+ * `/x/v2/space` 这类 App 接口才能返回 IP 属地等字段。
+ */
+
+internal suspend fun BiliApiContext.qrGenerate(): QrLogin = withContext(Dispatchers.IO) {
+    val params = mutableMapOf(
+        "local_id" to "0",
+        "mobi_app" to "android",
+        "platform" to "android",
+    )
+    signAppParams(params, TV_APP_KEY, TV_APP_SEC, includeAccessKey = false)
+    val data = dataRequest(
+        path = "/x/passport-tv-login/qrcode/auth_code",
+        params = params,
+        base = PASSPORT,
+        method = "POST",
+    )
+    QrLogin(url = data.s("url"), key = data.s("auth_code"))
+}
+
+internal suspend fun BiliApiContext.qrPoll(key: String): QrPoll = withContext(Dispatchers.IO) {
+    val params = mutableMapOf(
+        "auth_code" to key,
+        "local_id" to "0",
+        "mobi_app" to "android",
+        "platform" to "android",
+    )
+    signAppParams(params, TV_APP_KEY, TV_APP_SEC, includeAccessKey = false)
+    val root = rawRequest(
+        path = "/x/passport-tv-login/qrcode/poll",
+        params = params,
+        base = PASSPORT,
+        method = "POST",
+    )
+    when (root.optInt("code", -1)) {
+        0 -> {
+            val data = root.optJSONObject("data") ?: return@withContext QrPoll(
+                QrState.Error,
+                "登录失败：没有返回登录信息",
+            )
+            saveTvLogin(data)
+            val profile = nav()
+            QrPoll(QrState.Success, "登录成功", profile)
+        }
+        86039, 86101 -> QrPoll(QrState.Waiting, "等待扫码")
+        86090 -> QrPoll(QrState.Scanned, "已扫码，请在手机上确认")
+        86038 -> QrPoll(QrState.Expired, "二维码已失效")
+        else -> QrPoll(
+            QrState.Error,
+            root.optString("message").ifBlank { "登录失败" },
+        )
+    }
+}
+
+internal fun BiliApiContext.saveTvLogin(data: JSONObject) {
+    val cookies = data.optJSONObject("cookie_info")
+        ?.optJSONArray("cookies")
+        .objects()
+    cookies.forEach { cookie ->
+        val name = cookie.s("name")
+        val value = cookie.s("value")
+        if (name.isNotBlank() && value.isNotBlank()) cookieJar.put(name, value)
+    }
+    // access_key 也存进同一个 cookie 容器，App 签名和退出登录都走它。
+    val accessKey = data.s("access_token")
+        .ifBlank { data.optJSONObject("token_info")?.s("access_token").orEmpty() }
+    if (accessKey.isNotBlank()) cookieJar.put("access_key", accessKey)
+}
+
+internal fun BiliApiContext.logout() {
+    cookieJar.clear()
+    wbiSigner.clear()
+    buvidRetryAt = 0L
+}
+
+internal fun BiliApiContext.saveLoginCookies(url: String) {
+    val uri = Uri.parse(url)
+    listOf("SESSDATA", "bili_jct", "DedeUserID", "DedeUserID__ckMd5").forEach { name ->
+        uri.getQueryParameter(name)?.takeIf { it.isNotBlank() }?.let { cookieJar.put(name, it) }
+    }
+}
+
+// ---------------------------------------------------------------- feed
+
+internal suspend fun BiliApiContext.ensureBuvid() {
+    if (cookieJar.value("buvid3").isNotBlank()) return
+    if (System.currentTimeMillis() < buvidRetryAt) return
+    buvidMutex.withLock {
+        if (cookieJar.value("buvid3").isNotBlank()) return
+        if (System.currentTimeMillis() < buvidRetryAt) return
+        val ok = try {
+            val request = Request.Builder()
+                .url("$API/x/frontend/finger/spi")
+                .header("User-Agent", UA)
+                .header("Referer", "https://www.bilibili.com/")
+                .get()
+                .build()
+            http.await(request).use { response ->
+                if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+                val body = response.body?.string().orEmpty()
+                val data = JSONObject(body).optJSONObject("data")
+                    ?: throw IOException("buvid data is empty")
+                val b3 = data.s("b_3")
+                if (b3.isBlank()) throw IOException("buvid3 is empty")
+                val b4 = data.s("b_4")
+                cookieJar.put("buvid3", b3)
+                if (b4.isNotBlank()) cookieJar.put("buvid4", b4)
+                cookieJar.put("b_nut", (System.currentTimeMillis() / 1000).toString())
+                true
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (debug) android.util.Log.w("BiliApi", "buvid fetch failed", e)
+            false
+        }
+        if (ok) {
+            buvidRetryAt = 0L
+        } else {
+            // 失败后 30 秒内不再重试，否则每个接口都会先卡一次 buvid 请求。
+            buvidRetryAt = System.currentTimeMillis() + 30_000L
+        }
+    }
+}
+
+internal fun BiliApiContext.parseWbi(wbi: JSONObject?) {
+    if (wbi == null) return
+    val img = wbi.s("img_url").substringAfterLast('/').substringBefore('.')
+    val sub = wbi.s("sub_url").substringAfterLast('/').substringBefore('.')
+    if (img.isNotBlank() && sub.isNotBlank()) {
+        wbiSigner.update(img, sub)
+    }
+}

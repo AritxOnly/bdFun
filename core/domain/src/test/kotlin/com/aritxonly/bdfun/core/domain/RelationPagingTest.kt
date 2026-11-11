@@ -1,4 +1,6 @@
-package com.aritxonly.bdfun.data
+package com.aritxonly.bdfun.core.domain
+
+
 
 import org.junit.Assert.*
 import org.junit.Test

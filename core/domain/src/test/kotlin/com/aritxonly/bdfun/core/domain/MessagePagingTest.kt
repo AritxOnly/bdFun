@@ -1,4 +1,7 @@
-package com.aritxonly.bdfun.data
+package com.aritxonly.bdfun.core.domain
+
+import com.aritxonly.bdfun.core.model.message.MessageCursor
+import com.aritxonly.bdfun.core.model.message.MessageSession
 
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.CancellationException

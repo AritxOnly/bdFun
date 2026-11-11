@@ -173,13 +173,14 @@ fun InlineVideoPlayer(
             )
         val videoSource: MediaSource = ProgressiveMediaSource.Factory(dataSource)
             .createMediaSource(MediaItem.fromUri(url))
-        val source = if (loaded.audioUrl.isNullOrBlank()) {
+        val audioUrl = loaded.audioUrl
+        val source = if (audioUrl.isNullOrBlank()) {
             videoSource
         } else {
             MergingMediaSource(
                 videoSource,
                 ProgressiveMediaSource.Factory(dataSource)
-                    .createMediaSource(MediaItem.fromUri(loaded.audioUrl)),
+                    .createMediaSource(MediaItem.fromUri(audioUrl)),
             )
         }
         exo.setMediaSource(source)
