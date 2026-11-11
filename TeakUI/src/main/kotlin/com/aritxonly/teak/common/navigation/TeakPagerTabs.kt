@@ -210,6 +210,7 @@ fun TeakPagerTabs(
             recipe = recipe,
             backdrop = backdrop,
             materialAlpha = materialProgress,
+            flatBackgroundAlpha = 0.8f,
         ) {
             content()
         }

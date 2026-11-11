@@ -48,6 +48,8 @@ fun TeakGlassSurface(
     interaction: GlassMaterialInteraction = GlassMaterialInteraction(),
     materialAlpha: Float = if (LocalProgressiveTopBarMaterialHosted.current)
         com.aritxonly.teak.common.chrome.LocalTopBarButtonMaterialProgress.current else 1f,
+    /** Optional flat state, enabled only by home controls and segmented selectors. */
+    flatBackgroundAlpha: Float = 0f,
     baseAlpha: Float = 1f,
     backdrop: Backdrop? = LocalTeakBackdrop.current,
     contentAlignment: Alignment = Alignment.Center,
@@ -71,7 +73,7 @@ fun TeakGlassSurface(
     Box(
         modifier = modifier.clip(shape).background(
             top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surfaceContainer.copy(
-                alpha = 0.4f * (1f - materialAlpha.coerceIn(0f, 1f)),
+                alpha = flatBackgroundAlpha.coerceIn(0f, 1f) * (1f - materialAlpha.coerceIn(0f, 1f)),
             ),
         ),
         contentAlignment = contentAlignment,
@@ -111,6 +113,7 @@ fun TeakGlassIconButton(
     backdrop: Backdrop? = LocalTeakBackdrop.current,
     materialAlpha: Float = if (LocalProgressiveTopBarMaterialHosted.current)
         com.aritxonly.teak.common.chrome.LocalTopBarButtonMaterialProgress.current else 1f,
+    flatBackgroundAlpha: Float = 0f,
     neutralTintProgress: Float = 0f,
     content: @Composable () -> Unit,
 ) {
@@ -140,6 +143,7 @@ fun TeakGlassIconButton(
             tintStyle = tintStyle,
             backdrop = backdrop,
             materialAlpha = materialAlpha,
+            flatBackgroundAlpha = flatBackgroundAlpha,
             interaction = GlassMaterialInteraction(neutralTintProgress = neutralTintProgress),
         ) {
             Box(

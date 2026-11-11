@@ -164,6 +164,7 @@ fun HomeTopBar(
                     // 搜索态返回键：和顶栏/底栏同一套玻璃（真模糊）
                     TeakGlassBackButton(
                         onClick = onCancelSearch,
+                        flatBackgroundAlpha = 0.8f,
                         revealed = true,
                         size = 38.dp,
                     )
@@ -200,6 +201,7 @@ fun HomeTopBar(
                     ),
                 shape = Capsule(),
                 materialAlpha = com.aritxonly.teak.common.chrome.LocalTopBarButtonMaterialProgress.current,
+                    flatBackgroundAlpha = 0.8f,
                 recipe = recipe,
                 backdrop = if (classic) null else backdrop,
                 contentAlignment = Alignment.CenterStart,
@@ -286,6 +288,7 @@ fun HomeTopBar(
                 if (searching) {
                 TeakGlassIconButton(
                     materialAlpha = com.aritxonly.teak.common.chrome.LocalTopBarButtonMaterialProgress.current,
+                    flatBackgroundAlpha = 0.8f,
                     onClick = onClearQuery,
                     size = 40.dp,
                     recipe = recipe,
@@ -298,6 +301,7 @@ fun HomeTopBar(
                 UnreadBadgeHost(count = unreadCount) {
                     TeakGlassIconButton(
                         materialAlpha = com.aritxonly.teak.common.chrome.LocalTopBarButtonMaterialProgress.current,
+                    flatBackgroundAlpha = 0.8f,
                         onClick = onOpenMessages, size = 40.dp, recipe = recipe, backdrop = backdrop,
                     ) {
                         Icon(MiuixIcons.Messages, contentDescription = "消息", tint = BrandPink,
