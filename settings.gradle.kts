@@ -66,3 +66,5 @@ include(":core:application")
 include(":core:navigation")
 
 include(":infra:bili")
+
+include(":infra:storage")

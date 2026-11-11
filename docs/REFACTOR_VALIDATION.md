@@ -48,3 +48,11 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - Pixel_9 只读临时实例：安装成功，MainActivity COLD 启动成功；首页推荐加载真实数据，视频详情与起播成功；个人主页头部和滚动小标题可见；crash 缓冲为空。临时实例已关闭，未保存原 AVD 快照。
 - 截图：`build/reports/refactor/main-home.png`、`main-video.png`、`main-space.png`、`main-space-scrolled.png`（构建目录，不提交）。
 - 上述验证没有覆盖切清晰度、切分 P、横屏、系统画中画、后台控制、扫码登录或完整消息流程。此前的 release 产物不对应本阶段源码，最终交付前须重新构建签名 release。
+
+## 设置升级验证
+
+- infra:storage 的 JSON 编码、格式错误回退测试通过。
+- 81 项可写设置逐项默认值及往返测试通过；4 项迁移/范围/浮点合并/搜索历史测试通过。App 全量单测合计 116 项通过；设置覆盖协议的筛选重跑也通过。
+- 临时 Pixel_9 AVD：安装迁移前 APK，写入全部旧偏好键，冷启动记录落盘基线；覆盖安装新 APK，冷启动成功。81 个设置键 + 搜索历史共 82 项比对，0 缺失、0 变化，crash 缓冲为空。
+- 结果文件：build/reports/refactor/settings-upgrade-result.json（构建目录，不提交偏好值）。
+- debug 构建通过。该检查点不代表尚未完成的页面状态和播放器迁移已经验收。

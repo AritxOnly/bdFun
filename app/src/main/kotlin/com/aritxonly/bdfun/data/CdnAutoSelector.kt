@@ -24,7 +24,7 @@ import kotlin.math.min
  * 结果写入 SharedPreferences，冷启动先沿用上次结果，再在后台重新测。
  */
 object CdnAutoSelector {
-    const val ID = "auto"
+    const val ID = com.aritxonly.bdfun.core.model.settings.SettingsDefaults.AUTO_CDN_ID
     const val LABEL = "自动"
 
     private const val PREFS = "cdn_auto"

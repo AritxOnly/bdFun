@@ -87,7 +87,7 @@ P5-* 依赖 P4-05，且需要团队同意
 - **负责人**：Codex
 - **状态**：已完成（2026-11-11；自动验证及模拟器安装/冷启动通过）
 - **验证记录（2026-11-11）**：
-  - `:core:model:build` 通过（JDK 21）；41 个模型声明与旧代码逐字一致，旧 `Models.kt` 未修改。
+  - `:core:model:build` 通过（JDK 21）；41 个模型声明与旧代码逐字一致，旧 P0 验证时 `Models.kt` 未修改；P1 接线后已改为核心模型兼容别名。
   - 新模块无 Android / OkHttp / JSON 依赖，按 video/comment/user/feed/message/library 分包。
   - `DynamicItem` 引用的 `DynamicLiveRecommendation` 从现有 `DynamicFeedSource.kt` 同步复制，避免新模块反向依赖 app。
   - 已接入原始 Miuix 快照；App 单测和 debug 构建通过，Pixel_9 只读实例安装、冷启动与首页真实数据加载通过。
@@ -241,6 +241,8 @@ P5-* 依赖 P4-05，且需要团队同意
 - **预估**：1.5 人天 · **风险**：高（选错=黑屏/无声）· **注意**：先把现有行为写成测试，再抽；不要"顺手改进"
 
 #### P1-11 · 拆分 `SettingsStore`（888 行 / 81 个字段）
+- **负责人**：Codex
+- **状态**：已完成（2026-11-11；81 字段 JVM 往返测试及旧 APK → 新 APK 的 82 项偏好比对通过）
 - **人话目标**：把"一个装满 81 个开关的抽屉"分成五个抽屉：外观、播放、弹幕、消息、通用。
 - **动作**：
   1. 新建 `:infra:storage` 模块；定义 `SettingsRepository` 总接口 + 5 个分组接口（`AppearanceSettings` / `PlaybackSettings` / `DanmakuSettings` / `MessageSettings` / `GeneralSettings`）。

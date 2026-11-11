@@ -59,7 +59,9 @@ gradlew.bat :danmaku-engine:test
 | `core/common/`、`core/domain/` | 格式化、结果类型与只读仓储接口 | P0 骨架 |
 | `core/application/`、`core/navigation/` | SessionStore 与 Route 契约 | P0 空壳，未替换运行时 |
 | `app/.../di/AppContainer.kt` | 进程依赖创建与初始化 | AppGraph 委托 |
-| `infra/bili/` | HTTP 执行、取消、重试与异常类型 | P1 迁移中 |
+| `infra/bili/` | HTTP/签名/业务分片/mapper/仓储实现 | 已从 app 迁入，原入口转发 |
+| `infra/storage/` | 旧设置文件适配、搜索历史 JSON 编码 | 原存储格式兼容 |
+| `app/.../feature/settings/` | 五组纯 StateFlow 控制器与逐字段 UI 投影 | 81 字段测试、升级比对通过 |
 | `tools/` | 核心层依赖检查、固定 Miuix 快照准备脚本 | Python 3 |
 | `docs/` | 架构审查、对齐文档、来源说明 | |
 

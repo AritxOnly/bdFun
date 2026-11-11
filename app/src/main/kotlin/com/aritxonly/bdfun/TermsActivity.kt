@@ -14,7 +14,8 @@ class TermsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         com.aritxonly.bdfun.data.LogCollector.init(applicationContext)
-        val settings = SettingsStore(applicationContext)
+        AppGraph.ensure(applicationContext)
+        val settings = AppGraph.settings
         val replay = intent.getBooleanExtra(EXTRA_REPLAY, false)
         // 新版开始页只在这个版本第一次进入时显示；看过一次后不再显示。
         // 从设置里点「查看开始页」时（replay）无条件再展示一次。

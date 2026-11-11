@@ -67,3 +67,16 @@ P1 HTTP/请求准备与签名抽离已通过集成验证；尚余拒签后的自
 - PlaybackPolicy 与 CdnPolicy 用纯 JVM 测试固化兼容性、音轨优先级、mcdn 不换 host、备用 URL 与查询串保留规则；平台 Uri 编码仍由原 Android 适配器执行。
 - Video/Comment/Feed/Account 仓储实现已在 AppContainer 装配；失败显式转成 Outcome，取消继续传播。现有页面仍可走旧入口，后续状态迁移使用仓储接口。
 - 跨模块后 InlineVideoPlayer 只增加 audioUrl 的局部稳定值，保持原空值分支和 MediaSource 行为。
+
+## 设置分组、StateFlow 与旧格式升级
+
+- 新建 infra:storage，继续读写同一个 settings SharedPreferences 文件；原偏好键、迁移标记、默认值和范围限制保留。
+- Appearance/Playback/Danmaku/Message/General 五组纯应用层 StateHolder 实现领域设置协议，以不可变 SettingsUiState + StateFlow 发布变化，应用层没有 Android、Compose 或 JSON 依赖。
+- 旧 SettingsStore 从 913 行缩至 110 行，仅负责启动层装配和逐字段 Compose 投影。投影按变更键刷新，避免滑杆每帧重读所有设置；可写设置仍立即生效。
+- 浮点设置保持最后一次修改后 250ms 合并写入；作用域关闭前可显式 flush。没有更换存储格式或一次性搬用户数据。
+- 使用须知页改为共用 AppGraph 的设置实例，修复它单独写入后主界面内存状态不同步的问题。
+- 81 个可写字段均通过默认值与读写往返测试；协议反射覆盖检查保证新增字段不能漏测。另有旧迁移、范围限制、浮点合并、搜索历史顺序/去重/上限测试。
+- 首次新测试中 boostDefaultSpeed 的替代输入误用了原默认 3f，已改成不同的合法输入 4f；原默认值和测试断言均未修改。
+- 用迁移前 APK 在只读 AVD 写入全部 81 个旧格式设置，保存实际落盘基线后覆盖安装新 APK；82 项（含搜索历史）逐项比对：missing=[]、changed=[]。冷启动成功，crash 缓冲为空。
+- 架构守卫已覆盖 app 内的 feature 目录，并对 application 平台依赖、presentation 直接访问网络、跨 feature 引用报错；三个临时反例均被拒绝。
+- main 收尾检查仍为 671d264，无新提交。
