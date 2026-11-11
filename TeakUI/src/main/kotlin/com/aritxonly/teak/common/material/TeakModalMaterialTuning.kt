@@ -22,3 +22,12 @@ data class TeakModalMaterialTuning(
     }
 }
 
+
+/** 与 Deadliner 共用选择规则，保留 bdFun 自己的材质参数。 */
+fun TeakMaterialFineTuning.miuixModalMaterial(kind: TeakModalKind): TeakModalMaterialTuning {
+    val tuning = normalized()
+    return when (kind) {
+        TeakModalKind.Dialog -> TeakModalMaterialTuning(tuning.dialogBackgroundAlpha, tuning.dialogBlurRadiusDp)
+        TeakModalKind.BottomSheet -> TeakModalMaterialTuning(tuning.bottomSheetBackgroundAlpha, tuning.bottomSheetBlurRadiusDp)
+    }
+}
