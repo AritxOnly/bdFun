@@ -39,6 +39,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import top.yukonga.miuix.kmp.icon.extended.SearchDevice
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.ChevronBackward
 import androidx.compose.runtime.Composable
@@ -1226,7 +1227,7 @@ private fun MorePanel(
                 actions.onAudioOnlyChanged(true)
                 onClose()
             }
-            QuickAction("稍后再看", Modifier.weight(1f), { ClockGlyph() }) {
+            QuickAction("稍后再看", Modifier.weight(1f), { androidx.compose.material3.Icon(MiuixIcons.SearchDevice, null, Modifier.size(24.dp), tint = Color.White) }) {
                 actions.onAddWatchLater()
                 onClose()
             }

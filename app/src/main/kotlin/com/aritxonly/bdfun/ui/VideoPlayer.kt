@@ -1,5 +1,9 @@
 package com.aritxonly.bdfun.ui
 
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.SearchDevice
+import top.yukonga.miuix.kmp.icon.extended.Download
+
 import com.aritxonly.teak.common.material.TeakGlassPanel
 
 import android.app.Activity
@@ -2904,8 +2908,8 @@ private fun HalfQuickAction(
         ) {
             when (label) {
                 "不感兴趣" -> DislikeGlyph(tint)
-                "稍后再看" -> WatchLaterGlyph(tint)
-                "缓存" -> CacheGlyphSmall(tint)
+                "稍后再看" -> androidx.compose.material3.Icon(MiuixIcons.SearchDevice, null, Modifier.size(24.dp), tint = tint)
+                "缓存" -> androidx.compose.material3.Icon(MiuixIcons.Download, null, Modifier.size(24.dp), tint = tint)
                 "小窗播放" -> PipGlyphSmall(tint)
                 else -> CastGlyphSmall(tint)
             }

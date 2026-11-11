@@ -117,6 +117,7 @@ import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.ContactsCircle
 import top.yukonga.miuix.kmp.icon.extended.Home
+import top.yukonga.miuix.kmp.icon.extended.Album
 import top.yukonga.miuix.kmp.icon.extended.Messages
 import top.yukonga.miuix.kmp.theme.darkColorScheme as miuixDarkColorScheme
 import top.yukonga.miuix.kmp.theme.lightColorScheme as miuixLightColorScheme
@@ -236,7 +237,7 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
     val destinations = remember {
         listOf(
             Destination("home", "首页", MiuixIcons.Home),
-            Destination("dynamics", "动态", MiuixIcons.Messages),
+            Destination("dynamics", "动态", MiuixIcons.Album),
             Destination("mine", "我的", MiuixIcons.ContactsCircle),
         )
     }

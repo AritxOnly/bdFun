@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -107,9 +108,9 @@ class PrivateChatActivity : ComponentActivity() {
             avatar = avatar,
             preview = "",
             time = 0L,
-            unread = 0,
+            unread = intent?.getIntExtra("unread", 0) ?: 0,
             isSystem = false,
-            maxSeqno = 0L,
+            maxSeqno = intent?.getLongExtra("max_seqno", 0L) ?: 0L,
         )
         setContent {
             PrivateChatRoot(api = AppGraph.api, session = session)
@@ -122,7 +123,7 @@ private fun PrivateChatRoot(api: BiliApi, session: MessageSession) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
-    var reloadTick by androidx.compose.runtime.mutableIntStateOf(0)
+    var reloadTick by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     var loadError by remember { mutableStateOf(false) }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     var draft by remember { mutableStateOf("") }
@@ -132,6 +133,34 @@ private fun PrivateChatRoot(api: BiliApi, session: MessageSession) {
     var showEmoji by remember { mutableStateOf(false) }
     var pendingImage by remember { mutableStateOf<android.net.Uri?>(null) }
     var myAvatar by remember { mutableStateOf("") }
+    var historyCursor by remember { mutableStateOf<Long?>(null) }
+    var historyLoading by remember { mutableStateOf(false) }
+    var historyError by remember { mutableStateOf<String?>(null) }
+    suspend fun acknowledgeLatest() {
+        val seq = messages.maxOfOrNull { it.sequence } ?: 0L
+        if (seq > 0) api.markSessionsRead(listOf(session.copy(unread = 1, maxSeqno = seq)))
+    }
+    suspend fun refreshLatest() {
+        val page = api.privateMessagePage(session.talkerId, session.sessionType)
+        val updates = page.items.associateBy { it.id }
+        messages = (messages.filterNot { it.id in updates } + page.items).sortedBy { it.sequence }
+        if (listState.firstVisibleItemIndex == 0) acknowledgeLatest()
+    }
+    fun loadHistory() {
+        val cursor = historyCursor ?: return
+        if (historyLoading) return
+        historyLoading = true
+        historyError = null
+        scope.launch {
+            try {
+                val page = api.privateMessagePage(session.talkerId, session.sessionType, before = cursor)
+                messages = (page.items + messages).distinctBy { it.id }.sortedBy { it.sequence }
+                historyCursor = page.next
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { historyError = e.message ?: "历史消息加载失败" }
+            finally { historyLoading = false }
+        }
+    }
 
     LaunchedEffect(Unit) { EmoteCache.ensure(api) }
 
@@ -142,10 +171,12 @@ private fun PrivateChatRoot(api: BiliApi, session: MessageSession) {
         // 私信接口偶发超时；连续重试 3 次，避免一进来就永远空着。
         for (attempt in 0 until 3) {
             val result = runCatching {
-                api.privateMessages(session.talkerId, session.sessionType)
+                api.privateMessagePage(session.talkerId, session.sessionType)
             }
             if (result.isSuccess) {
-                loaded = result.getOrDefault(emptyList())
+                val page = result.getOrThrow()
+                loaded = page.items
+                historyCursor = page.next
                 break
             }
             if (attempt < 2) kotlinx.coroutines.delay(400)
@@ -160,13 +191,26 @@ private fun PrivateChatRoot(api: BiliApi, session: MessageSession) {
             "loaded talker=${session.talkerId} count=${messages.size} error=$loadError",
         )
         loading = false
-        runCatching { api.markSessionsRead(listOf(session)) }
+        if (loaded != null) runCatching { acknowledgeLatest() }
         myAvatar = runCatching { api.nav()?.face.orEmpty() }.getOrDefault("")
     }
 
     // 列表用 reverseLayout，本身就从底部开始；新消息进来直接贴底，不做位移动画。
-    LaunchedEffect(messages.size) {
-        if (!loading && messages.isNotEmpty()) listState.scrollToItem(0)
+    LaunchedEffect(messages.lastOrNull()?.id) {
+        if (!loading && messages.isNotEmpty() && listState.firstVisibleItemIndex < 2) listState.scrollToItem(0)
+    }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner, session.talkerId) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+            while (true) {
+                kotlinx.coroutines.delay(8000)
+                if (!loading && !sending && !loadError) {
+                    try { refreshLatest() }
+                    catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (_: Exception) { /* Keep readable history during a transient failure. */ }
+                }
+            }
+        }
     }
 
     // 键盘弹出时，除了输入框上移，聊天记录也贴到最新一条。
@@ -190,35 +234,30 @@ private fun PrivateChatRoot(api: BiliApi, session: MessageSession) {
         if (value.isBlank() && image == null) return
         sending = true
         scope.launch {
-            var imageUrl = ""
-            var imageJson = ""
-            if (image != null) {
-                uploading = true
-                imageJson = runCatching { api.uploadCommentImage(image) }.getOrNull().orEmpty()
-                uploading = false
-                imageUrl = runCatching {
-                    JSONObject(imageJson).optString("img_src")
-                }.getOrDefault("")
-            }
-            // 私信文本接口只收文本：图片先把地址发过去，本机同时显示图片。
-            val payload = value.ifBlank { imageUrl }
-            val ok = payload.isNotBlank() && api.sendPrivateMessage(session.talkerId, payload)
-            if (ok) {
-                messages = messages + ChatMessage(
-                    id = System.currentTimeMillis(),
-                    senderId = api.mid,
-                    timestamp = System.currentTimeMillis() / 1000L,
-                    text = value,
-                    imageUrl = imageUrl,
-                    isMine = true,
-                )
-                draft = ""
-                pendingImage = null
+            try {
+                if (image != null) {
+                    uploading = true
+                    val uploaded = JSONObject(api.uploadCommentImage(image))
+                    val imageUrl = uploaded.optString("img_src")
+                    check(imageUrl.isNotBlank()) { "图片上传失败" }
+                    val content = JSONObject().put("url", imageUrl)
+                        .put("width", uploaded.optInt("img_width")).put("height", uploaded.optInt("img_height"))
+                        .put("size", uploaded.optDouble("img_size", 0.0)).put("original", 1).toString()
+                    check(api.sendPrivateMessage(session.talkerId, "", session.sessionType, content)) { "图片发送失败" }
+                    pendingImage = null // If text fails afterwards, don't send the picture a second time on retry.
+                    uploading = false
+                }
+                if (value.isNotBlank()) {
+                    check(api.sendPrivateMessage(session.talkerId, value, session.sessionType)) { "文字发送失败，请重试" }
+                    if (draft.trim() == value) draft = ""
+                }
                 showEmoji = false
-            } else {
-                context.showToast("发送失败，请稍后重试")
-            }
-            sending = false
+                try { refreshLatest(); listState.scrollToItem(0) }
+                catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (_: Exception) { context.showToast("已发送，消息列表稍后更新") }
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { context.showToast(e.message ?: "发送失败，请稍后重试") }
+            finally { sending = false; uploading = false }
         }
     }
 
@@ -291,7 +330,7 @@ private fun PrivateChatRoot(api: BiliApi, session: MessageSession) {
                 ),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                itemsIndexed(messages.asReversed()) { reversedIndex, message ->
+                itemsIndexed(messages.asReversed(), key = { _, message -> message.id }) { reversedIndex, message ->
                     val originalIndex = messages.lastIndex - reversedIndex
                     val previous = messages.getOrNull(originalIndex - 1)
                     val showTime = previous == null ||
@@ -313,6 +352,13 @@ private fun PrivateChatRoot(api: BiliApi, session: MessageSession) {
                         otherAvatar = session.avatar,
                         myAvatar = myAvatar,
                     )
+                }
+                item(key = "history") {
+                    Text(if (historyLoading) "加载中…" else historyError?.let { "$it · 点击重试" }
+                        ?: if (historyCursor != null) "加载更早的消息" else "没有更早的消息了",
+                        color = MiuixTheme.colorScheme.onBackgroundVariant, fontSize = 12.sp, textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().clickable(enabled = !historyLoading && historyCursor != null) { loadHistory() }
+                            .padding(vertical = 16.dp))
                 }
             }
         }

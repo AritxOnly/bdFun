@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import kotlinx.coroutines.async
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
@@ -61,6 +62,34 @@ class HomeFeedState internal constructor(
         refreshRequest++
     }
 
+    private val exclusions = com.aritxonly.bdfun.data.RecommendationExclusions()
+    private var lastRawPageEmpty = false
+
+    fun dismissRecommendation(video: VideoItem, creator: Boolean = false, category: String? = null) {
+        exclusions.exclude(video, creator, category)
+        videos.removeAll { !exclusions.accepts(it) }
+    }
+
+    private suspend fun recommendations(page: Int): List<VideoItem> {
+        val items = api.recommend(page, com.aritxonly.bdfun.AppGraph.settings.recommendWeb)
+        lastRawPageEmpty = items.isEmpty()
+        // Web recommendations do not always include the partition. Resolve only when a category
+        // filter is active; leave failed lookups visible instead of dropping unrelated videos.
+        return kotlinx.coroutines.coroutineScope {
+            val limit = kotlinx.coroutines.sync.Semaphore(3)
+            items.map { video -> async {
+                if (exclusions.hasCategories && video.categoryName.isBlank()) {
+                    limit.acquire()
+                    try {
+                        video.copy(categoryName = api.view(video.bvid).tname)
+                    } catch (e: kotlinx.coroutines.CancellationException) { throw e
+                    } catch (_: Exception) { video
+                    } finally { limit.release() }
+                } else video
+            } }.map { it.await() }.filter(exclusions::accepts)
+        }
+    }
+
     private var page = 1
     private var started = false
 
@@ -79,7 +108,7 @@ class HomeFeedState internal constructor(
         refreshing = true
         error = null
         loadMoreError = null
-        runCatching { api.recommend(1, com.aritxonly.bdfun.AppGraph.settings.recommendWeb) }
+        runCatching { recommendations(1) }
             .onSuccess { list ->
                 if (list.isNotEmpty()) {
                     val known = videos.mapTo(HashSet()) { it.bvid }
@@ -101,16 +130,15 @@ class HomeFeedState internal constructor(
         loadingMore = true
         loadMoreError = null
         val next = page + 1
-        runCatching { api.recommend(next, com.aritxonly.bdfun.AppGraph.settings.recommendWeb) }
+        runCatching { recommendations(next) }
             .onSuccess { list ->
                 val known = videos.mapTo(HashSet()) { it.bvid }
                 val fresh = list.filter { known.add(it.bvid) }
-                if (fresh.isEmpty()) {
-                    endReached = true
-                } else {
-                    videos.addAll(fresh)
-                    page = next
-                }
+                videos.addAll(fresh)
+                page = next
+                // A filtered page can be empty while later pages still have useful videos.
+                endReached = lastRawPageEmpty || (fresh.isEmpty() && exclusions.isEmpty)
+                if (fresh.isEmpty() && !endReached) loadMoreError = "本页内容已过滤，点击继续加载"
             }
             .onFailure {
                 // 网络失败不能当成“没有更多”，否则一次抖动就再也翻不了页。
@@ -123,7 +151,7 @@ class HomeFeedState internal constructor(
         if (isRefresh) refreshing = true else loading = true
         error = null
         loadMoreError = null
-        runCatching { api.recommend(1, com.aritxonly.bdfun.AppGraph.settings.recommendWeb) }
+        runCatching { recommendations(1) }
             .onSuccess { list ->
                 if (list.isNotEmpty()) {
                     val distinct = list.distinctBy { it.bvid }

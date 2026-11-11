@@ -21,6 +21,10 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Download
+import top.yukonga.miuix.kmp.icon.extended.Recent
+import top.yukonga.miuix.kmp.icon.extended.SearchDevice
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -280,16 +284,16 @@ fun MineScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 QuickAction("离线缓存", Modifier.weight(1f), onClick = onOpenCache) {
-                    DownloadGlyph()
+                    androidx.compose.material3.Icon(MiuixIcons.Download, null, Modifier.size(26.dp), tint = MineBlue)
                 }
                 QuickAction("历史记录", Modifier.weight(1f), onClick = onOpenHistory) {
-                    ClockGlyph()
+                    androidx.compose.material3.Icon(MiuixIcons.Recent, null, Modifier.size(26.dp), tint = MineBlue)
                 }
                 QuickAction("我的收藏", Modifier.weight(1f), onClick = onOpenLibrary) {
                     ResourceGlyph(res = TeakIcon.Star, tint = MineBlue, size = 26.dp)
                 }
                 QuickAction("稍后再看", Modifier.weight(1f), onClick = onOpenWatchLater) {
-                    ResourceGlyph(res = TeakIcon.Play, tint = MineBlue, size = 26.dp)
+                    androidx.compose.material3.Icon(MiuixIcons.SearchDevice, null, Modifier.size(26.dp), tint = MineBlue)
                 }
             }
         }

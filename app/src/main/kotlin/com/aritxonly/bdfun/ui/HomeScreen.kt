@@ -9,6 +9,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -103,6 +105,7 @@ fun HomeScreen(
     /** 0 = 双排小卡，1 = 大卡（动态页视频卡片同款）。 */
     cardStyle: Int = 0,
 ) {
+    var actionVideo by remember { mutableStateOf<VideoItem?>(null) }
     val largeCards = cardStyle == 1
     val colors = MiuixTheme.colorScheme
     val scope = rememberCoroutineScope()
@@ -274,9 +277,9 @@ fun HomeScreen(
                     ) { onOpenVideo(video) }
                 }
                 if (largeCards) {
-                    VideoLargeCard(video = video, modifier = oneTake.modifier, onClick = openCard)
+                    VideoLargeCard(video = video, modifier = oneTake.modifier, onClick = openCard, onLongClick = { actionVideo = video })
                 } else {
-                    VideoGridCard(video = video, modifier = oneTake.modifier, onClick = openCard)
+                    VideoGridCard(video = video, modifier = oneTake.modifier, onClick = openCard, onLongClick = { actionVideo = video })
                 }
             }
 
@@ -299,7 +302,7 @@ fun HomeScreen(
                         Text(
                             text = when {
                                 state.loadingMore -> "加载中…"
-                                footerError != null -> "加载失败，点此重试"
+                                footerError != null -> footerError
                                 state.endReached -> "没有更多了"
                                 else -> "上滑加载更多"
                             },
@@ -342,6 +345,8 @@ fun HomeScreen(
             }
         }
     }
+    HomeVideoActions(video = actionVideo, state = state, onDismiss = { actionVideo = null })
+
 }
 
 /**
@@ -362,6 +367,7 @@ internal fun VideoGridCard(
     reserveMeta: Boolean = false,
     /** 个人主页等场景不需要最下面的 UP 行。 */
     showOwner: Boolean = true,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
@@ -370,7 +376,7 @@ internal fun VideoGridCard(
         modifier = modifier
             .clip(FeedCardShape)
             .background(colors.surface)
-            .clickable(interactionSource = null, indication = null, onClick = onClick),
+            .combinedClickable(interactionSource = null, indication = null, onClick = onClick, onLongClick = onLongClick),
     ) {
         Box(
             modifier = Modifier
@@ -540,6 +546,7 @@ internal fun VideoLargeCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     progress: Float = 0f,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val colors = MiuixTheme.colorScheme
     val context = LocalContext.current
@@ -548,7 +555,7 @@ internal fun VideoLargeCard(
             .fillMaxWidth()
             .clip(ContinuousCornerShape(14.dp))
             .background(colors.surface)
-            .clickable(interactionSource = null, indication = null, onClick = onClick),
+            .combinedClickable(interactionSource = null, indication = null, onClick = onClick, onLongClick = onLongClick),
     ) {
         Box(
             modifier = Modifier

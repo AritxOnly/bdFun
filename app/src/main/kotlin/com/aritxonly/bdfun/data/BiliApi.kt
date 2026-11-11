@@ -319,6 +319,12 @@ class BiliApi(context: Context) : DynamicFeedSource {
                     ?: parseDurationText(raw.s("cover_right_text")),
                 pubdate = 0,
                 cid = player?.l("cid")?.takeIf { it > 0 } ?: 0,
+                categoryName = args.s("tname").ifBlank { raw.s("tname") },
+                appRecommendation = true,
+                dislikeReasons = (raw.optJSONArray("three_point_v2").objects()
+                    .filter { it.s("type") == "dislike" }.flatMap { it.optJSONArray("reasons").objects() } +
+                    raw.optJSONObject("three_point")?.optJSONArray("dislike_reasons").objects())
+                    .map { RecommendationReason(it.l("id"), it.s("name")) }.distinctBy { it.id },
                 isFollowed = args.optBoolean("is_followed", false) ||
                     raw.optBoolean("is_followed", false),
             )
@@ -326,6 +332,22 @@ class BiliApi(context: Context) : DynamicFeedSource {
         val rawCount = data.optJSONArray("items")?.length() ?: 0
         LogCollector.record("FEED", "app-raw=$rawCount kept=${out.size}")
         return out
+    }
+
+    suspend fun dislikeRecommendation(video: VideoItem, reason: RecommendationReason) {
+        if (video.appRecommendation) {
+            check(cookieJar.value("access_key").isNotBlank()) { "请重新扫码登录以提交 App 推荐反馈" }
+            val params = mutableMapOf("goto" to "av", "id" to video.aid.toString(),
+                "reason_id" to reason.id.toString(), "build" to "1", "mobi_app" to "android")
+            signAppParams(params)
+            dataRequest("/x/feed/dislike", params, base = APP)
+        } else {
+            postRequest("/x/web-interface/feedback/dislike", mapOf(
+                "app_id" to "100", "platform" to "5", "from_spmid" to "", "spmid" to "333.1007.0.0",
+                "goto" to "av", "id" to video.aid.toString(), "mid" to video.ownerMid.toString(),
+                "track_id" to video.recommendationTrackId, "feedback_page" to "1",
+                "reason_id" to reason.id.toString(), "csrf" to csrf), tolerateEmptyBody = false)
+        }
     }
 
     suspend fun popular(page: Int = 1): List<VideoItem> = withContext(Dispatchers.IO) {
@@ -2269,25 +2291,18 @@ class BiliApi(context: Context) : DynamicFeedSource {
             .orEmpty()
     }
 
-    suspend fun messages(type: Int, page: Int = 1): List<MessageItem> = withContext(Dispatchers.IO) {
+    suspend fun messages(type: Int, page: Int = 1): List<MessageItem> = messagesPage(type).items
+
+    suspend fun messagesPage(type: Int, cursor: MessageCursor? = null): MessageFeedPage = withContext(Dispatchers.IO) {
+        if (type == 3) return@withContext systemMessages(cursor)
         val path = when (type) {
             0 -> "/x/msgfeed/reply"
             1 -> "/x/msgfeed/at"
             2 -> "/x/msgfeed/like"
-            else -> "/x/msgfeed/system"
+            else -> error("Unknown message feed")
         }
-        val data = dataRequest(
-            path,
-            mapOf(
-                "pn" to page.toString(),
-                "ps" to "20",
-                "platform" to "web",
-                "mobi_app" to "web",
-                "build" to "0",
-                "web_location" to "333.40164",
-                "csrf" to csrf,
-            ),
-        )
+        val params = messageFeedParams(type, cursor)
+        val data = dataRequest(path, params)
         // 收到的赞返回的是 { latest: { items }, total: { items } } 两个分桶，
         // 不是顶层的 items；原来只读顶层，所以这个页面一直是空的。
         val rawItems = if (type == 2) {
@@ -2426,6 +2441,8 @@ class BiliApi(context: Context) : DynamicFeedSource {
                     ?: (detail?.l("source_id") ?: 0L),
                 businessId = businessId,
                 seekMs = seekSeconds * 1000L,
+                nativeUri = nativeUri,
+                noticeState = item.optInt("notice_state", 0),
                 quote = quote,
                 subjectText = subjectText,
                 subjectCover = subjectCover,
@@ -2440,7 +2457,11 @@ class BiliApi(context: Context) : DynamicFeedSource {
             "MSG",
             "type=$type items=${rawItems.size} parsed=${enriched.size}",
         )
-        enriched
+        val next = (if (type == 2) data.optJSONObject("total") else data)?.optJSONObject("cursor")
+        val nextId = next?.l("id") ?: 0L
+        val nextTime = next?.l("time") ?: 0L
+        MessageFeedPage(enriched, messageContinuation(cursor, nextId, nextTime,
+            next == null || next.optBoolean("is_end", false)))
     }
 
     /**
@@ -2518,49 +2539,14 @@ class BiliApi(context: Context) : DynamicFeedSource {
         followingOnly: Boolean,
         sessionTs: Long = 0L,
         pageSize: Int = 25,
-        /** 昵称 / 头像补全完成后再回调一次，让首屏先显示、名字稍后补上。 */
         onEnriched: ((List<MessageSession>) -> Unit)? = null,
-    ): Pair<List<MessageSession>, Boolean> = withContext(Dispatchers.IO) {
-        val request = mutableMapOf(
-            "session_type" to "4",
-            "group_fold" to "0",
-            "unfollow_fold" to "0",
-            "sort_rule" to "2",
-            "size" to pageSize.toString(),
-            "mobi_app" to "web",
-        )
+    ): MessageSessionPage = withContext(Dispatchers.IO) {
+        val request = mutableMapOf("session_type" to "4", "group_fold" to "0",
+            "unfollow_fold" to "0", "sort_rule" to "2", "size" to pageSize.toString(), "mobi_app" to "web")
         if (sessionTs > 0L) request["session_ts"] = sessionTs.toString()
-        val root = rawRequest(
-            "/session_svr/v1/session_svr/get_sessions",
-            request,
-            base = VC,
-        )
-        if (root.optInt("code", 0) != 0) return@withContext emptyList<MessageSession>() to false
-        val allSessions = root.optJSONObject("data")
-            ?.optJSONArray("session_list")
-            ?.objects()
-            .orEmpty()
-        val raw = if (followingOnly) {
-            val followed = allSessions.filter {
-                it.optInt("is_follow", 0) == 1 &&
-                    it.optInt("system_msg_type", 0) == 0
-            }
-            if (followed.isNotEmpty()) {
-                followed
-            } else {
-                rawRequest(
-                    "/session_svr/v1/session_svr/get_sessions",
-                    request + ("session_type" to "9"),
-                    base = VC,
-                ).optJSONObject("data")
-                    ?.optJSONArray("session_list")
-                    ?.objects()
-                    .orEmpty()
-                    .filter { it.optInt("system_msg_type", 0) == 0 }
-            }
-        } else {
-            allSessions
-        }
+        val data = dataRequest("/session_svr/v1/session_svr/get_sessions", request, base = VC)
+        val allSessions = data.optJSONArray("session_list").objects()
+        val raw = if (followingOnly) allSessions.filter { it.optInt("is_follow") == 1 } else allSessions
         val system = raw.map { it.toMessageSession() }
         // 首屏先返回：内存缓存里已经有的名字/头像立即带上，其余留给后台补全。
         val quick = system.map { session ->
@@ -2573,45 +2559,34 @@ class BiliApi(context: Context) : DynamicFeedSource {
         }
         val needResolve = quick
             .filter { it.name.isBlank() && it.sessionType == 1 && !it.isSystem }
-        if (needResolve.isNotEmpty() && onEnriched != null) {
-            backgroundScope.launch {
-                runCatching {
-                    kotlinx.coroutines.coroutineScope {
-                        needResolve.map { session ->
-                            async {
-                                val cached = MessageUserCache.get(session.talkerId)
-                                if (cached != null) {
-                                    session.copy(name = cached.first, avatar = cached.second)
-                                } else {
-                                    val brief = userBrief(session.talkerId)
-                                    if (brief == null) {
-                                        session
-                                    } else {
-                                        MessageUserCache.put(
-                                            session.talkerId,
-                                            brief.first,
-                                            brief.second,
-                                        )
-                                        session.copy(name = brief.first, avatar = brief.second)
-                                    }
-                                }
-                            }
-                        }.awaitAll()
-                    }.associateBy { it.id }.let { map ->
-                        onEnriched(quick.map { map[it.id] ?: it })
+        val resolved = if (needResolve.isEmpty()) quick else kotlinx.coroutines.coroutineScope {
+            val limit = kotlinx.coroutines.sync.Semaphore(4)
+            val names = needResolve.map { session -> async {
+                limit.acquire()
+                try {
+                    userBrief(session.talkerId)?.let { brief ->
+                        MessageUserCache.put(session.talkerId, brief.first, brief.second)
+                        session.id to brief
                     }
-                }
-            }
+                } finally { limit.release() }
+            } }.awaitAll().filterNotNull().toMap()
+            quick.map { session -> names[session.id]?.let { session.copy(name = it.first, avatar = it.second) } ?: session }
         }
-        quick to (raw.size >= pageSize)
+        val nextTs = allSessions.lastOrNull()?.l("session_ts") ?: 0L
+        val more = if (data.has("has_more")) data.optInt("has_more") == 1 else allSessions.size >= pageSize
+        MessageSessionPage(resolved, sessionContinuation(sessionTs, nextTs, more))
     }
 
     /** 拉取一个私信会话的消息。 */
-    suspend fun privateMessages(
+    suspend fun privateMessages(talkerId: Long, sessionType: Int = 1, size: Int = 30): List<ChatMessage> =
+        privateMessagePage(talkerId, sessionType, size).items
+
+    suspend fun privateMessagePage(
         talkerId: Long,
         sessionType: Int = 1,
         size: Int = 30,
-    ): List<ChatMessage> = withContext(Dispatchers.IO) {
+        before: Long? = null,
+    ): ChatMessagePage = withContext(Dispatchers.IO) {
         val data = dataRequest(
             "/svr_sync/v1/svr_sync/fetch_session_msgs",
             mapOf(
@@ -2622,26 +2597,28 @@ class BiliApi(context: Context) : DynamicFeedSource {
                 "build" to "0",
                 "mobi_app" to "web",
                 "web_location" to "333.1296",
-            ),
+            ) + (before?.let { mapOf("begin_seqno" to it.toString()) } ?: emptyMap()),
             signed = true,
             base = VC,
         )
         val own = mid
-        data.optJSONArray("messages").objects().mapNotNull { message ->
+        val items = data.optJSONArray("messages").objects().mapNotNull { message ->
             val type = message.optInt("msg_type", 1)
             val raw = message.s("content")
             val content = runCatching { JSONObject(raw) }.getOrNull()
-            val text = when (type) {
+            val withdrawn = message.optInt("msg_status") == 1
+            val text = if (withdrawn) "消息已撤回" else when (type) {
                 1 -> content?.s("content").orEmpty()
                 2 -> ""
                 6, 7 -> content?.s("title").orEmpty()
                 else -> content?.s("content").orEmpty().ifBlank { raw }
             }
-            val image = if (type == 2) content?.s("url").orEmpty() else ""
+            val image = if (type == 2 && !withdrawn) content?.s("url").orEmpty() else ""
             if (text.isBlank() && image.isBlank() && type != 1) return@mapNotNull null
             ChatMessage(
                 id = message.l("msg_key").takeIf { it != 0L }
                     ?: message.l("msg_seqno"),
+                sequence = message.l("msg_seqno"),
                 senderId = message.l("sender_uid"),
                 timestamp = message.l("timestamp").takeIf { it > 0L }
                     ?: message.l("msg_time"),
@@ -2649,20 +2626,23 @@ class BiliApi(context: Context) : DynamicFeedSource {
                 imageUrl = image,
                 isMine = message.l("sender_uid") == own,
             )
-        }.sortedBy { it.timestamp }
+        }.sortedBy { it.sequence }
+        val next = data.optString("min_seqno").toLongOrNull() ?: 0L
+        ChatMessagePage(items, sessionContinuation(before ?: 0L, next, data.optInt("has_more") == 1))
     }
 
     /** 发送一条纯文本私信。 */
-    suspend fun sendPrivateMessage(talkerId: Long, text: String): Boolean =
+    suspend fun sendPrivateMessage(talkerId: Long, text: String, sessionType: Int = 1,
+        imageContent: String? = null): Boolean =
         withContext(Dispatchers.IO) {
-            if (text.isBlank() || csrf.isBlank()) return@withContext false
+            if ((text.isBlank() && imageContent == null) || csrf.isBlank()) return@withContext false
             val now = System.currentTimeMillis() / 1000L
-            val content = JSONObject().put("content", text).toString()
+            val content = imageContent ?: JSONObject().put("content", text).toString()
             val params = mapOf(
                 "msg[sender_uid]" to mid.toString(),
                 "msg[receiver_id]" to talkerId.toString(),
-                "msg[receiver_type]" to "1",
-                "msg[msg_type]" to "1",
+                "msg[receiver_type]" to sessionType.toString(),
+                "msg[msg_type]" to if (imageContent != null) "2" else "1",
                 "msg[msg_status]" to "0",
                 "msg[dev_id]" to java.util.UUID.randomUUID().toString(),
                 "msg[timestamp]" to now.toString(),
@@ -2680,7 +2660,7 @@ class BiliApi(context: Context) : DynamicFeedSource {
                     params,
                     base = VC,
                     method = "POST",
-                    tolerateEmptyBody = true,
+                    tolerateEmptyBody = false,
                 )
             }.getOrNull() ?: return@withContext false
             root.optInt("code", 0) == 0
@@ -2732,6 +2712,11 @@ class BiliApi(context: Context) : DynamicFeedSource {
         }.getOrNull()
     }
 
+    suspend fun messageFeedUnread(): Map<String, Int> {
+        val data = dataRequest("/x/msgfeed/unread", mapOf("mobi_app" to "web", "build" to "0"))
+        return listOf("reply", "at", "like", "sys_msg").associateWith { data.optInt(it).coerceAtLeast(0) }
+    }
+
     suspend fun messageUnreadCount(): Int = withContext(Dispatchers.IO) {
         val params = mapOf("build" to "0", "mobi_app" to "web", "web_location" to "333.1365")
         val privateData = dataRequest("/session_svr/v1/session_svr/single_unread",
@@ -2741,32 +2726,19 @@ class BiliApi(context: Context) : DynamicFeedSource {
             listOf("at", "like", "reply", "sys_msg").sumOf { feed.optInt(it).coerceAtLeast(0) })
     }
 
-    /** 一键把所有未读消息标为已读；接口失败时由 UI 退化为本地清除红点。 */
+    /** Only report success after the server confirms that every unread category is clear. */
     suspend fun clearAllUnread(sessions: List<MessageSession>): Boolean = withContext(Dispatchers.IO) {
-        val msgfeed = listOf("/x/msgfeed/clearUnread", "/x/msgfeed/clear_unread").any { path ->
-            runCatching {
-                dataRequest(path, emptyMap(), method = "POST")
-            }.isSuccess
-        }
-        val token = csrf
-        val acked = sessions.filter { it.unread > 0 && it.maxSeqno > 0L }.map { session ->
-            runCatching {
-                dataRequest(
-                    "/session_svr/v1/session_svr/update_ack",
-                    mapOf(
-                        "talker_id" to session.talkerId.toString(),
-                        "session_type" to session.sessionType.toString(),
-                        "ack_seqno" to session.maxSeqno.toString(),
-                        "csrf" to token,
-                        "csrf_token" to token,
-                        "mobi_app" to "web",
-                    ),
-                    base = VC,
-                    method = "POST",
-                )
-            }.isSuccess
-        }.any { it }
-        msgfeed || acked
+        val all = sessions.associateBy { it.id }.toMutableMap()
+        var cursor = 0L
+        do {
+            val page = messageSessions(false, cursor)
+            page.items.forEach { all[it.id] = it }
+            cursor = page.next ?: 0L
+        } while (cursor != 0L)
+        markSessionsRead(all.values.toList())
+        // These feeds acknowledge their current notifications when opened, as in HyperPiliPlus.
+        for (type in 0..3) messagesPage(type)
+        messageUnreadCount() == 0
     }
 
     /** 仅取用户 IP 属地，供动态详情在接口未返回发布 IP 时兜底。 */
@@ -2785,26 +2757,80 @@ class BiliApi(context: Context) : DynamicFeedSource {
         }.getOrDefault("")
     }
 
-    /** 兼容旧入口：只清会话未读。 */
     suspend fun markSessionsRead(sessions: List<MessageSession>): Boolean = withContext(Dispatchers.IO) {
-        val token = csrf
-        sessions.filter { it.unread > 0 && it.maxSeqno > 0L }.map { session ->
-            runCatching {
-                dataRequest(
-                    "/session_svr/v1/session_svr/update_ack",
-                    mapOf(
-                        "talker_id" to session.talkerId.toString(),
-                        "session_type" to session.sessionType.toString(),
-                        "ack_seqno" to session.maxSeqno.toString(),
-                        "csrf" to token,
-                        "csrf_token" to token,
-                        "mobi_app" to "web",
-                    ),
-                    base = VC,
-                    method = "POST",
-                )
-            }.isSuccess
-        }.any { it }
+        acknowledgeUnreadSessions(sessions) { session ->
+            dataRequest("/session_svr/v1/session_svr/update_ack", sessionParams(session) +
+                ("ack_seqno" to session.maxSeqno.toString()), base = VC, signed = true)
+        }
+        true
+    }
+
+    private fun sessionParams(session: MessageSession) = mapOf(
+        "talker_id" to session.talkerId.toString(), "session_type" to session.sessionType.toString(),
+        "csrf" to csrf, "csrf_token" to csrf, "mobi_app" to "web", "build" to "0")
+
+    suspend fun removeMessageSession(session: MessageSession) {
+        dataRequest("/session_svr/v1/session_svr/remove_session", sessionParams(session),
+            base = VC, signed = true, method = "POST")
+    }
+
+    suspend fun pinMessageSession(session: MessageSession, pinned: Boolean) {
+        dataRequest("/session_svr/v1/session_svr/set_top", sessionParams(session) +
+            ("op_type" to sessionPinOperation(pinned)), base = VC, signed = true, method = "POST")
+    }
+
+    suspend fun muteMessageSession(session: MessageSession, muted: Boolean) {
+        dataRequest("/link_setting/v1/link_setting/set_msg_dnd", mapOf(
+            "uid" to mid.toString(), "dnd_uid" to session.talkerId.toString(),
+            "setting" to if (muted) "1" else "0", "csrf" to csrf, "mobi_app" to "web", "build" to "0"),
+            base = VC, method = "POST")
+    }
+
+    suspend fun deleteFeedMessage(type: Int, id: String) {
+        require(type in 0..2)
+        postRequest("/x/msgfeed/del", mapOf("tp" to messageDeleteType(type).toString(), "id" to id,
+            "csrf" to csrf, "csrf_token" to csrf, "mobi_app" to "web", "build" to "0"), tolerateEmptyBody = false)
+    }
+
+    suspend fun setLikeNotice(id: String, enabled: Boolean) {
+        postRequest("/x/msgfeed/notice", mapOf("tp" to "0", "id" to id,
+            "notice_state" to if (enabled) "0" else "1", "platform" to "web", "mobi_app" to "web",
+            "build" to "0", "csrf" to csrf), tolerateEmptyBody = false)
+    }
+
+    private suspend fun systemMessages(cursor: MessageCursor?): MessageFeedPage {
+        val params = mutableMapOf("page_size" to "20", "mobi_app" to "web", "build" to "0")
+        cursor?.let { params["cursor"] = it.id.toString() }
+        val root = rawRequest("/x/sys-msg/query_notify_list", params, base = "https://message.bilibili.com")
+        val code = root.optInt("code")
+        if (code != 0) throw BiliException(code, apiMessage(code, root.optString("message")))
+        val items = root.optJSONArray("data").objects().map {
+            val raw = it.s("content")
+            val content = runCatching { JSONObject(raw).optString("web", raw) }.getOrDefault(raw)
+            MessageItem(id = it.s("id"), title = it.s("title"), content = content,
+                time = 0L, name = "系统通知", avatar = "", source = it.s("time_at"), systemCursor = it.l("cursor"))
+        }
+        if (cursor == null && items.isNotEmpty()) {
+            try {
+                dataRequest("/x/sys-msg/update_cursor", mapOf("cursor" to items.first().systemCursor.toString(),
+                    "csrf" to csrf), base = "https://message.bilibili.com")
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { LogCollector.record("MSG", "system read acknowledgement failed") }
+        }
+        val next = items.lastOrNull()?.systemCursor ?: 0L
+        return MessageFeedPage(items, messageContinuation(cursor, next, 0L, items.size < 20))
+    }
+
+    suspend fun deleteSystemMessage(id: String) = withContext(Dispatchers.IO) {
+        val body = JSONObject().put("csrf", csrf).put("ids", JSONArray().put(id.toLong()))
+            .put("station_ids", JSONArray()).put("type", 4).put("mobi_app", "android")
+        val request = Request.Builder()
+            .url("https://message.bilibili.com/x/sys-msg/del_notify_list?mobi_app=android&csrf=${encode(csrf)}")
+            .header("User-Agent", UA).header("Referer", "https://message.bilibili.com/")
+            .post(body.toString().toRequestBody("application/json".toMediaTypeOrNull())).build()
+        val response = executeOnce(request, false)
+        val code = response.optInt("code")
+        if (code != 0) throw BiliException(code, apiMessage(code, response.optString("message")))
     }
 
     private fun JSONObject.toMessageSession(): MessageSession {
@@ -2826,7 +2852,10 @@ class BiliApi(context: Context) : DynamicFeedSource {
             time = (l("session_ts") / 1_000_000L).takeIf { it > 0L }
                 ?: (last?.l("timestamp") ?: 0L),
             unread = optInt("unread_count", 0),
-            isSystem = systemType != 0 || account != null,
+            isSystem = systemType != 0,
+            followed = optInt("is_follow") == 1,
+            pinned = l("top_ts") > 0L,
+            muted = optInt("is_dnd") == 1,
             maxSeqno = l("max_seqno"),
             sessionTs = l("session_ts"),
         )
@@ -2869,6 +2898,8 @@ class BiliApi(context: Context) : DynamicFeedSource {
             duration = item.optInt("duration", 0),
             pubdate = item.l("pubdate"),
             cid = item.l("cid"),
+            categoryName = item.s("tname"),
+            recommendationTrackId = item.s("track_id"),
             reason = item.optJSONObject("rcmd_reason")?.s("content").orEmpty(),
             isFollowed = item.optBoolean("is_followed", false),
         )
@@ -3470,7 +3501,7 @@ class BiliApi(context: Context) : DynamicFeedSource {
                 .header("Origin", "https://www.bilibili.com")
         }
         val request = builder.build()
-        if (BuildConfig.DEBUG) android.util.Log.d("BiliApi", "request ${request.url}")
+        if (BuildConfig.DEBUG) android.util.Log.d("BiliApi", "request ${request.url.encodedPath}")
 
         // 只对 GET 做自动重试：POST 可能是投币/点赞，重复发送会有副作用。
         // 最多两次：一次正常、一次重试；避免网络完全断开时转圈太久。
@@ -3503,7 +3534,7 @@ class BiliApi(context: Context) : DynamicFeedSource {
             "fail path=${request.url.encodedPath} status=${(error as? BiliException)?.code} " +
                 "message=${error.message}",
         )
-        if (BuildConfig.DEBUG) android.util.Log.w("BiliApi", "network error ${request.url}", error)
+        if (BuildConfig.DEBUG) android.util.Log.w("BiliApi", "network error ${request.url.encodedPath}", error)
         throw error
     }
 

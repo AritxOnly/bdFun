@@ -17,7 +17,19 @@ data class VideoItem(
     val isFollowed: Boolean = false,
     /** 从「我的评论与弹幕」等入口跳转时，进入视频后直接定位到这个时间点。 */
     val startPositionMs: Long = 0L,
+    val categoryName: String = "",
+    val recommendationTrackId: String = "",
+    val appRecommendation: Boolean = false,
+    val dislikeReasons: List<RecommendationReason> = emptyList(),
 )
+
+data class RecommendationReason(val id: Long, val name: String)
+
+data class MessageCursor(val id: Long, val time: Long = 0L)
+data class MessageFeedPage(val items: List<MessageItem>, val next: MessageCursor?)
+data class ChatMessagePage(val items: List<ChatMessage>, val next: Long?)
+
+data class MessageSessionPage(val items: List<MessageSession>, val next: Long?)
 
 data class VideoPage(
     val cid: Long,
@@ -379,6 +391,9 @@ data class MessageItem(
     val atMe: Boolean = false,
     /** 别人在我的视频下发了评论。 */
     val commentOnMyVideo: Boolean = false,
+    val nativeUri: String = "",
+    val systemCursor: Long = 0,
+    val noticeState: Int = 0,
 )
 
 /** 私信会话里的一条消息。 */
@@ -389,6 +404,7 @@ data class ChatMessage(
     val text: String,
     val imageUrl: String = "",
     val isMine: Boolean = false,
+    val sequence: Long = 0L,
 )
 
 /** 消息中心的一个会话（系统通知 / 私信）。 */
@@ -405,6 +421,9 @@ data class MessageSession(
     val maxSeqno: Long = 0L,
     /** 原始 session_ts（微秒），用于消息列表翻页。 */
     val sessionTs: Long = 0L,
+    val followed: Boolean = false,
+    val pinned: Boolean = false,
+    val muted: Boolean = false,
 )
 
 /** 官方字幕轨（`/x/player/v2` 的 subtitle.subtitles）。 */
