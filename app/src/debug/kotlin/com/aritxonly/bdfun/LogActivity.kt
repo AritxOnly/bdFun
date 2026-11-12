@@ -72,9 +72,9 @@ class LogActivity : ComponentActivity() {
 private fun LogScreen() {
     val context = LocalContext.current
     val colors = MiuixTheme.colorScheme
-    val scope = rememberCoroutineScope()
-    var tick by remember { mutableIntStateOf(0) }
-    var preview by remember { mutableStateOf("") }
+    val presentation = remember { LogPresentationStateHolder() }
+    var tick by presentation::tick
+    var preview by presentation::preview
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -88,7 +88,52 @@ private fun LogScreen() {
     }
 
     TeakSettingsPage(title = "日志抓取") {
-        item(key = "intro") {
+        item(key = "intro") { LogIntro() }
+
+        item(key = "actions") { LogActions({ preview = "" }) }
+
+        item(key = "freeze") { LogFreezeActions() }
+
+        item(key = "export") { LogExport() }
+
+        item(key = "preview") { LogPreview(preview, LogCollector.size()) }
+
+        item(key = "bottom") { Spacer(Modifier.height(24.dp)) }
+    }
+}
+
+private fun exportFreezeLog(context: Context): java.io.File {
+    val dir = java.io.File(context.cacheDir, "bdFun-logs").apply { mkdirs() }
+    val out = java.io.File(dir, "freeze-log.txt")
+    out.writeText(com.aritxonly.bdfun.data.FreezeWatchdog.readTail(context, 20000))
+    return out
+}
+
+private fun shareLog(context: Context, file: java.io.File) {
+    val uri: Uri = FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        file,
+    )
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        putExtra(Intent.EXTRA_SUBJECT, "bdFun 日志")
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    context.startActivity(Intent.createChooser(send, "导出日志"))
+}
+
+private class LogPresentationStateHolder {
+    var tick by mutableIntStateOf(0)
+    var preview by mutableStateOf("")
+}
+
+@Composable
+private fun LogIntro() {
+    val context = LocalContext.current
+    val colors = MiuixTheme.colorScheme
+
             Text(
                 text = "复现问题前先点「开始新一轮抓取」，然后按平时操作复现；" +
                     "完成后回来点「导出日志并分享」。日志只保存在本机，不会自动上传。",
@@ -97,9 +142,14 @@ private fun LogScreen() {
                 fontSize = 13.sp,
                 lineHeight = 20.sp,
             )
-        }
 
-        item(key = "actions") {
+}
+
+@Composable
+private fun LogActions(onClear: () -> Unit) {
+    val context = LocalContext.current
+    val colors = MiuixTheme.colorScheme
+
             TeakSettingsCard {
                 TeakSettingsActionRow(title = "开始新一轮抓取", trailing = "清空旧日志") {
                     LogCollector.beginSession()
@@ -116,13 +166,18 @@ private fun LogScreen() {
                 }
                 TeakSettingsActionRow(title = "清空日志") {
                     LogCollector.clear()
-                    preview = ""
+                    onClear()
                     context.showToast("日志已清空")
                 }
             }
-        }
 
-        item(key = "freeze") {
+}
+
+@Composable
+private fun LogFreezeActions() {
+    val context = LocalContext.current
+    val colors = MiuixTheme.colorScheme
+
             TeakSettingsCard {
                 TeakSettingsActionRow(
                     title = "复制卡住日志",
@@ -152,9 +207,14 @@ private fun LogScreen() {
                     context.showToast("卡住日志已清空")
                 }
             }
-        }
 
-        item(key = "export") {
+}
+
+@Composable
+private fun LogExport() {
+    val context = LocalContext.current
+    val colors = MiuixTheme.colorScheme
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -178,9 +238,14 @@ private fun LogScreen() {
                     fontWeight = FontWeight.Normal,
                 )
             }
-        }
 
-        item(key = "preview") {
+}
+
+@Composable
+private fun LogPreview(preview: String, count: Int) {
+    val context = LocalContext.current
+    val colors = MiuixTheme.colorScheme
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -189,7 +254,7 @@ private fun LogScreen() {
                     .padding(12.dp),
             ) {
                 Text(
-                    text = "最近日志（${LogCollector.size()} 行）",
+                    text = "最近日志（${count} 行）",
                     color = colors.onBackground,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Normal,
@@ -207,30 +272,5 @@ private fun LogScreen() {
                     fontFamily = FontFamily.Monospace,
                 )
             }
-        }
 
-        item(key = "bottom") { Spacer(Modifier.height(24.dp)) }
-    }
-}
-
-private fun exportFreezeLog(context: Context): java.io.File {
-    val dir = java.io.File(context.cacheDir, "bdFun-logs").apply { mkdirs() }
-    val out = java.io.File(dir, "freeze-log.txt")
-    out.writeText(com.aritxonly.bdfun.data.FreezeWatchdog.readTail(context, 20000))
-    return out
-}
-
-private fun shareLog(context: Context, file: java.io.File) {
-    val uri: Uri = FileProvider.getUriForFile(
-        context,
-        "${context.packageName}.fileprovider",
-        file,
-    )
-    val send = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        putExtra(Intent.EXTRA_STREAM, uri)
-        putExtra(Intent.EXTRA_SUBJECT, "bdFun 日志")
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-    context.startActivity(Intent.createChooser(send, "导出日志"))
 }

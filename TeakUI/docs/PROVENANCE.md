@@ -100,3 +100,7 @@
 - **Miuix**：模糊能力本身，第三方依赖，没有复制源码；
 - **HyperIsland**：只参考渐进模糊的部分参数/观感，没有复制源码；
 - **Teak 自己**：页面外壳、顶部 overlay、设置页、PagerTabs、主题适配层等。
+
+## 2026-11-12 · 自有滚动视口
+
+`chrome/TeakScrollContainer.kt`与`chrome/TeakContentWidth.kt`为本项目实现。使用Compose公开Layout/scrollable/ScrollableState，以并列留白手势区替代原centeredListWidth的祖先scrollable；没有复制第三方手势引擎。宽度规则来自本项目原ListContentWidth.kt。

@@ -1,6 +1,6 @@
 package com.aritxonly.bdfun.ui
 
-import com.aritxonly.teak.common.chrome.centeredListWidth
+import com.aritxonly.teak.common.chrome.TeakScrollContainer
 import com.aritxonly.teak.common.chrome.TrackTeakPageScroll
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,9 +23,10 @@ internal fun SearchLanding(
     val colors = MiuixTheme.colorScheme
     val listState = rememberLazyListState()
     TrackTeakPageScroll(listState)
+    TeakScrollContainer(listState, Modifier.fillMaxSize()) {
     LazyColumn(
         state = listState,
-        modifier = Modifier.fillMaxSize().centeredListWidth(scrollState = listState),
+        modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, top = 14.dp, end = 16.dp, bottom = 32.dp),
     ) {
         if (query.isNotBlank()) {
@@ -35,5 +36,6 @@ internal fun SearchLanding(
         searchHistoryItems(history, colors, onPickKeyword, onClearHistory)
         searchHotItems(hot, colors, onPickKeyword)
 
+    }
     }
 }

@@ -426,3 +426,7 @@ SpaceApi的space只负责原五个并发请求、原await顺序和条件获赞�
 ### 2026-11-12 最新main直播集成
 
 直播以main 4c4e03b的界面/手势/弹幕协议为基准；HTTP与WebSocket/Brotli实现迁入infra:bili，纯直播实体进入core:model，读取/消息解码/连接经domain端口组装。页面业务状态使用application StateFlow，原TeakUI树只拆分与接线。DanmakuSettingsContent新增liveMode仅隐藏main已隐藏的直播不适用项，视频默认false。最终完成本步后构建默认签名release并按用户要求暂停目标；不继续其它迁移，也不重复已有全套测试。
+
+### 2026-11-12 继续收尾与页面滚动容器
+
+用户恢复全量重构，并要求只开发/执行必要的定向测试，已有全套不重复运行。用户另外授权修正设置等宽屏页面的双层同轴滚动：TeakUI新增自有TeakScrollContainer，内容区仍由原列表/ScrollState处理，左右留白作为并列手势区共享同一状态，禁止再在列表祖先叠加scrollable来转发留白拖动。centeredListWidth只负责原宽度/居中测量；接入通用页面外壳与搜索、普通说明页，视觉参数保持。此项是明确授权的滚动行为修复，不作为其他UI行为优化的依据。

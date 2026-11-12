@@ -1,6 +1,6 @@
 package com.aritxonly.bdfun.ui
 
-import com.aritxonly.teak.common.chrome.centeredListWidth
+import com.aritxonly.teak.common.chrome.TeakScrollContainer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -59,13 +59,13 @@ fun TermsScreen(
     onExit: () -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
+    val scrollState = rememberScrollState()
     Box(modifier = Modifier.fillMaxSize()) {
+        TeakScrollContainer(scrollState, Modifier.fillMaxSize().statusBarsPadding()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
-                .centeredListWidth()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(start = 24.dp, end = 24.dp, top = 0.dp, bottom = 150.dp),
         ) {
             Text(text = "使用须知", style = androidx.compose.material3.MaterialTheme.typography.headlineLarge)
@@ -81,6 +81,7 @@ fun TermsScreen(
             }
         }
 
+        }
         Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)

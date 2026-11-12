@@ -1,6 +1,6 @@
 package com.aritxonly.bdfun.ui
 
-import com.aritxonly.teak.common.chrome.centeredListWidth
+import com.aritxonly.teak.common.chrome.TeakScrollContainer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,11 +19,11 @@ internal fun SearchResultList(
     onOpenVideo: (VideoItem) -> Unit, onOpenUser: (SearchUser) -> Unit,
 ) {
     val pageColors = MiuixTheme.colorScheme
+    val listState = if (page == 0) presentation.videos else presentation.users
+    TeakScrollContainer(listState, Modifier.fillMaxSize()) {
     LazyColumn(
-        state = if (page == 0) presentation.videos else presentation.users,
-        modifier = Modifier.fillMaxSize().centeredListWidth(
-            scrollState = if (page == 0) presentation.videos else presentation.users,
-        ),
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,
@@ -37,5 +37,6 @@ internal fun SearchResultList(
         if (page == 0) searchVideoResultItems(content, pageColors, onOpenVideo)
         else searchUserResultItems(content, pageColors, onOpenUser)
 
+    }
     }
 }

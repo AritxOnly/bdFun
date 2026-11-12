@@ -295,10 +295,11 @@ fun TeakPageScaffold(
                 modifier = Modifier
                     .fillMaxSize()
                     .layerBackdrop(backdrop)
-                    .then(contentModifier)
-                    .then(if (title != null && limitContentWidth) Modifier.centeredListWidth(scrollState = pageState.scrollableState) else Modifier),
+                    .then(contentModifier),
             ) {
-                content()
+                if (title != null && limitContentWidth) {
+                    TeakScrollContainer(pageState.scrollableState, Modifier.fillMaxSize(), content = content)
+                } else content()
             }
             Box(modifier = Modifier.fillMaxSize()) { overlay() }
             if (showTopBar) CompositionLocalProvider(LocalTopBarScrollProgress provides (pageState.materialProgress * barBlurFraction.coerceIn(0f, 1f))) {

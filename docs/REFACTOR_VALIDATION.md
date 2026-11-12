@@ -523,3 +523,11 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - 最终debug APK安装成功。R8并行期间首次启动被系统记为INITIALIZATION FAILURE/start timeout，crash buffer为空；构建结束后正常冷启动6106ms，显示真实推荐信息流，并经“我的”进入设置。私有直播Activity不能从shell直接启动，未为测试暴露组件或添加临时入口。直播实际推流/弹幕与所有面板的装机验收留在后续完整验收，本次不冒充已通过；未进行账号写入、未修改设置，最后force-stop。
 - release APK：app/build/outputs/apk/release/app-release.apk；包名com.aritxonly.bdfun，versionCode500，13,028,097字节；SHA-256 `8d559893b268fc154493c505a06a1fdc3aecd663aa40f9a4e7369184a623b903`。R8/lint/validateSigningRelease成功，apksigner verify验证APK v2签名通过。无keystore.properties，沿用默认Android Debug证书回退，未覆写包名/签名；不是正式发布签名。本次仅要求release编译与阶段暂停，不宣称release完整装机验收或最终交付完成。
 - 全量待办仍有17个尺寸节点、28个具名object、其余作用域/共享UI/feature:video/CI及全部视觉/播放器/评论回归。保存检查点后按用户明确要求暂停目标，不继续其余迁移；PR保持草稿。
+
+## 2026-11-12 · 恢复全量重构与宽屏滚动视口
+
+- 用户恢复全量目标，并授权修复宽屏内外同轴滚动手感；测试仅针对本批必要逻辑。centeredListWidth原祖先scrollable删除，变为仅宽度测量；TeakUI自有TeakScrollContainer让左右留白与内容成为兄弟手势区、共享原ScrollState，不再让内容手势经过祖先第二层scrollable。通用页面外壳覆盖设置/帮助/捐赠/致谢/缓存/日志及相关列表；搜索落地/结果与普通说明页显式接入。空间头部、独立面板和合集的有意嵌套不改。
+- MessageApi原逐条解析迁至MessageFeedItemDto/MessageFeedMapper，字段/请求/点赞分桶/补充视频与游标规则保持；LogScreen按原item key提取组件，并把本地状态放入StateHolder，不改TeakUI节点/文案/回调。PSI原5个长体节点消除，只剩12个长构造器，未放宽阈值。
+- `/tmp/bdfun-scroll-message.log`构建成功2m58s，只执行MessageFeedMapperTest三项与TeakContentWidthTest两项，共5项/0失败/错误/跳过；debug构建通过。新增JSON明确为旧字段结构用例，非真实线上样本。宽度测试覆盖599/600断点、70%/680上限、显式宽度和无界约束。未重跑其他既有套件。
+- 最终debug安装/冷启动/真实推荐/“我的”→设置通过；2424×1080宽屏实际内容拖动后主题行y424→229，留白拖动后列表继续向上、内容区反向接续后y164返回顶部方向，crash buffer为空。首脚本把“必须首项完全离屏”当作成功条件而误失败，未改生产代码迎合；保留已经成功的中心拖动结果，只补完留白/反向两步。日志`/tmp/bdfun-scroll-runtime.log`与`/tmp/bdfun-scroll-runtime-followup.log`，实际截图`/tmp/bdfun-scroll-runtime-landscape.png`已查看，样式/横向位置保持；不宣称所有设备手感或完整视觉验收。未修改设置或执行账号写入，finally停止应用并清理远端XML。
+- 源码分层检查通过；容器没有新增依赖。此阶段仍继续全量重构；上一阶段ed67f02的release不是本批最终产物，不重复构建release，待最终源码收尾后再构建。
