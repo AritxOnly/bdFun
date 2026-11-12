@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.core.domain.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -15,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
-internal data class VideoInlineLayout(
+data class VideoInlineLayout(
     val collapseState: InlinePlayerCollapseState,
     val expandedTopInset: androidx.compose.ui.unit.Dp,
     val expandedPlayerHeight: androidx.compose.ui.unit.Dp,
@@ -26,11 +27,10 @@ internal data class VideoInlineLayout(
 )
 
 @Composable
-internal fun rememberVideoInlineLayout(
+fun rememberVideoInlineLayout(
     activeBvid: String, playing: Boolean, selectedTab: Int, paneLayout: VideoPaneLayout,
-    immersiveStatusBar: Boolean, statusBarTop: androidx.compose.ui.unit.Dp,
+    immersiveStatusBar: Boolean, statusBarTop: androidx.compose.ui.unit.Dp, host: VideoCollapseHost,
 ): VideoInlineLayout {
-    val VideoPageBus = LocalVideoPageState.current
     // ---- 播放器随浏览收起：完全照搬 BiliPai 的共享位移模型 ----
     // offsetPx 是唯一的状态，播放器高度、缩放、页面内边距都由它推导。
     val collapseDensity = LocalDensity.current
@@ -38,11 +38,11 @@ internal fun rememberVideoInlineLayout(
     val videoAspectHeight = screenWidthForPlayer * 9f / 16f
     val collapseState = rememberInlinePlayerCollapseState(activeBvid)
     // 「上滑收起播放器」设置已删除，固定按原来的「关闭」模式运行。
-    val collapseMode = com.aritxonly.bdfun.data.PlayerCollapseMode.OFF
+    val collapseMode = com.aritxonly.bdfun.core.model.video.PlayerCollapseMode.OFF
     // bdFun 的视频详情页固定 16:9 横屏画面；竖屏视频仍按横屏详情页处理。
     val isVerticalVideo = false
     val pausedForInlineLayout = !playing
-    val commentThreadVisible = VideoPageBus.commentThreadVisible
+    val commentThreadVisible = host.commentThreadVisible()
     val hidePausedPlayerForComments = shouldHidePausedInlinePlayerForComments(
         selectedTabIndex = selectedTab,
         isPlaybackPaused = pausedForInlineLayout,
@@ -68,8 +68,8 @@ internal fun rememberVideoInlineLayout(
     val collapseRangePx = with(collapseDensity) {
         (expandedPlayerHeight - collapsedPlayerHeight).coerceAtLeast(0.dp).toPx()
     }
-    ReconcileVideoCollapse(activeBvid, playing, collapseEnabled, collapseRangePx, collapseState)
-    val collapseConnection = rememberVideoCollapseConnection(collapseEnabled, collapseRangePx, collapseState)
+    ReconcileVideoCollapse(activeBvid, playing, collapseEnabled, collapseRangePx, collapseState, host)
+    val collapseConnection = rememberVideoCollapseConnection(collapseEnabled, collapseRangePx, collapseState, host)
     // 高度只由共享位移推导：跟手拖动 snap，恢复展开/范围校正用 220ms 补间。
     val targetPlayerHeight = (
         expandedPlayerHeight + with(collapseDensity) { collapseState.offsetPx.toDp() }
@@ -96,9 +96,8 @@ private class CollapsePauseStateHolder { var paused by mutableStateOf(false) }
 @Composable
 private fun ReconcileVideoCollapse(
     activeBvid: String, playing: Boolean, collapseEnabled: Boolean,
-    collapseRangePx: Float, collapseState: InlinePlayerCollapseState,
+    collapseRangePx: Float, collapseState: InlinePlayerCollapseState, host: VideoCollapseHost,
 ) {
-    val VideoPageBus = LocalVideoPageState.current
     // 切页/暂停让可收起范围变化时，把超界位移平滑收回。
     LaunchedEffect(collapseEnabled, collapseRangePx) {
         collapseState.reconcileLayout(
@@ -126,7 +125,7 @@ private fun ReconcileVideoCollapse(
                 isPlaying = playing,
             ) -> {
                 pauseState.paused = true
-                VideoPageBus.pauseAll()
+                host.pauseAll()
             }
             shouldAutoResumeOnPlayerExpand(
                 autoPauseEnabled = true,
@@ -134,7 +133,7 @@ private fun ReconcileVideoCollapse(
                 wasAutoPausedByCollapse = pauseState.paused,
             ) -> {
                 pauseState.paused = false
-                VideoPageBus.dependencies.background.togglePlayPause()
+                host.togglePlayback()
             }
             !collapsedForAutoPause -> pauseState.paused = false
         }
@@ -143,7 +142,7 @@ private fun ReconcileVideoCollapse(
 
 @Composable
 private fun rememberVideoCollapseConnection(
-    collapseEnabled: Boolean, collapseRangePx: Float, collapseState: InlinePlayerCollapseState,
+    collapseEnabled: Boolean, collapseRangePx: Float, collapseState: InlinePlayerCollapseState, host: VideoCollapseHost,
 ): NestedScrollConnection {
     // 简介和评论共用同一个折叠手势；谁在滚动，都先收播放器，收满再把剩余距离交给列表。
     val collapseConnection = remember(collapseEnabled, collapseRangePx, collapseState) {
@@ -176,20 +175,19 @@ private fun rememberVideoCollapseConnection(
             }
         }
     }
-    RegisterThreadCollapseScroll(collapseConnection, collapseEnabled, collapseRangePx, collapseState)
+    RegisterThreadCollapseScroll(collapseConnection, collapseEnabled, collapseRangePx, collapseState, host)
     return collapseConnection
 }
 
 @Composable
 private fun RegisterThreadCollapseScroll(
     collapseConnection: NestedScrollConnection, collapseEnabled: Boolean,
-    collapseRangePx: Float, collapseState: InlinePlayerCollapseState,
+    collapseRangePx: Float, collapseState: InlinePlayerCollapseState, host: VideoCollapseHost,
 ) {
-    val VideoPageBus = LocalVideoPageState.current
     // 「展开回复」是独立 Dialog，拿不到这里的 nestedScroll，所以注册一个入口：
     // 它的列表往上划时，把同样的位移交给当前播放器，效果和主评论区一致。
     DisposableEffect(collapseConnection, collapseEnabled, collapseRangePx) {
-        VideoPageBus.playerCollapseScroll = { deltaPx ->
+        host.registerThreadScroll { deltaPx ->
             val update = if (deltaPx < 0f) {
                 reduceVideoDetailPreScroll(
                     currentOffsetPx = collapseState.offsetPx,
@@ -209,6 +207,6 @@ private fun RegisterThreadCollapseScroll(
             }
             if (update == null) 0f else collapseState.consumeScroll(update)
         }
-        onDispose { VideoPageBus.playerCollapseScroll = null }
+        onDispose { host.registerThreadScroll(null) }
     }
 }

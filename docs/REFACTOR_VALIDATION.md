@@ -665,3 +665,9 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - `/tmp/bdfun-player-entry-module.log`首轮28s通过严格checkLayering、独立feature/app debug；979文件/10526 PSI节点/0违规。没有新增业务算法或依赖，不追加镜像工厂/界面单测，也不重复已过的进度/旋转用例。
 - `/tmp/bdfun-player-entry-runtime.log`首轮通过：安装最终debug→模块入口创建本包会话PLAYING 20,316ms→系统暂停PAUSED 22,262ms→正常Back后本包媒体会话释放/消失→crash空。settings及playback_progress和各.bak逐字/不存在状态恢复，结束force-stop；没有点赞/发送等交互。截图`/tmp/bdfun-player-entry-module.png`已查看，真实原生画面和原TeakUI详情/tab/动作保留。
 - 此条证明正常创建/暂停/退出释放，不作为PiP返回、后台服务重建、全部设置即时生效或全站像素一致性证明。视频详情/剩余平台装配与最终main/release/交付继续。
+
+### 2026-11-13 详情布局、pager与收起策略
+
+- `/tmp/bdfun-detail-layout-module.log`首轮40s通过checkLayering、独立feature:video/app debug及6项VideoCollapsePolicyTest，0失败/错误/跳过。985生产文件/10558 PSI节点/0违规。必要纯逻辑测试覆盖滚动方向/0.75阈值/边界、暂停tab与模式、56dp工具栏、自动暂停/恢复所有权；未重跑全套或追加镜像UI测试。
+- `/tmp/bdfun-detail-layout-runtime.log`首轮通过：当前debug真实PLAYING→暂停→原评论tab/真实评论头→滑动收起至“立即播放”→点击恢复本包PLAYING→回简介原标题，crash空。已查看collapsed/restored两张截图，原tab仍紧接视频底边。finally逐字恢复settings/playback_progress及各.bak字节或不存在状态、原WM和系统方向并force-stop。没有点赞/关注/发送等交互；正常播放历史上报沿用原实现。
+- 此例覆盖迁移的评论几何/收起桥接和恢复播放，不声明全部模式、传感器旋转、PiP返回或完整UI验收通过。宽屏滚动既有定向证据仍有效，全仓复查未再出现同类祖先scrollable。最终源码/release与交付继续。

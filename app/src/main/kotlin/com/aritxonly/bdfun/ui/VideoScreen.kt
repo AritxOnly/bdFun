@@ -22,7 +22,7 @@ internal fun VideoScreen(
     LaunchedEffect(selection.bvid) { page.currentBvid = selection.bvid }
     val playing by holders.ui.playing
     val inlineLayout = rememberVideoInlineLayout(selection.bvid, playing, pager.currentPage,
-        presentation.paneLayout, presentation.immersiveStatusBar, presentation.statusBarTop)
+        presentation.paneLayout, presentation.immersiveStatusBar, presentation.statusBarTop, rememberVideoCollapseHost())
     val metaReady by holders.ui.metaReady
     // 保留页面作用域的唯一推荐入场进度，进出全屏不重建。
     val relatedEnter = rememberStaggerProgress(metaReady && detail.related.isNotEmpty(), 9)

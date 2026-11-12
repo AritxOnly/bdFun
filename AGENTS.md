@@ -484,3 +484,7 @@ VideoPlayerLayout、手势识别/绑定、全屏/内联/输入覆盖与赞助展
 ### 2026-11-13 播放器模块入口
 
 VideoPlayerEntry在feature:video内拥有原remember状态/平台实例/追踪控制器以及效果编排，app ui/VideoPlayer仅装配PlayerEntryPorts。初始化值继续在原remember中通过getter读取，Decoder异常fallback与平台工厂留app；蓝牙平台观察也由app槽提供。PlayerEnginePorts只传原页面/进度/挂接/退出/日志与设置回调，不创建第二份状态。VideoFrameLoader无frame调用及旧缩略帧槽/未消费动画已删除，不重建死资源管线。
+
+### 2026-11-13 详情布局与收起策略模块化
+
+详情根布局、metadata/tail/comments pager内容及InlinePlayerCollapseState进入feature:video；评论仍由app原槽提供，禁止feature间导入。VideoCollapseHost只桥接原页面回调，收起纯策略进入core/domain，PlayerCollapseMode进入core/model且删除旧枚举，不留双轨副本。原rememberSaveable/Saver、scroll阈值、220ms动画、暂停56dp恢复工具栏及事件时读取保持；tab底边仍须在graphicsLayer内通过getter读取。宽屏同轴外层只允许TeakScrollContainer的兄弟留白手势区，不能重新叠加祖先scrollable。

@@ -1,4 +1,4 @@
-package com.aritxonly.bdfun.data
+package com.aritxonly.bdfun.core.model.video
 
 /**
  * 播放器滚动收起模式（完全照搬 BiliPai 的 PortraitPlayerCollapseMode）。

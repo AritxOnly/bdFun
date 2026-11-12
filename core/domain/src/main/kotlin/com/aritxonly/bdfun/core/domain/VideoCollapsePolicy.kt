@@ -1,34 +1,15 @@
-package com.aritxonly.bdfun.ui
+package com.aritxonly.bdfun.core.domain
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Stable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.listSaver
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import com.aritxonly.bdfun.data.PlayerCollapseMode
+import com.aritxonly.bdfun.core.model.video.PlayerCollapseMode
 import kotlin.math.abs
 
-/**
- * 这一整份逻辑照搬 BiliPai：
- * - feature/video/policy/VideoDetailScrollCoordinator.kt
- * - feature/video/screen/VideoDetailInlineCollapseState.kt
- * - feature/video/screen/PortraitDetailPresentationPolicy.kt（相关判定）
- * - feature/video/screen/PlayerCollapseAutoPausePolicy.kt
- *
- * 关键点：播放器的收起不是「位移一个 overlay」，而是共享一段负的 offsetPx，
- * 由它同时推导播放器高度、缩放比例和页面内容的内边距；手势只改 offsetPx。
- */
-
-internal data class VideoDetailScrollUpdate(
+data class VideoDetailScrollUpdate(
     val nextOffsetPx: Float,
     val consumedDeltaPx: Float,
 )
 
 /** 上滑折叠播放器（preScroll）。 */
-internal fun reduceVideoDetailPreScroll(
+fun reduceVideoDetailPreScroll(
     currentOffsetPx: Float,
     deltaPx: Float,
     minOffsetPx: Float,
@@ -49,7 +30,7 @@ internal fun reduceVideoDetailPreScroll(
 }
 
 /** 下滑展开播放器（postScroll）。 */
-internal fun reduceVideoDetailPostScroll(
+fun reduceVideoDetailPostScroll(
     currentOffsetPx: Float,
     deltaPx: Float,
     minOffsetPx: Float,
@@ -86,82 +67,6 @@ private fun reduceVideoDetailScrollOffset(
     )
 }
 
-/** 播放器随浏览收起的共享位移。负数 = 向上收起。 */
-@Stable
-internal class InlinePlayerCollapseState(
-    initialOffsetPx: Float = 0f,
-    initialRestoreRequested: Boolean = false,
-) {
-    var offsetPx by mutableFloatStateOf(initialOffsetPx)
-        private set
-
-    var restoreRequested by mutableStateOf(initialRestoreRequested)
-        private set
-
-    /**
-     * 切页可能让手势范围变小（暂停时评论页可把播放器隐藏到 56dp）。
-     * 共享位移因此被收回到新范围内；这属于布局校正而不是跟手拖动，
-     * 高度需要用动画过渡而不是瞬间跳。
-     */
-    var layoutReconciled by mutableStateOf(false)
-        private set
-
-    fun updateOffset(value: Float) {
-        offsetPx = value
-    }
-
-    fun reset() {
-        offsetPx = 0f
-        restoreRequested = false
-        layoutReconciled = false
-    }
-
-    fun reconcileLayout(collapseEnabled: Boolean, collapseRangePx: Float) {
-        if (offsetPx >= 0f) return
-        if (!collapseEnabled) {
-            restore()
-            return
-        }
-        val minOffsetPx = -collapseRangePx.coerceAtLeast(0f)
-        if (offsetPx < minOffsetPx) {
-            offsetPx = minOffsetPx
-            layoutReconciled = true
-        }
-    }
-
-    fun consumeScroll(update: VideoDetailScrollUpdate?): Float {
-        if (update == null || update.consumedDeltaPx == 0f) return 0f
-        restoreRequested = false
-        layoutReconciled = false
-        offsetPx = update.nextOffsetPx
-        return update.consumedDeltaPx
-    }
-
-    fun restore() {
-        offsetPx = 0f
-        restoreRequested = true
-        layoutReconciled = false
-    }
-
-    companion object {
-        val Saver = listSaver<InlinePlayerCollapseState, Any>(
-            save = { listOf(it.offsetPx, it.restoreRequested) },
-            restore = {
-                InlinePlayerCollapseState(
-                    initialOffsetPx = it[0] as Float,
-                    initialRestoreRequested = it[1] as Boolean,
-                )
-            },
-        )
-    }
-}
-
-@Composable
-internal fun rememberInlinePlayerCollapseState(videoBvid: String) =
-    rememberSaveable(videoBvid, saver = InlinePlayerCollapseState.Saver) {
-        InlinePlayerCollapseState()
-    }
-
 // ---------------------------------------------------------------------------
 // PortraitDetailPresentationPolicy（只保留手机竖屏详情用得到的部分）
 // ---------------------------------------------------------------------------
@@ -170,13 +75,13 @@ internal fun rememberInlinePlayerCollapseState(videoBvid: String) =
  * 暂停时切到简介/评论，播放器要能被手势一直收到 56dp 的播放工具栏。
  * BiliPai 里简介和评论都在 0..1，这里 bdFun 只有两页：0=简介，1=评论。
  */
-internal fun shouldHidePausedInlinePlayerForComments(
+fun shouldHidePausedInlinePlayerForComments(
     selectedTabIndex: Int,
     isPlaybackPaused: Boolean,
     isCommentThreadVisible: Boolean = false,
 ): Boolean = isPlaybackPaused && (selectedTabIndex in 0..1 || isCommentThreadVisible)
 
-internal fun shouldEnableInlinePortraitScrollTransform(
+fun shouldEnableInlinePortraitScrollTransform(
     collapseMode: PlayerCollapseMode,
     selectedTabIndex: Int,
     isVerticalVideo: Boolean,
@@ -196,7 +101,7 @@ internal fun shouldEnableInlinePortraitScrollTransform(
 }
 
 /** 暂停浏览详情时收起画面，可保留固定高度的恢复播放工具栏。 */
-internal fun resolveInlinePlayerCollapsedViewportHeightDp(
+fun resolveInlinePlayerCollapsedViewportHeightDp(
     standardCollapsedHeightDp: Float,
     hidePausedPlayerForComments: Boolean,
     retainPlayToolbar: Boolean = false,
@@ -208,7 +113,7 @@ internal fun resolveInlinePlayerCollapsedViewportHeightDp(
 // PlayerCollapseAutoPausePolicy
 // ---------------------------------------------------------------------------
 
-internal fun resolvePlayerCollapsedForAutoPause(
+fun resolvePlayerCollapsedForAutoPause(
     swipeHidePlayerEnabled: Boolean,
     playerHeightOffsetPx: Float,
     videoHeightPx: Float,
@@ -222,14 +127,14 @@ internal fun resolvePlayerCollapsedForAutoPause(
     return playerHeightOffsetPx <= -videoHeightPx + 1f
 }
 
-internal fun shouldAutoPauseOnPlayerCollapse(
+fun shouldAutoPauseOnPlayerCollapse(
     autoPauseEnabled: Boolean,
     isPlayerCollapsed: Boolean,
     isPlaying: Boolean,
     isPortraitFullscreen: Boolean = false,
 ): Boolean = autoPauseEnabled && isPlayerCollapsed && isPlaying && !isPortraitFullscreen
 
-internal fun shouldAutoResumeOnPlayerExpand(
+fun shouldAutoResumeOnPlayerExpand(
     autoPauseEnabled: Boolean,
     isPlayerCollapsed: Boolean,
     wasAutoPausedByCollapse: Boolean,
