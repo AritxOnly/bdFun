@@ -613,3 +613,9 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - 14文件数值/中文文案字面量对照，除简介复制的原两句文案随操作转入app装配外一致；布局、手势与动画保持。`/tmp/bdfun-metadata-runtime.log`：当前debug真实起播、作者/标题/简介/互动/原简介tab通过，crash空并force-stop，无账号写操作。`/tmp/bdfun-metadata-runtime.png`已查看，确认BV1orW46aEba、原五图标和正文均渲染。
 - 自动化文字导出不含SelectionContainer中的编号；前两次编号文字断言失败，不算通过。等待动画后仍缺失导出，最终截图明确显示编号；保留其余文字断言。未修改产品选择语义，也未声称编号自动化断言通过。计数型分享按钮原本显示679而非“分享”，驱动改为核对实际原UI并截图。
 - 此次源码使旧release过期；剩余详情/平台接线、完整生命周期及最终release/交付继续，不把当前截图当全站与main逐像素验收。
+
+### 2026-11-13 详情分P/合集/相关列表骨架
+
+- `/tmp/bdfun-video-tail.log`：checkLayering、独立视频模块和app debug通过，34s；965文件/10459 PSI节点/0违规。9文件全部数值及中文文案字面量序列一致；VideoCollectionState与原HEAD逐字一致（仅core模型类型路径变化）。没有改变纯逻辑或追加重复单测。
+- `/tmp/bdfun-collection-runtime.log`首轮通过：安装当前debug/真实起播→详情滚动→合集展开后原单集标题渲染→收起恢复尾部→crash空/force-stop；没有点击单集、更改设置或账号写操作。截图`/tmp/bdfun-collection-open.png`已查看，原封面、时长、元信息和198dp局部列表保留。此用例没有覆盖选集/分P切换或完整生命周期。
+- 视频主布局/原生装配边界仍继续迁移，不把正文与尾部迁入模块等同整条视频链路或全量重构完成。最终release与交付仍待最终源码后执行。

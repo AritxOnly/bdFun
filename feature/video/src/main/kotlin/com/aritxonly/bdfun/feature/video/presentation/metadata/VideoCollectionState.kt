@@ -36,7 +36,7 @@ internal class VideoCollectionPresentation(
 
 @Composable
 internal fun rememberVideoCollectionPresentation(
-    title: String, episodes: List<com.aritxonly.bdfun.data.VideoEpisode>, currentCid: Long,
+    title: String, episodes: List<com.aritxonly.bdfun.core.model.video.VideoEpisode>, currentCid: Long,
 ): VideoCollectionPresentation {
     val scope = rememberCoroutineScope()
     val density = androidx.compose.ui.platform.LocalDensity.current

@@ -456,3 +456,7 @@ app/ui/player/fullscreen原三份剩余展示已迁入feature:video。听视频�
 ### 2026-11-13 视频详情正文模块归属
 
 作者/统计/简介/互动与分P展示、原生点赞水波纹已进入feature:video；app以VideoMetadataSlots注入原图片/图标/链接/复制与当前窗口。窗口只在页面组合内持有，不能进入进程容器。ResourceGlyph原样下沉TeakUI，业务资源目录仍在app。简介缓存键保持原链接标题映射，长按、动画和选择文本不改。
+
+### 2026-11-13 详情尾部展示模块归属
+
+分P/合集/相关推荐列表骨架进入feature:video；VideoDetailTailSlots提供原合集图片与跨空间/详情共享的视频行。合集198dp局部视口保留独立scroll/overscroll及原剩余速度拦截，它与宽屏重复外层不是同类问题，不并入整页滚动。

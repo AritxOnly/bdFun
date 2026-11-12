@@ -25,8 +25,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun VideoCollectionEpisodes(
-    episodes: List<com.aritxonly.bdfun.data.VideoEpisode>, currentCid: Long,
-    presentation: VideoCollectionPresentation, onSelect: (com.aritxonly.bdfun.data.VideoEpisode) -> Unit,
+    episodes: List<com.aritxonly.bdfun.core.model.video.VideoEpisode>, currentCid: Long,
+    presentation: VideoCollectionPresentation, slots: VideoDetailTailSlots, onSelect: (com.aritxonly.bdfun.core.model.video.VideoEpisode) -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
     Box(modifier = Modifier.fillMaxWidth().height(198.dp)) {
@@ -41,7 +41,7 @@ internal fun VideoCollectionEpisodes(
         ) {
             episodes.forEachIndexed { index, episode ->
                 val active = episode.cid == currentCid
-                VideoCollectionEpisodeRow(episode, active, onSelect) { offset ->
+                VideoCollectionEpisodeRow(episode, active, onSelect, slots) { offset ->
                     presentation.scroll.episodeOffsets[episode.cid] = offset
                 }
                 Spacer(Modifier.height(6.dp))

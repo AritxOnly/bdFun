@@ -29,13 +29,14 @@ internal fun androidx.compose.foundation.layout.BoxScope.VideoScreenPager(
     val splitPanes = paneLayout.isSplit && !fullscreen && !pictureInPicture
     val statusBarTop = presentation.statusBarTop
     val playerBlockHeight = inlineLayout.playerBlockHeight
+    val tailSlots = rememberVideoDetailTailSlots()
     val collapseConnection = inlineLayout.collapseConnection
     VideoDetailPager(
         VideoDetailPaneState(fullscreen, pictureInPicture, splitPanes, paneLayout, playerBlockHeight, statusBarTop),
         pager, collapseConnection,
         metadata = { VideoScreenMetadata(content, pageUi, description, actions) },
         tail = {
-            videoScreenTail(content, metaReady, relatedEnter, colors.onBackgroundVariant, colors.surface, actions, context, VideoPageBus)
+            videoScreenTail(content, metaReady, relatedEnter, colors.onBackgroundVariant, colors.surface, actions, context, VideoPageBus, tailSlots)
         },
         comments = { paneWidth ->
             VideoScreenComments( request, presentation, pager, inlineLayout, pageUi, content, paneWidth)
@@ -75,7 +76,7 @@ private fun VideoScreenMetadata(
 private fun androidx.compose.foundation.lazy.LazyListScope.videoScreenTail(
     content: VideoScreenContent, metaReady: Boolean, relatedEnter: Float,
     textColor: Color, surfaceColor: Color, actions: VideoDetailViewActions,
-    context: android.content.Context, VideoPageBus: VideoPagePresentationState,
+    context: android.content.Context, VideoPageBus: VideoPagePresentationState, tailSlots: VideoDetailTailSlots,
 ) {
     val detail = content.read.detail
     val currentCid = content.selection.cid
@@ -86,7 +87,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.videoScreenTail(
         onRelated = { relatedItem ->
             VideoPageBus.pauseAll()
             navigateToVideo(context, relatedItem, fromVideoPage = true)
-        })
+        }, slots = tailSlots)
 }
 
 @Composable

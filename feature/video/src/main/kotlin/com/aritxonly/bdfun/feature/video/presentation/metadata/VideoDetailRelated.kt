@@ -12,10 +12,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
-import com.aritxonly.bdfun.data.VideoItem
+import com.aritxonly.bdfun.core.model.video.VideoItem
 
 internal fun androidx.compose.foundation.lazy.LazyListScope.videoDetailRelated(
-    related: List<VideoItem>, relatedEnter: Float, surfaceColor: Color, onRelated: (VideoItem) -> Unit,
+    related: List<VideoItem>, relatedEnter: Float, surfaceColor: Color, onRelated: (VideoItem) -> Unit, slots: VideoDetailTailSlots,
 ) {
     if (related.isNotEmpty()) {
         itemsIndexed(
@@ -47,12 +47,7 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.videoDetailRelated(
                     .background(surfaceColor)
                     .padding(vertical = 2.dp),
             ) {
-                RelatedRow(
-                    item = relatedItem,
-                    onClick = {
-                        onRelated(relatedItem)
-                    },
-                )
+                slots.relatedRow(relatedItem) { onRelated(relatedItem) }
             }
         }
     }}

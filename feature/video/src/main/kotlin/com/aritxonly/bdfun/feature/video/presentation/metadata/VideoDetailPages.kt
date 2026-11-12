@@ -7,8 +7,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
-import com.aritxonly.bdfun.data.VideoDetail
-import com.aritxonly.bdfun.data.VideoPage
+import com.aritxonly.bdfun.core.model.video.VideoDetail
+import com.aritxonly.bdfun.core.model.video.VideoPage
 
 internal fun androidx.compose.foundation.lazy.LazyListScope.videoDetailPages(
     detail: VideoDetail?, metaReady: Boolean, currentCid: Long, onPage: (VideoPage) -> Unit,

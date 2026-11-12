@@ -24,13 +24,15 @@ import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import com.aritxonly.bdfun.core.common.formatCount
+import com.aritxonly.bdfun.core.common.formatDateTime
+import com.aritxonly.bdfun.core.common.formatDuration
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun VideoCollectionEpisodeRow(
-    episode: com.aritxonly.bdfun.data.VideoEpisode, active: Boolean,
-    onSelect: (com.aritxonly.bdfun.data.VideoEpisode) -> Unit, onMeasured: (Int) -> Unit,
+    episode: com.aritxonly.bdfun.core.model.video.VideoEpisode, active: Boolean,
+    onSelect: (com.aritxonly.bdfun.core.model.video.VideoEpisode) -> Unit, slots: VideoDetailTailSlots, onMeasured: (Int) -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
     Row(
@@ -49,14 +51,14 @@ internal fun VideoCollectionEpisodeRow(
             .padding(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        VideoCollectionEpisodeCover(episode)
+        VideoCollectionEpisodeCover(episode, slots)
         Spacer(Modifier.width(8.dp))
         VideoCollectionEpisodeText(episode, active, Modifier.weight(1f))
     }
 }
 
 @Composable
-internal fun VideoCollectionEpisodeCover(episode: com.aritxonly.bdfun.data.VideoEpisode) {
+internal fun VideoCollectionEpisodeCover(episode: com.aritxonly.bdfun.core.model.video.VideoEpisode, slots: VideoDetailTailSlots) {
     val colors = MiuixTheme.colorScheme
     Box(
         modifier = Modifier
@@ -65,12 +67,7 @@ internal fun VideoCollectionEpisodeCover(episode: com.aritxonly.bdfun.data.Video
             .clip(RoundedCornerShape(8.dp))
             .background(colors.surface),
     ) {
-        AsyncImage(
-            model = rememberImageRequest(episode.cover),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-        )
+        slots.cover(episode.cover, Modifier.fillMaxSize())
         if (episode.duration > 0) {
             Text(
                 text = formatDuration(episode.duration),
@@ -87,7 +84,7 @@ internal fun VideoCollectionEpisodeCover(episode: com.aritxonly.bdfun.data.Video
 
 @Composable
 internal fun VideoCollectionEpisodeText(
-    episode: com.aritxonly.bdfun.data.VideoEpisode, active: Boolean, modifier: Modifier,
+    episode: com.aritxonly.bdfun.core.model.video.VideoEpisode, active: Boolean, modifier: Modifier,
 ) {
     val colors = MiuixTheme.colorScheme
     Column(modifier = modifier) {

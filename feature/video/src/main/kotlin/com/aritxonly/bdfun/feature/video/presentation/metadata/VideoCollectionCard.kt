@@ -22,9 +22,10 @@ import androidx.compose.runtime.setValue
 @Composable
 internal fun VideoCollectionCard(
     title: String,
-    episodes: List<com.aritxonly.bdfun.data.VideoEpisode>,
+    episodes: List<com.aritxonly.bdfun.core.model.video.VideoEpisode>,
     currentCid: Long,
-    onSelect: (com.aritxonly.bdfun.data.VideoEpisode) -> Unit,
+    slots: VideoDetailTailSlots,
+    onSelect: (com.aritxonly.bdfun.core.model.video.VideoEpisode) -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
     val presentation = rememberVideoCollectionPresentation(title, episodes, currentCid)
@@ -42,7 +43,7 @@ internal fun VideoCollectionCard(
             enter = expandVertically() + fadeIn(),
             exit = shrinkVertically() + fadeOut(),
         ) {
-            VideoCollectionEpisodes(episodes, currentCid, presentation, onSelect)
+            VideoCollectionEpisodes(episodes, currentCid, presentation, slots, onSelect)
         }
     }
 }

@@ -7,11 +7,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
-import com.aritxonly.bdfun.data.VideoDetail
-import com.aritxonly.bdfun.data.VideoPage
+import com.aritxonly.bdfun.core.model.video.VideoDetail
+import com.aritxonly.bdfun.core.model.video.VideoPage
 
 internal fun androidx.compose.foundation.lazy.LazyListScope.videoDetailCollection(
-    detail: VideoDetail?, metaReady: Boolean, currentCid: Long, onPage: (VideoPage) -> Unit,
+    detail: VideoDetail?, metaReady: Boolean, currentCid: Long, onPage: (VideoPage) -> Unit, slots: VideoDetailTailSlots,
 ) {
     val detailForPages = detail
     if (detailForPages != null && detailForPages.episodes.size > 1) {
@@ -30,12 +30,13 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.videoDetailCollectio
                     title = detailForPages.seasonTitle.ifBlank { detailForPages.title },
                     episodes = detailForPages.episodes,
                     currentCid = currentCid,
+                    slots = slots,
                     onSelect = { episode ->
                         val index = detailForPages.episodes
                             .indexOf(episode)
                             .coerceAtLeast(0)
                         onPage(
-                            com.aritxonly.bdfun.data.VideoPage(
+                            com.aritxonly.bdfun.core.model.video.VideoPage(
                                 cid = episode.cid,
                                 page = index + 1,
                                 part = episode.title,

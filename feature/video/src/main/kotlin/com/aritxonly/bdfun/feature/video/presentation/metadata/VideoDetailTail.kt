@@ -6,17 +6,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.data.VideoDetail
-import com.aritxonly.bdfun.data.VideoItem
-import com.aritxonly.bdfun.data.VideoPage
+import com.aritxonly.bdfun.core.model.video.VideoDetail
+import com.aritxonly.bdfun.core.model.video.VideoItem
+import com.aritxonly.bdfun.core.model.video.VideoPage
 
-internal fun androidx.compose.foundation.lazy.LazyListScope.videoDetailTail(
+fun androidx.compose.foundation.lazy.LazyListScope.videoDetailTail(
     detail: VideoDetail?, metaReady: Boolean, currentCid: Long, error: String?, related: List<VideoItem>,
     relatedEnter: Float, textColor: Color, surfaceColor: Color,
-    onPage: (VideoPage) -> Unit, onRelated: (VideoItem) -> Unit,
+    onPage: (VideoPage) -> Unit, onRelated: (VideoItem) -> Unit, slots: VideoDetailTailSlots,
 ) {
     videoDetailPages(detail, metaReady, currentCid, onPage)
-    videoDetailCollection(detail, metaReady, currentCid, onPage)
+    videoDetailCollection(detail, metaReady, currentCid, onPage, slots)
     if (error != null) {
         item(key = "error") {
             Text(
@@ -28,5 +28,5 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.videoDetailTail(
         }
     }
 
-    videoDetailRelated(related, relatedEnter, surfaceColor, onRelated)
+    videoDetailRelated(related, relatedEnter, surfaceColor, onRelated, slots)
 }
