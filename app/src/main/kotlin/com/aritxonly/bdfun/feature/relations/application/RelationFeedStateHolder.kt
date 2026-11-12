@@ -16,7 +16,8 @@ data class RelationFeedState(val items: List<RelationUser> = emptyList(), val to
 /** 失败保留已有行与原游标；账号或页面失效后不继续提交请求与状态。 */
 internal class RelationFeedStateHolder(private val repository: RelationRepository,
     private val mid: Long, private val fans: Boolean, private val frequent: Boolean,
-    private val owner: Long?, private val currentOwner: () -> Long?, private val isLoggedIn: () -> Boolean) {
+    private val owner: Long?, private val currentOwner: () -> Long?, private val isLoggedIn: () -> Boolean,
+    private val isCurrentOwner: () -> Boolean = { true }) {
     private val mutable = MutableStateFlow(RelationFeedState())
     val state = mutable.asStateFlow()
     val items get() = state.value.items
@@ -27,7 +28,7 @@ internal class RelationFeedStateHolder(private val repository: RelationRepositor
     private var retryReset = false
     private var closed = false
     fun close() { closed = true }
-    private fun current() = !closed && owner == currentOwner()
+    private fun current() = !closed && isCurrentOwner() && owner == currentOwner()
     suspend fun fetch(reset: Boolean = false) {
         if (!current() || loading) return
         val page = if (reset) 1 else nextPage ?: return

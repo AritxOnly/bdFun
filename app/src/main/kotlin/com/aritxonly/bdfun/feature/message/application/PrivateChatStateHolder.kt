@@ -16,19 +16,21 @@ import kotlinx.coroutines.flow.update
 internal class PrivateChatStateHolder(
     private val repository: PrivateChatRepository, private val session: MessageSession,
     private val wait: suspend (Long) -> Unit = { delay(it) },
+    private val isCurrentOwner: () -> Boolean = { true },
 ) {
     private val mutable = MutableStateFlow(PrivateChatUiState())
     val state = mutable.asStateFlow()
     private var generation = 0
     private var loadRevision = 0
     private var closed = false
+    private fun ownerIsCurrent() = !closed && isCurrentOwner()
 
     fun setDraft(value: String) = composer { it.copy(draft = value) }
     fun setImage(reference: String?) = composer { it.copy(pendingImage = reference) }
     fun toggleEmoji() = composer { it.copy(showEmoji = !it.showEmoji) }
     fun appendEmoji(value: String) = composer { it.copy(draft = it.draft + value) }
     private fun composer(update: (ChatComposerUiState) -> ChatComposerUiState) {
-        if (!closed) mutable.update { it.copy(composer = update(it.composer)) }
+        if (ownerIsCurrent()) mutable.update { it.copy(composer = update(it.composer)) }
     }
 
     fun close() {
@@ -38,7 +40,7 @@ internal class PrivateChatStateHolder(
     }
 
     suspend fun load() {
-        if (closed) return
+        if (!ownerIsCurrent()) return
         val token = generation
         val revision = ++loadRevision
         mutable.update { it.copy(loading = true, loadError = false) }
@@ -67,7 +69,7 @@ internal class PrivateChatStateHolder(
     suspend fun loadHistory() {
         val initial = mutable.value
         val cursor = initial.historyCursor ?: return
-        if (closed || initial.historyLoading) return
+        if (!ownerIsCurrent() || initial.historyLoading) return
         val token = generation
         mutable.update { it.copy(historyLoading = true, historyError = null) }
         try {
@@ -98,13 +100,13 @@ internal class PrivateChatStateHolder(
 
     suspend fun pollLatest(shouldAcknowledge: () -> Boolean) {
         val current = mutable.value
-        if (closed || current.loading || current.composer.sending || current.loadError) return
+        if (!ownerIsCurrent() || current.loading || current.composer.sending || current.loadError) return
         refreshLatest(shouldAcknowledge)
     }
 
     suspend fun send(shouldAcknowledge: () -> Boolean, scrollToLatest: suspend () -> Unit): String? {
         val initial = mutable.value.composer
-        if (closed || initial.sending || initial.uploading) return null
+        if (!ownerIsCurrent() || initial.sending || initial.uploading) return null
         val value = initial.draft.trim()
         val image = initial.pendingImage
         if (value.isBlank() && image == null) return null
@@ -160,7 +162,7 @@ internal class PrivateChatStateHolder(
     }
 
     private fun ensureCurrent(token: Int) {
-        if (closed || token != generation) throw CancellationException("私信页面作用域已结束")
+        if (!ownerIsCurrent() || token != generation) throw CancellationException("私信页面作用域已结束")
     }
 }
 

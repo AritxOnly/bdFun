@@ -1,0 +1,48 @@
+# 依赖作用域与内存补丁审计
+
+2026-11-13，P3-08/P4-06。范围为app生产源码（21个Activity，含main新增直播）与core/feature/infra；TeakUI的设计系统状态不充当业务容器。
+
+## Activity依赖取得
+
+21个入口均在onCreate调用`AppGraph.ensure(applicationContext)`，统一委托AppContainer；没有Activity的`lateinit var api`或Activity自己创建BiliBackend。仓储、设置和网络连接池按application共享，页面控制器按工厂创建，不把Activity/Compose scope存入容器。
+
+| Activity | 页面资源与释放 |
+|---|---|
+| MainActivity | 壳内各页面composition；首页/动态为账号SessionResourceSlot，换账号关闭控制器并取消投影/动作任务 |
+| VideoActivity | 每实例VideoPagePresentationState/原生输出/页面回调；lifecycleScope跟随Activity；读取缓存只有有限进程数据，页面句柄关闭/账号revision失效 |
+| SpaceActivity | 每Activity ViewModel持有SessionResourceSlot；onCleared关闭；旋转保留本实例Store，另一Activity不共享控制器 |
+| LiveRoomActivity | 每页面LiveRoomStateHolder、播放输出和WebSocket连接；离开取消scope并关闭连接/输出，拒收迟到结果 |
+| DynamicDetailActivity | 每详情composition控制器及子任务，Dispose关闭 |
+| MessageActivity | 每composition消息控制器；SessionIdentity变化重建，Dispose关闭/取消任务 |
+| MessageDetailActivity | 每kind及SessionIdentity控制器，独立分页游标，Dispose关闭/取消任务 |
+| PrivateChatActivity | 每会话及SessionIdentity控制器与子scope；图片选择回调检查原controller归属；Dispose关闭 |
+| RelationActivity | 每mid/fans/order/SessionIdentity控制器；Dispose关闭和取消scope |
+| LibraryActivity、HistoryActivity、WatchLaterActivity | 每页面LibraryStateHolder与动作子scope；容器只共享明确的播放队列/页面入口事件注册器；账号identity检查拒收迟到结果 |
+| CacheActivity | 页面展示订阅application下载队列；任务需跨页面/Service存活，不属于Activity状态共享 |
+| LoginActivity | 每页面扫码控制器/轮询scope；离开取消，成功结果进入统一SessionStateHolder |
+| SettingsActivity | 设置持久化及StateFlow属于application；页面临时弹窗/选择状态由本composition持有 |
+| MySentActivity | 每页面读取持久化发送记录，列表/选择为页面状态；存储使用applicationContext |
+| TermsActivity | 每页面入门流程控制器/临时状态；设置写入统一仓储 |
+| ChangelogActivity、HelpActivity、DonationActivity、CreditsActivity | 静态内容与页面chrome，复用application设置，不持有跨Activity页面状态 |
+
+消息列表、消息详情、私信、关系控制器的工厂现捕获SessionIdentity并注入即时有效性检查；即使Compose尚未重组，旧账号请求也不能发布新结果、头像姓名补全、后续私信发送或成功提示。账号A→B→A由revision区分；同账号资料刷新不无故重建。已有关闭/取消测试保留，新增4项只验证这个通知时序缺口。
+
+## 原内存补丁去向
+
+| 原名称/现资源 | 所有者及边界 |
+|---|---|
+| HomeFeedMemory | 已删除；账号资源槽持有正式HomeFeedState，换账号关闭 |
+| SpaceCache | 已删除；Activity ViewModel及账号资源槽，页面销毁释放 |
+| RelatedMemory/VideoCache | 已删除旧入口；VideoReadCache推荐最多12、视频最多6；按UID+revision隔离；关闭页面句柄不允许迟到访问 |
+| MineProfileCache | MineProfileStore，单账号单条、原5分钟TTL；换账号清理 |
+| EmoteCache | EmoteStore，只替换当前接口返回的一份快照，不跨请求追加；换账号clear推进代数，旧响应失效 |
+| InlineVideoCache | 旧缓存及无调用HTTP代理已删除；每内联视频状态/输出随composition释放 |
+| VideoLinkTitleStore | 容器持有4096项LRU；clear推进代数拒收旧响应 |
+| CommentLikeStore | 容器持有300项快照；账号clear及写令牌检查 |
+| MessageUserCache/videoStatCache/messageVideoCache/SponsorSegmentCache | BiliApiContext实例持有，分别200/300/64/100项；仅公开姓名头像/视频计数封面/广告分段，不保存账号关系或Activity |
+| 动态分类缓存 | 正式账号控制器内部的分类/作者缓存，按原行为保留；不是静态Map，账号slot关闭后整实例释放 |
+| 评论乐观回滚、富文本inline、请求参数/JSON mapper临时Map | 页面动作或单次函数内资源，不是静态缓存；不借重构改变原事务/文本/请求行为 |
+| 设置属性投影与待提交浮点值 | SettingsBindings/控制器实例持有，键为已注册设置项；关闭注销或flush，不是无限用户数据缓存 |
+| 下载队列/播放进度/发送历史 | 正式持久化业务记录，使用storage端口，不以删用户记录来满足内存缓存门槛 |
+
+生产源码中旧六类Memory/Cache名称无残余；未发现无上限可变静态Map。剩余7个具名object生命周期见GLOBAL_OBJECT_AUDIT。此表是源码作用域结论，不冒充所有Activity的进程回收或账号装机验收。

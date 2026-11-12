@@ -28,6 +28,20 @@ class MessageSessionsStateHolderTest {
         override suspend fun mutate(session: MessageSession, action: SessionAction): Outcome<Unit> { actionGate?.await(); return result }
     }
 
+    @Test fun identityRevisionRejectsLatePageAndNameEnrichmentBeforeDisposal() = runBlocking {
+        var revision = 1
+        val source = Fake().apply { page = MessageSessionPage(listOf(item()), null); gate = CompletableDeferred() }
+        val holder = MessageSessionsStateHolder(source, { revision == 1 })
+        val job = launch(start = CoroutineStart.UNDISPATCHED) { holder.load() }
+        revision = 3
+        source.callback!!.invoke(listOf(item().copy(name = "过期姓名")))
+        source.gate!!.complete(Unit); job.join(); holder.load()
+        assertTrue(holder.state.value.sessions.isEmpty())
+        assertTrue(holder.state.value.unread.isEmpty())
+        assertEquals(1, source.sessionCalls)
+        assertFalse(holder.state.value.loading)
+    }
+
     @Test fun paginationDeduplicatesAndPreservesPinnedOrder() = runBlocking {
         val source = Fake(); val holder = MessageSessionsStateHolder(source)
         source.page = MessageSessionPage(listOf(item()), 42)

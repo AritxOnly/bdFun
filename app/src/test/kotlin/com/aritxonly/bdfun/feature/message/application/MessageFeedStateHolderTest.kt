@@ -44,6 +44,17 @@ class MessageFeedStateHolderTest {
         override suspend fun notice(id: String, enabled: Boolean): Outcome<Unit> { mutationGate?.await(); return mutation }
     }
 
+    @Test fun identityRevisionRejectsLateFeedBeforeCompositionDisposes() = runBlocking {
+        var revision = 1
+        val source = Fake().apply { items = listOf(item()); pageGate = CompletableDeferred() }
+        val holder = MessageFeedStateHolder(source, MessageFeedKind.Reply, { revision == 1 })
+        val job = launch(start = CoroutineStart.UNDISPATCHED) { holder.loadPage(0) }
+        revision = 3 // 同一UID经过退出再登录，旧composition还未收到通知。
+        source.pageGate!!.complete(Unit); job.join(); holder.loadPage(0)
+        assertTrue(holder.state.value.itemsByTab.isEmpty())
+        assertEquals(1, source.pageCalls)
+    }
+
     @Test fun followingTabReusesAllFeedAndAtTabUsesSeparateEndpoint() = runBlocking {
         val source = Fake(); source.items = listOf(item())
         val holder = MessageFeedStateHolder(source, MessageFeedKind.Reply)

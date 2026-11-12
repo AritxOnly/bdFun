@@ -26,6 +26,17 @@ class RelationFeedStateHolderTest {
     }
     private fun holder(fake: Fake, owner: () -> Long? = { 1L }, loggedIn: () -> Boolean = { true }) =
         RelationFeedStateHolder(fake, 10, false, false, 1L, owner, loggedIn)
+    @Test fun sameUidNewRevisionRejectsLateRowsBeforePageDisposal() = runBlocking {
+        var revision = 1
+        val fake = Fake().apply { gate = CompletableDeferred(); list = Outcome.Success(RelationPage(listOf(unknown), 1, null)) }
+        val holder = RelationFeedStateHolder(fake, 10, false, false, 1L, { 1L }, { true }, { revision == 1 })
+        val job = launch(start = CoroutineStart.UNDISPATCHED) { holder.fetch() }
+        revision = 3
+        fake.gate!!.complete(Unit); job.join(); holder.fetch()
+        assertTrue(holder.items.isEmpty()); assertFalse(holder.loading); assertEquals(1, fake.reads)
+        assertNull(holder.changeFollow(unknown)); assertEquals(0, fake.queries)
+    }
+
     @Test fun unknownAttributeOnlyResolvesStatusAndNeedsAnotherClickToFollow() = runBlocking {
         val fake = Fake().apply { list = Outcome.Success(RelationPage(listOf(unknown), 1, null)) }
         val holder = holder(fake); holder.fetch()

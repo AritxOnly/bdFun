@@ -563,3 +563,11 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - 源码守卫补齐字符串模板表达式检查，原字面文本仍忽略；仅新增两个针对遗漏的测试方法，21项守卫反例通过，生产扫描通过。
 
 `/tmp/bdfun-scope-key.log`：5项既有SessionPresentationStateHolder测试和checkLayering通过，34s；最新严格PSI报告954文件/10428节点/0违规。
+
+### 2026-11-13 消息即时账号隔离与作用域清单
+
+- 在消息会话/通知/私信/关系工厂捕获SessionIdentity，控制器在请求前后及会话姓名补全回调核对当前身份，不依赖Compose及时Dispose。普通账号内算法、布局和网络参数保持。
+- 只新增4项竞态用例：旧revision的消息页结果、会话姓名/分页、私信上传后禁止继续发送、同UID关系结果；既有断言未改。
+- `/tmp/bdfun-message-owner.log`：checkLayering、debug及4组48项定向测试全部通过，36s。分别私信19/会话10/消息流10/关系9。
+- SCOPE_AND_CACHE_AUDIT列明21个Activity及旧六类Memory补丁去向，没有用静态Map替代object；公开只读元数据缓存与账号/页面状态分开保留原语义。
+- CI第二次在平台安装失败：实际SDK包名为platforms;android-37.0，本机source.properties/package.xml确认；workflow已按真实名称修正，使用runner已有新版sdkmanager。尚待该版本远端结果。

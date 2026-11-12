@@ -37,6 +37,21 @@ class PrivateChatStateHolderTest {
     }
     private fun holder(source: Fake, wait: suspend (Long) -> Unit = {}) = PrivateChatStateHolder(source, session, wait)
 
+    @Test fun identityRevisionRejectsUploadBeforeAnySendOrDisposal() = runBlocking {
+        var revision = 1
+        val source = Fake()
+        val gate = CompletableDeferred<Outcome<ChatUploadedImage>>()
+        source.upload = { gate.await() }
+        val holder = PrivateChatStateHolder(source, session, isCurrentOwner = { revision == 1 })
+        holder.setImage("local")
+        val job = async(start = CoroutineStart.UNDISPATCHED) { holder.send({ true }, {}) }
+        revision = 3
+        gate.complete(Outcome.Success(ChatUploadedImage("uploaded", 12, 34, 0.0)))
+        try { job.await(); fail("旧账号上传后不应继续发送") } catch (_: CancellationException) { }
+        assertEquals(listOf("upload:local"), source.calls)
+        assertNull(holder.send({ true }, {}))
+    }
+
     @Test fun initialLoadRetriesThreeTimesThenAcknowledgesMaximumSequence() = runBlocking {
         val source = Fake(); var attempt = 0; val waits = mutableListOf<Long>()
         source.page = { if (++attempt < 3) failure() else Outcome.Success(ChatMessagePage(

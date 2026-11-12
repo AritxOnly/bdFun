@@ -38,13 +38,13 @@ P5 虽在原计划中标为可选，本次全量目标继续保留，不静默�
 | P3-05 拆评论相关（653 + 706 行） | 已拆分，待完整验收 | 评论行/线程/图片/输入/菜单及纯状态 | 真实列表/楼中楼/图片查看/回复/菜单完整装机 |
 | P3-06 拆 `App.kt` 的 `BdFunApp`（523 行） | 已拆分，局部验证 | MainShell、顶栏/底栏/搜索拆分；定向 main 对照 | 所有底栏返回栈/重复点击回顶完整流程 |
 | P3-07 清点重复 UI 并下沉到 `:core:ui` | 清单与下沉完成 | SHARED_UI_AUDIT逐项列明；共同宽屏滚动进入TeakUI，其他差异保留main规格 | 最终页面验收继续 |
-| P3-08 删除 `*Memory` 内存补丁 | 未全部完成 | 分页状态已迁；RelatedMemory/VideoCache 已改为容器/账号/页面作用域缓存，缓存正常路径装机通过 | 继续全局静态Map/AST审计；两个旧缓存与无调用HTTP代理已删 |
+| P3-08 删除 `*Memory` 内存补丁 | 源码审计完成 | SCOPE_AND_CACHE_AUDIT列明原六类补丁去向及缓存上限；无无界可变静态Map | 最终进程回收与页面行为验收继续 |
 | P4-01 `VideoPageBus` → `StateFlow` | 实现已接入，待完整验收 | 页面作用域状态替换全局 VideoPageBus | 后台联动和指定评论跳转；兼容展示投影最终审计 |
 | P4-02 其余三个 Bus 收敛 | 实现已接入，待完整验收 | 滚顶/页面 chrome/刷新等作用域状态 | 清选择/回顶部/消息刷新跨页面装机 |
 | P4-03 `AppGraph.pendingXxx` → 路由参数 | 实现未完全验收 | Route 契约/显式 Intent；pending 参数已迁 | 主入口已输出Route.Video并删除BiliLink；继续所有入口和缺参数错误验收 |
 | P4-04 `BackgroundPlayback` 单例 → `PlaybackController` | 实现已接入，局部验证 | infra/playback 控制器/服务/会话；系统媒体键原生验证 | 服务销毁重建/旋转/PiP/耳机/进度组合；展示 Media3 类型已改端口，旧装配/兼容入口仍待审计 |
 | P4-05 全局 `object` 审计 | 当前实现通过 | 同口径现7个具名object，含纯资源目录/debug；每项生命周期见GLOBAL_OBJECT_AUDIT.md | 后续接线保持门槛；作用域与最终验收独立检查 |
-| P4-06 `AppContainer` 引入作用域 | 未完成 | AppContainer 已集中创建依赖与部分页面工厂 | 首页/动态资源槽按UID+revision失效；Compose保留identity；个人/媒体库晚回调与重建key已补revision。空间已改每Activity ViewModel与账号revision，关闭/取消竞态和Store隔离测试通过；消息/进程缓存/其他Activity统一获取继续审计；不能代表所有控制器/获取方式均完成 |
+| P4-06 `AppContainer` 引入作用域 | 实现及源码审计完成，待装机验收 | 21个Activity统一ensure(applicationContext)；页面状态按工厂/每Activity ViewModel创建；SCOPE_AND_CACHE_AUDIT列明生命周期；消息/私信/关系补即时identity守卫，48项定向测试通过 | 账号切换/进程回收组合装机验收继续 |
 | P5-01 抽 `:infra:bili` | 模块已建立，待依赖验收 | infra/bili 实际 Gradle 模块，不依赖 app | P1 完整验收与最终依赖图 |
 | P5-02 抽 `:feature:home` | 模块已建立，待完整验收 | 实际feature:home独立assembleDebug、16项原测试；页面/状态移入；Gradle生产图无环/禁止反向依赖 | P4-05前置仍未过；共享卡片过渡注入，完整首页main UI/交互验收 |
 | P5-03 抽 `:feature:video` | 模块已建立，待链路验收 | 实际Gradle模块独立assembleDebug；11个状态控制器、播放平台端口、展示契约及纯投影已迁；32项既有定向测试通过；app debug通过 | app保留原TeakUI渲染和原生装配，继续审计完整视频链路 |

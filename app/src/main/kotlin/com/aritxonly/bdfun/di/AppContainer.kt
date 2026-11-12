@@ -55,10 +55,13 @@ internal class AppContainer(
             liveReads, connection, playback, scope,
             { if (loginStatus.isLoggedIn()) session.value?.mid ?: 0L else 0L }, log = { LogCollector.record("LIVE", it) })
     val accountRepository: AccountRepository = BiliAccountRepository(api::nav, api::qrGenerate, api::qrPoll, api::logout)
-    fun relationFeedStateHolder(mid: Long, fans: Boolean, frequent: Boolean) =
-        com.aritxonly.bdfun.feature.relations.application.RelationFeedStateHolder(
+    fun relationFeedStateHolder(mid: Long, fans: Boolean, frequent: Boolean): com.aritxonly.bdfun.feature.relations.application.RelationFeedStateHolder {
+        val identity = sessionController.identity
+        return com.aritxonly.bdfun.feature.relations.application.RelationFeedStateHolder(
             com.aritxonly.bdfun.infra.bili.BiliRelationRepository(api), mid, fans, frequent,
-            sessionController.state.value.user?.mid, { sessionController.state.value.user?.mid }, { api.isLoggedIn })
+            identity.mid, { sessionController.state.value.user?.mid }, { api.isLoggedIn },
+            { !closed && sessionController.identity == identity })
+    }
     fun createQrLogin() = com.aritxonly.bdfun.feature.login.application.QrLoginStateHolder(
         com.aritxonly.bdfun.infra.bili.BiliQrLoginRepository(api::qrGenerate, api::qrPoll))
     val sessionController = com.aritxonly.bdfun.core.application.SessionStateHolder(accountRepository)
@@ -165,21 +168,30 @@ internal class AppContainer(
     fun dynamicDetailStateHolder(initial: com.aritxonly.bdfun.data.DynamicItem) =
         com.aritxonly.bdfun.feature.dynamic.application.DynamicDetailStateHolder(dynamicDetailRepository, initial)
     private val privateChatRepository = com.aritxonly.bdfun.infra.bili.BiliPrivateChatRepository(api)
-    fun privateChatStateHolder(session: MessageSession) =
-        com.aritxonly.bdfun.feature.message.application.PrivateChatStateHolder(privateChatRepository, session)
+    fun privateChatStateHolder(session: MessageSession): com.aritxonly.bdfun.feature.message.application.PrivateChatStateHolder {
+        val identity = sessionController.identity
+        return com.aritxonly.bdfun.feature.message.application.PrivateChatStateHolder(privateChatRepository, session,
+            isCurrentOwner = { !closed && sessionController.identity == identity })
+    }
     private val searchRepository = com.aritxonly.bdfun.infra.bili.BiliSearchRepository(api)
     fun searchStateHolder() = com.aritxonly.bdfun.feature.search.application.SearchStateHolder(searchRepository)
-    fun messageSessionsStateHolder() = com.aritxonly.bdfun.feature.message.application.MessageSessionsStateHolder(
-        com.aritxonly.bdfun.infra.bili.BiliMessageSessionsRepository(api),
-    )
+    fun messageSessionsStateHolder(): com.aritxonly.bdfun.feature.message.application.MessageSessionsStateHolder {
+        val identity = sessionController.identity
+        return com.aritxonly.bdfun.feature.message.application.MessageSessionsStateHolder(
+            com.aritxonly.bdfun.infra.bili.BiliMessageSessionsRepository(api),
+            { !closed && sessionController.identity == identity })
+    }
     private val messageBadgeRepository = com.aritxonly.bdfun.infra.bili.BiliMessageBadgeRepository(api::messageUnreadCount)
     fun messageBadgeStateHolder(owner: Long?) = com.aritxonly.bdfun.feature.message.application.MessageBadgeStateHolder(
         messageBadgeRepository, owner,
     )
-    fun messageFeedStateHolder(kind: com.aritxonly.bdfun.feature.message.application.MessageFeedKind) =
-        com.aritxonly.bdfun.feature.message.application.MessageFeedStateHolder(
+    fun messageFeedStateHolder(kind: com.aritxonly.bdfun.feature.message.application.MessageFeedKind):
+        com.aritxonly.bdfun.feature.message.application.MessageFeedStateHolder {
+        val identity = sessionController.identity
+        return com.aritxonly.bdfun.feature.message.application.MessageFeedStateHolder(
             com.aritxonly.bdfun.infra.bili.BiliMessageFeedRepository(api), kind,
-        )
+            { !closed && sessionController.identity == identity })
+    }
     val automaticCdn = com.aritxonly.bdfun.infra.bili.AutoCdnSelector(api::cdnSampleUrl,
         context?.let { com.aritxonly.bdfun.infra.storage.AndroidAutoCdnCache(it) }, LogCollector::record)
     fun settingsCdnStateHolder() = com.aritxonly.bdfun.feature.settings.application.CdnSettingsStateHolder(automaticCdn)

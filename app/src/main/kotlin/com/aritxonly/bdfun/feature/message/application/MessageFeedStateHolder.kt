@@ -22,10 +22,12 @@ internal data class MessageFeedUiState(
     val busy: Boolean = false,
 )
 
-internal class MessageFeedStateHolder(private val repository: MessageFeedRepository, val kind: MessageFeedKind) {
+internal class MessageFeedStateHolder(private val repository: MessageFeedRepository, val kind: MessageFeedKind,
+    private val isCurrentOwner: () -> Boolean = { true }) {
     private val mutable = MutableStateFlow(MessageFeedUiState())
     val state = mutable.asStateFlow()
     private var closed = false
+    private fun ownerIsCurrent() = !closed && isCurrentOwner()
     fun close() {
         closed = true
         mutable.update { it.copy(loadingByTab = emptyMap(), busy = false, followBusy = emptySet()) }
@@ -47,7 +49,7 @@ internal class MessageFeedStateHolder(private val repository: MessageFeedReposit
     suspend fun loadPage(page: Int, more: Boolean = false) {
         val key = if (page == 1) 0 else page
         val initial = mutable.value
-        if (closed || initial.loadingByTab[key] == true || initial.busy || (more && initial.nextByTab[key] == null)) return
+        if (!ownerIsCurrent() || initial.loadingByTab[key] == true || initial.busy || (more && initial.nextByTab[key] == null)) return
         mutable.update { it.copy(loadingByTab = it.loadingByTab + (key to true),
             errorByTab = it.errorByTab + (key to null), retryMoreByTab = it.retryMoreByTab + (key to more)) }
         try {
@@ -59,7 +61,7 @@ internal class MessageFeedStateHolder(private val repository: MessageFeedReposit
                     is Outcome.Failure -> fans
                 }
             } else repository.page(feedType(key), if (more) initial.nextByTab[key] else null)
-            if (closed) return
+            if (!ownerIsCurrent()) return
             when (result) {
                 is Outcome.Success -> mutable.update { it.copy(
                     itemsByTab = it.itemsByTab + (key to ((if (more) it.itemsByTab[key].orEmpty() else emptyList())
@@ -69,45 +71,45 @@ internal class MessageFeedStateHolder(private val repository: MessageFeedReposit
                 ) }
                 is Outcome.Failure -> mutable.update { it.copy(errorByTab = it.errorByTab + (key to result.error.messageOr("消息加载失败"))) }
             }
-        } finally { mutable.update { if (closed) it else it.copy(loadingByTab = it.loadingByTab + (key to false)) } }
+        } finally { mutable.update { if (!ownerIsCurrent()) it else it.copy(loadingByTab = it.loadingByTab + (key to false)) } }
     }
 
     suspend fun toggleFollow(item: MessageItem): String? {
         val mid = item.userMid
         val initial = mutable.value
-        if (closed || mid <= 0 || mid in initial.followBusy) return null
+        if (!ownerIsCurrent() || mid <= 0 || mid in initial.followBusy) return null
         val target = !(initial.followedOverride[mid] ?: item.followed)
         mutable.update { it.copy(followedOverride = it.followedOverride + (mid to target), followBusy = it.followBusy + mid) }
         var committed = false
         try {
             return when (val result = repository.follow(mid, target)) {
                 is Outcome.Success -> {
-                    if (closed) return null
+                    if (!ownerIsCurrent()) return null
                     committed = result.value
                     if (committed) { if (target) "已回关" else "已取消关注" } else "关注操作失败"
                 }
-                is Outcome.Failure -> if (closed) null else result.error.messageOr("操作失败")
+                is Outcome.Failure -> if (!ownerIsCurrent()) null else result.error.messageOr("操作失败")
             }
         } finally {
-            mutable.update { if (closed) it else it.copy(followBusy = it.followBusy - mid,
+            mutable.update { if (!ownerIsCurrent()) it else it.copy(followBusy = it.followBusy - mid,
                 followedOverride = if (committed) it.followedOverride else it.followedOverride + (mid to !target)) }
         }
     }
 
     suspend fun dynamic(id: String): Outcome<DynamicItem?> {
-        if (closed) throw kotlinx.coroutines.CancellationException("消息页面已关闭")
+        if (!ownerIsCurrent()) throw kotlinx.coroutines.CancellationException("消息页面已关闭")
         val result = repository.dynamic(id)
-        if (closed) throw kotlinx.coroutines.CancellationException("消息页面已关闭")
+        if (!ownerIsCurrent()) throw kotlinx.coroutines.CancellationException("消息页面已关闭")
         return result
     }
 
     suspend fun mutate(page: Int, item: MessageItem, delete: Boolean): Outcome<Unit>? {
-        if (closed || mutable.value.busy || mutable.value.loadingByTab[page] == true) return null
+        if (!ownerIsCurrent() || mutable.value.busy || mutable.value.loadingByTab[page] == true) return null
         mutable.update { it.copy(busy = true) }
         try {
             val result = if (delete) repository.delete(if (kind == MessageFeedKind.System) null else feedType(page), item.id)
                 else repository.notice(item.id, item.noticeState != 0)
-            if (closed) return null
+            if (!ownerIsCurrent()) return null
             if (result is Outcome.Success) mutable.update { it.copy(itemsByTab = it.itemsByTab + (page to
                 it.itemsByTab[page].orEmpty().mapNotNull { current ->
                     if (current.id != item.id) current else if (delete) null

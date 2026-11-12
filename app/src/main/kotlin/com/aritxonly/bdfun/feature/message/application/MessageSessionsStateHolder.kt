@@ -19,11 +19,13 @@ internal data class MessageSessionsUiState(
 )
 
 /** 会话写操作和分页共用互斥状态，旧的姓名补全不能覆盖写操作后的数据。 */
-internal class MessageSessionsStateHolder(private val repository: MessageSessionsRepository) {
+internal class MessageSessionsStateHolder(private val repository: MessageSessionsRepository,
+    private val isCurrentOwner: () -> Boolean = { true }) {
     private val mutable = MutableStateFlow(MessageSessionsUiState())
     val state = mutable.asStateFlow()
 
     private var closed = false
+    private fun ownerIsCurrent() = !closed && isCurrentOwner()
     fun close() { closed = true; reset() }
 
     suspend fun loadFooter() {
@@ -35,7 +37,7 @@ internal class MessageSessionsStateHolder(private val repository: MessageSession
 
     suspend fun load(more: Boolean = false) {
         val initial = mutable.value
-        if (closed || initial.loading || initial.busy) return
+        if (!ownerIsCurrent() || initial.loading || initial.busy) return
         val cursor = if (more) initial.next ?: return else 0L
         val version = initial.revision + 1
         mutable.value = initial.copy(loading = true, retryMore = more, error = null, revision = version)
@@ -44,10 +46,10 @@ internal class MessageSessionsStateHolder(private val repository: MessageSession
             val result = repository.sessions(cursor) { enriched ->
                 names.putAll(enriched.associateBy { it.id })
                 mutable.update { current ->
-                    if (current.revision != version) current else current.copy(sessions = enrich(current.sessions, names))
+                    if (!ownerIsCurrent() || current.revision != version) current else current.copy(sessions = enrich(current.sessions, names))
                 }
             }
-            if (mutable.value.revision != version) return
+            if (!ownerIsCurrent() || mutable.value.revision != version) return
             when (result) {
                 is Outcome.Success -> mutable.update { current -> current.copy(
                     sessions = enrich(((if (more) current.sessions else emptyList()) + result.value.items)
@@ -56,7 +58,7 @@ internal class MessageSessionsStateHolder(private val repository: MessageSession
                 is Outcome.Failure -> mutable.update { it.copy(error = result.error.messageOr("消息加载失败")) }
             }
             when (val unread = repository.unread()) {
-                is Outcome.Success -> if (mutable.value.revision == version) mutable.update { it.copy(unread = unread.value) }
+                is Outcome.Success -> if (ownerIsCurrent() && mutable.value.revision == version) mutable.update { it.copy(unread = unread.value) }
                 is Outcome.Failure -> Unit // 未读计数失败不遮挡已成功加载的会话。
             }
         } finally {
@@ -66,7 +68,7 @@ internal class MessageSessionsStateHolder(private val repository: MessageSession
 
     suspend fun clearUnread(): String? {
         val current = mutable.value
-        if (closed || current.busy || current.loading) return null
+        if (!ownerIsCurrent() || current.busy || current.loading) return null
         val version = current.revision + 1
         mutable.value = current.copy(busy = true, revision = version)
         val message = try {
@@ -75,19 +77,19 @@ internal class MessageSessionsStateHolder(private val repository: MessageSession
                 is Outcome.Failure -> result.error.messageOr("标记已读失败")
             }
         } finally { mutable.update { if (it.revision == version) it.copy(busy = false) else it } }
-        if (closed || mutable.value.revision != version) return null
+        if (!ownerIsCurrent() || mutable.value.revision != version) return null
         load()
-        return if (closed) null else message
+        return if (!ownerIsCurrent()) null else message
     }
 
     suspend fun mutate(target: MessageSession, action: SessionAction): Outcome<Unit>? {
         val current = mutable.value
-        if (closed || current.busy || current.loading) return null
+        if (!ownerIsCurrent() || current.busy || current.loading) return null
         val version = current.revision + 1
         mutable.value = current.copy(busy = true, revision = version)
         try {
             val result = repository.mutate(target, action)
-            if (closed || mutable.value.revision != version) return null
+            if (!ownerIsCurrent() || mutable.value.revision != version) return null
             if (result is Outcome.Success) mutable.update { it.copy(
                 sessions = it.sessions.mapNotNull { item ->
                 if (item.id != target.id) item else when (action) {
