@@ -1,5 +1,8 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.teak.common.player.PlayGlyph
+import com.aritxonly.teak.common.player.PauseGlyph
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -19,13 +22,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.data.Quality
 import com.kyant.shapes.Capsule
 
 @Composable
 internal fun androidx.compose.foundation.layout.BoxScope.FullscreenBottomControls(
     info: FullscreenPlayerInfo, playback: FullscreenPlaybackState, actions: FullscreenActions,
     onPanelChanged: (FullscreenPanel) -> Unit,
+    appearance: FullscreenAppearance,
 ) {
         val hasNext = hasNextPage(info)
         Row(
@@ -40,7 +43,7 @@ internal fun androidx.compose.foundation.layout.BoxScope.FullscreenBottomControl
                 if (playback.playing) {
                     PauseGlyph()
                 } else {
-                    PlayGlyph()
+                    PlayGlyph(appearance.icons.play)
                 }
             }
             Spacer(Modifier.width(12.dp))
@@ -48,7 +51,7 @@ internal fun androidx.compose.foundation.layout.BoxScope.FullscreenBottomControl
                 onClick = actions.onNext,
                 size = 32.dp,
             ) {
-                NextGlyph(enabled = hasNext)
+                NextGlyph(appearance.icons.next, enabled = hasNext)
             }
             Spacer(Modifier.width(12.dp))
             Box(
@@ -60,31 +63,34 @@ internal fun androidx.compose.foundation.layout.BoxScope.FullscreenBottomControl
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                DanmakuToggleGlyph(enabled = playback.danmakuEnabled)
+                DanmakuToggleGlyph(appearance.icons.danmakuOn, appearance.icons.danmakuOff, enabled = playback.danmakuEnabled)
             }
             Spacer(Modifier.width(8.dp))
             PlayerIconButton(
                 onClick = { onPanelChanged(FullscreenPanel.Danmaku) },
                 size = 32.dp,
             ) {
-                SlidersGlyph()
+                SlidersGlyph(appearance.icons.danmakuSettings)
             }
             Spacer(Modifier.width(12.dp))
             FullscreenSendDanmakuAction(actions.onSendDanmaku)
             Spacer(Modifier.width(14.dp))
             PlayerTextAction(
+                accentColor = appearance.accentColor,
                 text = if (info.selectedSubtitle != null) "字幕·开" else "字幕",
                 active = info.selectedSubtitle != null,
                 onClick = { onPanelChanged(FullscreenPanel.Subtitles) },
             )
             Spacer(Modifier.width(18.dp))
             PlayerTextAction(
+                accentColor = appearance.accentColor,
                 text = "选集",
                 muted = info.pages.size <= 1,
                 onClick = actions.onEpisodes,
             )
             Spacer(Modifier.width(18.dp))
             PlayerTextAction(
+                accentColor = appearance.accentColor,
                 text = "倍速",
                 onClick = { onPanelChanged(FullscreenPanel.Speed) },
             )

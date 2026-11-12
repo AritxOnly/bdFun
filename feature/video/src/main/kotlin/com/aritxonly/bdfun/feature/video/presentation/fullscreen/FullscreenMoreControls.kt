@@ -20,13 +20,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.BrandPink
 import com.kyant.shapes.Capsule
 
 @Composable
 internal fun MoreIconSwitchRow(
     label: String,
     checked: Boolean,
+    accentColor: Color,
     glyph: @Composable () -> Unit,
     onClick: () -> Unit,
 ) {
@@ -42,7 +42,7 @@ internal fun MoreIconSwitchRow(
         Spacer(Modifier.width(12.dp))
         Text(label, color = Color.White, fontSize = 15.sp)
         Spacer(Modifier.weight(1f))
-        MoreSwitch(checked)
+        MoreSwitch(checked, accentColor)
     }
 }
 
@@ -72,7 +72,7 @@ internal fun MoreIconChoiceRow(
 }
 
 @Composable
-internal fun MoreLoopRow(loopMode: Int, onSelect: (Int) -> Unit) {
+internal fun MoreLoopRow(loopMode: Int, accentColor: Color, onSelect: (Int) -> Unit) {
 
     Row(
         modifier = Modifier
@@ -96,7 +96,7 @@ internal fun MoreLoopRow(loopMode: Int, onSelect: (Int) -> Unit) {
             Text(
                 text = label,
                 color = if (loopMode == index + 1 || (index == 2 && loopMode == 0)) {
-                    BrandPink
+                    accentColor
                 } else {
                     Color.White.copy(alpha = 0.55f)
                 },
@@ -113,14 +113,14 @@ internal fun MoreLoopRow(loopMode: Int, onSelect: (Int) -> Unit) {
 }
 
 @Composable
-internal fun MoreSwitch(checked: Boolean) {
+internal fun MoreSwitch(checked: Boolean, accentColor: Color) {
 
     Box(
         modifier = Modifier
             .width(40.dp)
             .height(22.dp)
             .clip(Capsule())
-            .background(if (checked) BrandPink else Color.White.copy(alpha = 0.18f)),
+            .background(if (checked) accentColor else Color.White.copy(alpha = 0.18f)),
     ) {
         Box(
             modifier = Modifier

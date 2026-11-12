@@ -16,6 +16,6 @@
 | TeakTopBar/TeakLargeTitle/TeakTopGlassButton、TeakPagerTabs等 | 已下沉TeakUI，页面继续复用 | tab不改组件、尺寸或动画，播放器/空间/设置保留原样 |
 | formatCount/formatDuration/formatDate/formatDateTime等 | 已进入core:common；ui/Format仅兼容转发 | 纯格式化不属于设计系统；无Android或Compose依赖 |
 | formatSessionTime/formatChatTime、全屏时钟、发送记录日期、日志时间 | 不合并 | 会话含昨天/同年、聊天含时间分隔、时钟只HH:mm、记录使用原Locale、日志含毫秒，各自时间单位/边界不同；统一会改文案 |
-| PlayerSettingGlyphs与播放器专用控制按钮 | 保留播放器组合 | 尺寸、点击热区与原生播放动作绑定；通用图标目录仍由TeakUI提供，不搬业务动作 |
+| PlayerSettingGlyphs与播放器专用控制按钮 | 保留播放器组合 | 尺寸、点击热区与原生播放动作绑定；通用图标目录仍由TeakUI提供，不搬业务动作；视频专用glyph已迁入实际视频模块，跨视频/直播共用的PixelIcon/PlayGlyph/PauseGlyph下沉TeakUI纯展示 |
 
 结论：本轮真正共同的宽屏滚动机制已经下沉；其余相似外观但不同规格的组合保留，并以上述差异作为回归约束。没有为凑复用数量新增泛型页面框架。

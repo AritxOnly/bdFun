@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.teak.common.player.PlayGlyph
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -60,7 +62,7 @@ internal fun androidx.compose.foundation.layout.BoxScope.VideoCollapseOverlay(
                     contentAlignment = Alignment.Center,
                 ) {
                     // 和播放器控件同一个播放图标（TeakIcon.PlayerPlay），无底色、纯白。
-                    PlayGlyph(tint = Color.White, size = 16.dp)
+                    PlayGlyph(com.aritxonly.bdfun.ui.TeakIcon.PlayerPlay, tint = Color.White, size = 16.dp)
                 }
                 Spacer(Modifier.width(7.dp))
                 Text(

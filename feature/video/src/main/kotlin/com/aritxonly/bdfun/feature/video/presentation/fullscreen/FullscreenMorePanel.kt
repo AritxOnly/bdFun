@@ -18,11 +18,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @Composable
-internal fun MorePanel(
+fun MorePanel(
     info: FullscreenPlayerInfo,
     playback: FullscreenPlaybackState,
     actions: FullscreenActions,
     onClose: () -> Unit,
+    accentColor: Color,
 ) {
 
     Column(
@@ -34,7 +35,7 @@ internal fun MorePanel(
         Spacer(Modifier.height(14.dp))
         FullscreenMoreQuickActions(actions, onClose)
         Spacer(Modifier.height(14.dp))
-        FullscreenMoreSettings(playback, actions)
+        FullscreenMoreSettings(playback, actions, accentColor)
         Spacer(Modifier.height(10.dp))
     }
 }
@@ -66,10 +67,11 @@ private fun FullscreenMoreQuickActions(actions: FullscreenActions, onClose: () -
 }
 
 @Composable
-private fun FullscreenMoreSettings(playback: FullscreenPlaybackState, actions: FullscreenActions) {
+private fun FullscreenMoreSettings(playback: FullscreenPlaybackState, actions: FullscreenActions, accentColor: Color) {
     Column(modifier = Modifier.fillMaxWidth()) {
         MoreIconSwitchRow(
             label = "自动连播",
+            accentColor = accentColor,
             checked = playback.autoPlayNext,
             glyph = { AutoPlayNextGlyph() },
         ) {
@@ -77,10 +79,12 @@ private fun FullscreenMoreSettings(playback: FullscreenPlaybackState, actions: F
         }
         MoreLoopRow(
             loopMode = playback.loopMode,
+            accentColor = accentColor,
             onSelect = { actions.onLoopModeChanged(it) },
         )
         MoreIconSwitchRow(
             label = "镜像翻转",
+            accentColor = accentColor,
             checked = playback.mirror,
             glyph = { MirrorGlyph() },
         ) {
@@ -88,6 +92,7 @@ private fun FullscreenMoreSettings(playback: FullscreenPlaybackState, actions: F
         }
         MoreIconSwitchRow(
             label = "后台听视频",
+            accentColor = accentColor,
             checked = playback.backgroundPlay,
             glyph = { BackgroundListenGlyph() },
         ) {

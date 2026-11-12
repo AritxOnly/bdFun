@@ -20,13 +20,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.BrandPink
 
 @Composable
 internal fun CachePanel(
     playback: FullscreenPlaybackState,
     actions: FullscreenActions,
     onClose: () -> Unit,
+    accentColor: Color,
 ) {
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -77,7 +77,7 @@ internal fun CachePanel(
                     }
                     Text(
                         text = "缓存",
-                        color = BrandPink,
+                        color = accentColor,
                         fontSize = 12.sp,
                     )
                 }

@@ -1,5 +1,8 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.teak.common.player.PlayGlyph
+import com.aritxonly.teak.common.player.PauseGlyph
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -172,7 +175,7 @@ private fun BoxScope.HalfAudioControls(playing: Boolean, positionMs: Long, durat
                 .clickable(interactionSource = null, indication = null, onClick = onPlayPause),
             contentAlignment = Alignment.Center,
         ) {
-            if (playing) PauseGlyph() else PlayGlyph()
+            if (playing) PauseGlyph() else PlayGlyph(com.aritxonly.bdfun.ui.TeakIcon.PlayerPlay)
         }
         Spacer(Modifier.width(6.dp))
         Text(

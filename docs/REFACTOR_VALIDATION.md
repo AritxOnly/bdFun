@@ -590,3 +590,11 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - `/tmp/bdfun-explicit-page-runtime.log`：安装当前debug，核对media_session属于com.aritxonly.bdfun.debug且PLAYING，进入评论tab后真实253条评论数量/列表渲染，crash为空，最后force-stop。截图`/tmp/bdfun-explicit-comment.png`已查看；没有改设置、发送或账号写操作。该记录不声称旋转/PiP组合通过。
 - 全屏五个展示文件与迁移前HEAD逐文件对照，除import与跨模块internal可见性外完全一致；新增拆出的状态类体原样。`/tmp/bdfun-video-render-leaves.log`：独立feature:video assembleDebug、app debug及严格架构/尺寸通过，28s，最新957文件/10436节点/0违规。
 - 本批生产源码已变化，上一阶段5c61d91的release及CI成功记录仅覆盖其对应提交；不作为当前源码最终release/CI证据。最终源码确定后再做默认release、R8及交付，避免每个小搬迁重复release。
+
+### 2026-11-13 全屏根组合与七面板迁移
+
+- 首轮编译发现选集还依赖旧app formatDuration兼容转发，改为导入同一core:common函数；没有改变格式化逻辑。随后`/tmp/bdfun-fullscreen-panels-final.log`31s、`/tmp/bdfun-fullscreen-chrome.log`22s、共用绘制下沉后的`/tmp/bdfun-fullscreen-shared-final.log`28s、internal可见性收尾`/tmp/bdfun-fullscreen-final-check.log`21s均通过独立视频模块、app debug与严格checkLayering。没有给无逻辑搬迁追加镜像单测，既有守卫保持。
+- 最新PSI：961文件/10442节点/0违规。7个面板显式强调色接线外的布局/动作token对照一致，PanelHeader/Card体逐字一致；TeakUI与旧app tween体逐字一致。
+- `/tmp/bdfun-fullscreen-module-runtime.log`最终通过：核对debug包PLAYING→按实际2424x1080分栏控制条进入全屏→再次单击显示控件→打开倍速面板全部6个原选项→关闭面板/返回详情tab→crash空。没有选择倍速、改设置或账号写操作，结束force-stop。截图`/tmp/bdfun-module-speed.png`已查看。
+- 驱动失败记录不能算产品通过：首次150ms小于现有260ms单击判定；之后截图证明已进入全屏，但原实现会主动收起控件；补齐再次单击后，点击前截图又耗尽原4秒收起时间。已按原交互调整驱动并移除点击前截图，未修改生产时序、控件行为或断言，最终上述整条用例通过。没有再次运行此前的竖屏前提脚本。
+- 上一批12441f2的[远端CI 43275116367](https://github.com/AritxOnly/bdFun/actions/runs/43275116367)已成功；本批新源码由后续push另行触发CI，不复用旧结果。旧5c61d91 release不覆盖本批，完整生命周期、剩余展示和最终release/交付继续。

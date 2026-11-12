@@ -29,72 +29,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.data.Quality
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-
-@Composable
-internal fun FullscreenPanelHost(
-    panel: FullscreenPanel,
-    info: FullscreenPlayerInfo,
-    playback: FullscreenPlaybackState,
-    actions: FullscreenActions,
-    onClose: () -> Unit,
-    visible: Boolean = true,
-) {
-
-    var shown by remember { mutableStateOf(panel) }
-    var revealed by remember { mutableStateOf(false) }
-    LaunchedEffect(visible) { revealed = visible }
-    val reveal = rememberManualProgress(if (revealed) 1f else 0f, 264f)
-    LaunchedEffect(panel) {
-        if (panel != FullscreenPanel.None) shown = panel
-    }
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val panelWidth = (maxWidth.value * 0.41f).dp.coerceAtLeast(360.dp)
-        // 左透明、右深黑：与参考图三一致，不铺满一块纯黑
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.horizontalGradient(
-                        0f to Color.Transparent,
-                        0.25f to Color.Transparent,
-                        0.45f to Color.Black.copy(alpha = 0.25f),
-                        0.58f to Color.Black.copy(alpha = 0.74f),
-                        0.68f to Color.Black.copy(alpha = 0.95f),
-                        1f to Color.Black,
-                    ),
-                )
-                .graphicsLayer { alpha = reveal }
-                .clickable(interactionSource = null, indication = null, onClick = onClose),
-        )
-        Column(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .width(panelWidth)
-                .fillMaxHeight()
-                .graphicsLayer {
-                    alpha = reveal
-                    translationX = (1f - reveal) * 90f
-                }
-                .clickable(interactionSource = null, indication = null) {}
-                .padding(start = 32.dp, end = 30.dp, top = 30.dp, bottom = 18.dp),
-        ) {
-            when (shown) {
-                FullscreenPanel.Favorite -> FavoritePanel(info, actions, onClose)
-                FullscreenPanel.More -> MorePanel(info, playback, actions, onClose)
-                FullscreenPanel.Danmaku -> DanmakuPanel(info, onClose)
-                FullscreenPanel.Episodes -> EpisodesPanel(info, actions, onClose)
-                FullscreenPanel.Speed -> SpeedPanel(playback, actions, onClose)
-                FullscreenPanel.Quality -> QualityPanel(info, playback, actions, onClose)
-                FullscreenPanel.Cache -> CachePanel(playback, actions, onClose)
-                FullscreenPanel.Subtitles -> SubtitlesPanel(info, actions, onClose)
-                FullscreenPanel.None -> Unit
-            }
-        }
-    }
-}
 
 @Composable
 internal fun PanelHeader(title: String, onClose: () -> Unit) {

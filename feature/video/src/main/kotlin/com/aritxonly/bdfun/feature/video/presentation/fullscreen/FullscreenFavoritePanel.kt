@@ -27,7 +27,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.BrandPink
 import com.kyant.shapes.Capsule
 
 @Composable
@@ -35,6 +34,7 @@ internal fun FavoritePanel(
     info: FullscreenPlayerInfo,
     actions: FullscreenActions,
     onClose: () -> Unit,
+    accentColor: Color,
 ) {
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -55,7 +55,7 @@ internal fun FavoritePanel(
         ) {
             info.folders.forEach { folder ->
                 val checked = info.folderIds.contains(folder.id)
-                FavoriteFolderOption(folder, checked, actions.onToggleFolder)
+                FavoriteFolderOption(folder, checked, actions.onToggleFolder, accentColor)
             }
         }
         Box(
@@ -74,7 +74,7 @@ internal fun FavoritePanel(
 
 
 @Composable
-private fun FavoriteFolderOption(folder: com.aritxonly.bdfun.data.FavoriteFolder, checked: Boolean, onToggleFolder: (Long) -> Unit) {
+private fun FavoriteFolderOption(folder: com.aritxonly.bdfun.core.model.library.FavoriteFolder, checked: Boolean, onToggleFolder: (Long) -> Unit, accentColor: Color) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -106,10 +106,10 @@ private fun FavoriteFolderOption(folder: com.aritxonly.bdfun.data.FavoriteFolder
                 .clip(CircleShape)
                 .border(
                     width = 1.5.dp,
-                    color = if (checked) BrandPink else Color.White.copy(alpha = 0.5f),
+                    color = if (checked) accentColor else Color.White.copy(alpha = 0.5f),
                     shape = CircleShape,
                 )
-                .background(if (checked) BrandPink else Color.Transparent),
+                .background(if (checked) accentColor else Color.Transparent),
             contentAlignment = Alignment.Center,
         ) {
             if (checked) {

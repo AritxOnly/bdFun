@@ -50,6 +50,7 @@ internal fun PlayerFullscreenOverlay(
     var fsBarPreviewMs by ui.fsBarPreviewMs
     val controlsAlpha = if (controlsVisible && !pictureInPicture) 1f else 0f
     if (fullscreen && !pictureInPicture) {
+        val chrome = rememberFullscreenChromeAssembly()
         FullscreenPlayerChrome(
             info = fullscreenInfo,
             playback = fullscreenPlaybackProjection(media, ui, playing, positionMs, durationMs, bufferedMs, LocalVideoPageState.current.settings),
@@ -62,6 +63,7 @@ internal fun PlayerFullscreenOverlay(
                 .offset(x = if (controlsVisible && !fsInputOpen) 0.dp else 10_000.dp)
                 .graphicsLayer { alpha = if (fsInputOpen) 0f else controlsAlpha },
             scrubOnly = fsScrubbing,
+            scrub = FullscreenScrubActions(
             onScrubStart = { fsScrubbing = true },
             onScrubEnd = {
                 fsScrubbing = false
@@ -69,6 +71,9 @@ internal fun PlayerFullscreenOverlay(
             },
             onScrubLook = { fsSeekLook = it },
             onScrubPreview = { fsBarPreviewMs = it },
+            ),
+            appearance = chrome.appearance,
+            slots = chrome.slots,
             onPanelHidden = {
                 controlsVisible = false
                 PlayerUiState.controlsVisible = false

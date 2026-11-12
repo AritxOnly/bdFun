@@ -32,13 +32,7 @@ import com.kyant.shapes.Capsule
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
-internal fun formatPlayTime(ms: Long): String {
-    val total = (ms / 1000).coerceAtLeast(0L)
-    val h = total / 3600
-    val m = (total % 3600) / 60
-    val s = total % 60
-    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
-}
+
 
 /**
  * 进度条：小电视指示器（比上一版放大），按下/拖动恒为粗，抬手变细。

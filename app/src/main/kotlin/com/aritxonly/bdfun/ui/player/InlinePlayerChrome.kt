@@ -1,5 +1,8 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.teak.common.player.PlayGlyph
+import com.aritxonly.teak.common.player.PauseGlyph
+
 import com.aritxonly.teak.common.material.TeakGlassPanel
 import android.app.Activity
 import androidx.compose.foundation.Canvas
@@ -137,7 +140,7 @@ private fun BoxScope.InlineChromeTransport(state: InlineChromeState, actions: In
         verticalAlignment = Alignment.CenterVertically,
     ) {
         CompactIconButton(onClick = actions.onPlayPause, size = 28.dp) {
-            if (state.playing) PauseGlyph() else PlayGlyph(size = 22.dp)
+            if (state.playing) PauseGlyph() else PlayGlyph(com.aritxonly.bdfun.ui.TeakIcon.PlayerPlay, size = 22.dp)
         }
         Spacer(Modifier.width(7.dp))
         FullscreenSeekBar(

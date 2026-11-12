@@ -446,3 +446,5 @@ SpaceApi的space只负责原五个并发请求、原await顺序和条件获赞�
 ### 2026-11-13 视频与评论显式依赖检查点
 
 视频/播放器与评论展示从当前VideoPagePresentationState.dependencies取得控制器工厂、进度/下载/发送记录端口、播放队列、后台桥及诊断回调，不再回查AppGraph或旧PlaybackProgressStore/VideoPlayQueue入口。VideoStateFactory位于实际feature:video/application，CommentStateFactory位于feature/comment/application；每次创建独立控制器。原TeakUI渲染函数体保持。字幕/状态行/画质标签/全屏进度条及电视指示器已原样迁入feature:video/presentation/fullscreen，后续迁移不得恢复app/infra反向依赖。
+
+跨视频/直播复用的资源播放图标、暂停Canvas和PixelIcon属于TeakUI纯展示，不通过feature:video供另一个feature调用；资源ID仍由app显式传入。全屏业务面板/控制器仍属于feature:video。

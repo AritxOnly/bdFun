@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.core.common.formatDuration
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -22,13 +24,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.BrandPink
 
 @Composable
 internal fun EpisodesPanel(
     info: FullscreenPlayerInfo,
     actions: FullscreenActions,
     onClose: () -> Unit,
+    accentColor: Color,
 ) {
 
     PanelCard(title = "选集") {
@@ -50,7 +52,7 @@ internal fun EpisodesPanel(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                         .background(
-                            if (active) BrandPink.copy(alpha = 0.18f) else Color.Transparent,
+                            if (active) accentColor.copy(alpha = 0.18f) else Color.Transparent,
                         )
                         .clickable(interactionSource = null, indication = null) {
                             actions.onPageSelected(page)
@@ -61,14 +63,14 @@ internal fun EpisodesPanel(
                 ) {
                     Text(
                         text = "P${index + 1}",
-                        color = if (active) BrandPink else Color.White.copy(alpha = 0.55f),
+                        color = if (active) accentColor else Color.White.copy(alpha = 0.55f),
                         fontSize = 12.sp,
                         modifier = Modifier.width(34.dp),
                     )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = page.part.ifBlank { "第 ${index + 1} 集" },
-                            color = if (active) BrandPink else Color.White,
+                            color = if (active) accentColor else Color.White,
                             fontSize = 14.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -81,7 +83,7 @@ internal fun EpisodesPanel(
                         )
                     }
                     if (active) {
-                        Text("播放中", color = BrandPink, fontSize = 10.sp)
+                        Text("播放中", color = accentColor, fontSize = 10.sp)
                     }
                 }
             }

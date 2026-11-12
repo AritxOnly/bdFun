@@ -20,13 +20,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.BrandPink
 
 @Composable
 internal fun SubtitlesPanel(
     info: FullscreenPlayerInfo,
     actions: FullscreenActions,
     onClose: () -> Unit,
+    accentColor: Color,
 ) {
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -38,7 +38,7 @@ internal fun SubtitlesPanel(
                 .clip(RoundedCornerShape(12.dp))
                 .background(
                     if (info.selectedSubtitle == null) {
-                        BrandPink.copy(alpha = 0.18f)
+                        accentColor.copy(alpha = 0.18f)
                     } else {
                         Color.Transparent
                     },
@@ -52,7 +52,7 @@ internal fun SubtitlesPanel(
         ) {
             Text("关闭字幕", color = Color.White, fontSize = 15.sp)
             Spacer(Modifier.weight(1f))
-            if (info.selectedSubtitle == null) CheckGlyph(BrandPink)
+            if (info.selectedSubtitle == null) CheckGlyph(accentColor)
         }
         if (info.subtitles.isEmpty()) {
             Text(
@@ -70,7 +70,7 @@ internal fun SubtitlesPanel(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(
-                                if (active) BrandPink.copy(alpha = 0.18f) else Color.Transparent,
+                                if (active) accentColor.copy(alpha = 0.18f) else Color.Transparent,
                             )
                             .clickable(interactionSource = null, indication = null) {
                                 actions.onSubtitleSelected(track)
@@ -82,7 +82,7 @@ internal fun SubtitlesPanel(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = track.label.ifBlank { "字幕" },
-                                color = if (active) BrandPink else Color.White,
+                                color = if (active) accentColor else Color.White,
                                 fontSize = 15.sp,
                             )
                             if (track.isAi) {
@@ -90,7 +90,7 @@ internal fun SubtitlesPanel(
                                 Text("AI 字幕", color = Color.White.copy(alpha = 0.4f), fontSize = 10.sp)
                             }
                         }
-                        if (active) CheckGlyph(BrandPink)
+                        if (active) CheckGlyph(accentColor)
                     }
                 }
             }

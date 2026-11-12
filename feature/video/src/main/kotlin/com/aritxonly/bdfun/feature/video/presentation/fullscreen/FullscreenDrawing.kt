@@ -34,28 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.kyant.shapes.Capsule
 
 @Composable
-internal fun PixelIcon(
-    @DrawableRes res: Int,
-    modifier: Modifier = Modifier,
-    tint: Color? = null,
-    contentDescription: String? = null,
-) {
-
-    val context = LocalContext.current
-    val bitmap = remember(res) {
-        BitmapFactory.decodeResource(context.resources, res).asImageBitmap()
-    }
-    Image(
-        bitmap = bitmap,
-        contentDescription = contentDescription,
-        modifier = modifier,
-        colorFilter = tint?.let { androidx.compose.ui.graphics.ColorFilter.tint(it) },
-        filterQuality = FilterQuality.High,
-    )
-}
-
-@Composable
-internal fun BackChevron(tint: Color = Color.White) {
+fun BackChevron(tint: Color = Color.White) {
 
     androidx.compose.material3.Icon(MiuixIcons.ChevronBackward, contentDescription = "返回",
         tint = tint, modifier = Modifier.size(23.5.dp))
@@ -110,62 +89,6 @@ internal fun ChevronRightGlyph(tint: Color = Color.White.copy(alpha = 0.4f)) {
         }
         drawPath(path, tint, style = Stroke(size.width * 0.12f, cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
-}
-
-@Composable
-internal fun PlayGlyph(tint: Color = Color.White, size: androidx.compose.ui.unit.Dp = 24.dp) {
-
-    PixelIcon(
-        res = TeakIcon.PlayerPlay,
-        tint = tint,
-        contentDescription = "播放",
-        modifier = Modifier.size(size),
-    )
-}
-
-@Composable
-internal fun PauseGlyph(tint: Color = Color.White) {
-
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(width = 6.dp, height = 22.dp).clip(Capsule()).background(tint))
-        Box(Modifier.size(width = 6.dp, height = 22.dp).clip(Capsule()).background(tint))
-    }
-}
-
-@Composable
-internal fun NextGlyph(enabled: Boolean) {
-
-    PixelIcon(
-        res = TeakIcon.PlayerNext,
-        tint = Color.White,
-        contentDescription = "下一集",
-        modifier = Modifier
-            .size(19.dp)
-            .graphicsLayer { alpha = if (enabled) 1f else 0.28f },
-    )
-}
-
-@Composable
-internal fun DanmakuToggleGlyph(enabled: Boolean) {
-
-    PixelIcon(
-        res = if (enabled) TeakIcon.PlayerDanmakuOn else TeakIcon.PlayerDanmakuOff,
-        contentDescription = if (enabled) "关闭弹幕" else "开启弹幕",
-        modifier = Modifier.size(23.dp),
-    )
-}
-
-@Composable
-internal fun SlidersGlyph() {
-
-    PixelIcon(
-        res = TeakIcon.PlayerDanmakuSettings,
-        contentDescription = "弹幕设置",
-        modifier = Modifier.size(23.dp),
-    )
 }
 
 @Composable

@@ -1,5 +1,8 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.teak.common.player.PlayGlyph
+import com.aritxonly.teak.common.player.PauseGlyph
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -196,7 +199,7 @@ private fun FullscreenAudioTransport(playback: FullscreenPlaybackState, actions:
                 .clickable(interactionSource = null, indication = null, onClick = actions.onPlayPause),
             contentAlignment = Alignment.Center,
         ) {
-            if (playback.playing) PauseGlyph(Color.Black) else PlayGlyph(Color.Black, 26.dp)
+            if (playback.playing) PauseGlyph(Color.Black) else PlayGlyph(com.aritxonly.bdfun.ui.TeakIcon.PlayerPlay, Color.Black, 26.dp)
         }
         Box(
             modifier = Modifier

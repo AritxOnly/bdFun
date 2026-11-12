@@ -19,13 +19,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.BrandPink
 
 @Composable
 internal fun SpeedPanel(
     playback: FullscreenPlaybackState,
     actions: FullscreenActions,
     onClose: () -> Unit,
+    accentColor: Color,
 ) {
 
     PanelCard(title = "倍速") {
@@ -41,7 +41,7 @@ internal fun SpeedPanel(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
                         .background(
-                            if (active) BrandPink.copy(alpha = 0.18f) else Color.Transparent,
+                            if (active) accentColor.copy(alpha = 0.18f) else Color.Transparent,
                         )
                         .clickable(interactionSource = null, indication = null) {
                             actions.onSpeedSelected(speed)
@@ -52,12 +52,12 @@ internal fun SpeedPanel(
                 ) {
                     Text(
                         text = "${trimSpeed(speed)}x",
-                        color = if (active) BrandPink else Color.White,
+                        color = if (active) accentColor else Color.White,
                         fontSize = 15.sp,
                         fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
                     )
                     Spacer(Modifier.weight(1f))
-                    if (active) CheckGlyph(BrandPink)
+                    if (active) CheckGlyph(accentColor)
                 }
             }
         }

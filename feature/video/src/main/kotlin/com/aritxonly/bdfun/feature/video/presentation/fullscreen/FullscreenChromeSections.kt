@@ -32,7 +32,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.kyant.shapes.Capsule
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.getValue
@@ -40,8 +39,7 @@ import androidx.compose.runtime.setValue
 
 
 @Composable
-internal fun BoxScope.FullscreenChromeMasks() {
-    val settings = LocalVideoPageState.current.settings
+internal fun BoxScope.FullscreenChromeMasks(appearance: FullscreenAppearance) {
     val edge = 42.dp
     // 顶部 / 底部压暗，保证白字在亮画面上仍可读（参考图一有同款渐层）
     Box(
@@ -71,7 +69,7 @@ internal fun BoxScope.FullscreenChromeMasks() {
             ),
     )
     // 最顶：时间居中，右侧网络 + 电量
-    if (settings.showFullscreenTime) {
+    if (appearance.showTime) {
         FullscreenStatusLine(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -83,7 +81,7 @@ internal fun BoxScope.FullscreenChromeMasks() {
 }
 
 @Composable
-internal fun FullscreenHeader(info: FullscreenPlayerInfo, actions: FullscreenActions, onPanelChanged: (FullscreenPanel) -> Unit) {
+internal fun FullscreenHeader(info: FullscreenPlayerInfo, actions: FullscreenActions, onPanelChanged: (FullscreenPanel) -> Unit, appearance: FullscreenAppearance) {
     // 顶部操作行：返回 / 标题 / 点赞 / 评论 / 收藏 / 分享 / 更多
     Row(
         modifier = Modifier
@@ -113,18 +111,18 @@ internal fun FullscreenHeader(info: FullscreenPlayerInfo, actions: FullscreenAct
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        FullscreenHeaderActions(info, actions, onPanelChanged)
+        FullscreenHeaderActions(info, actions, onPanelChanged, appearance)
     }
 
 }
 
 @Composable
-internal fun FullscreenHeaderActions(info: FullscreenPlayerInfo, actions: FullscreenActions, onPanelChanged: (FullscreenPanel) -> Unit) {
-    val settings = LocalVideoPageState.current.settings
-    if (settings.showFullscreenActions) {
+internal fun FullscreenHeaderActions(info: FullscreenPlayerInfo, actions: FullscreenActions, onPanelChanged: (FullscreenPanel) -> Unit, appearance: FullscreenAppearance) {
+    if (appearance.showActions) {
         Spacer(Modifier.width(12.dp))
         BadgeStatAction(
-            icon = TeakIcon.PlayerLike,
+            accentColor = appearance.accentColor,
+            icon = appearance.icons.like,
             count = info.likeCount,
             active = info.liked,
             yOffset = (-10).dp,
@@ -135,7 +133,8 @@ internal fun FullscreenHeaderActions(info: FullscreenPlayerInfo, actions: Fullsc
         )
         Spacer(Modifier.width(16.dp))
         BadgeStatAction(
-            icon = TeakIcon.PlayerComment,
+            accentColor = appearance.accentColor,
+            icon = appearance.icons.comment,
             count = info.replyCount,
             xOffset = (-4).dp,
             countXOffset = 6.dp,
@@ -144,7 +143,8 @@ internal fun FullscreenHeaderActions(info: FullscreenPlayerInfo, actions: Fullsc
         )
         Spacer(Modifier.width(16.dp))
         BadgeStatAction(
-            icon = TeakIcon.PlayerStar,
+            accentColor = appearance.accentColor,
+            icon = appearance.icons.favorite,
             count = info.favoriteCount,
             active = info.favorited,
             xOffset = 0.dp,
@@ -157,7 +157,7 @@ internal fun FullscreenHeaderActions(info: FullscreenPlayerInfo, actions: Fullsc
         )
         Spacer(Modifier.width(16.dp))
         IconOnlyAction(
-            icon = TeakIcon.PlayerShare,
+            icon = appearance.icons.share,
             xOffset = 1.dp,
             onClick = actions.onShare,
         )
@@ -177,15 +177,14 @@ internal fun FullscreenHeaderActions(info: FullscreenPlayerInfo, actions: Fullsc
 }
 
 @Composable
-internal fun BoxScope.FullscreenAuthor(info: FullscreenPlayerInfo, actions: FullscreenActions) {
-    val settings = LocalVideoPageState.current.settings
+internal fun BoxScope.FullscreenAuthor(info: FullscreenPlayerInfo, actions: FullscreenActions, appearance: FullscreenAppearance, slots: FullscreenChromeSlots) {
     // 观看人数 + UP 头像 / 昵称
     Column(
         modifier = Modifier
             .align(Alignment.TopStart)
             .padding(start = 50.dp, top = 55.dp),
     ) {
-        if (settings.showViewerCount) {
+        if (appearance.showViewerCount) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.offset(x = 29.dp),
@@ -210,11 +209,9 @@ internal fun BoxScope.FullscreenAuthor(info: FullscreenPlayerInfo, actions: Full
                     actions.onOpenSpace()
                 },
         ) {
-            AsyncImage(
-                model = rememberImageRequest(info.authorFace),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
+            slots.avatar(
+                info.authorFace,
+                Modifier
                     .padding(start = 2.dp, top = 2.dp, bottom = 2.dp)
                     .size(22.dp)
                     .clip(CircleShape)

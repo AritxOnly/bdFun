@@ -104,3 +104,7 @@
 ## 2026-11-12 · 自有滚动视口
 
 `chrome/TeakScrollContainer.kt`与`chrome/TeakContentWidth.kt`为本项目实现。使用Compose公开Layout/scrollable/ScrollableState，以并列留白手势区替代原centeredListWidth的祖先scrollable；没有复制第三方手势引擎。宽度规则来自本项目原ListContentWidth.kt。
+
+### 2026-11-13 跨视频/直播共用播放绘制
+
+`common/player/PlayerGlyphs.kt`由bdFun既有FullscreenGlyphs中的PixelIcon/PlayGlyph/PauseGlyph原样迁入；PlayGlyph仅增加显式资源ID参数，仍绘制app传入的原TeakIcon.PlayerPlay。保留BitmapFactory、FilterQuality.High、暂停条尺寸/间距和内容描述；不包含业务模型、账号状态、网络或资源目录反向依赖。视频/直播都从TeakUI导入，不通过feature:video共享UI。

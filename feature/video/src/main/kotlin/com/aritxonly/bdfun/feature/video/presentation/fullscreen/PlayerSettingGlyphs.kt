@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.sp
 private val GlyphSize = 22.dp
 
 @Composable
-internal fun AutoPlayNextGlyph(tint: Color = Color.White) {
+fun AutoPlayNextGlyph(tint: Color = Color.White) {
     Canvas(Modifier.size(GlyphSize)) {
         val s = size.width
         val stroke = 1.6.dp.toPx()
@@ -43,7 +43,7 @@ internal fun AutoPlayNextGlyph(tint: Color = Color.White) {
 }
 
 @Composable
-internal fun LoopGlyph(tint: Color = Color.White) {
+fun LoopGlyph(tint: Color = Color.White) {
     Canvas(Modifier.size(GlyphSize)) {
         val s = size.width
         val stroke = 1.6.dp.toPx()
@@ -74,7 +74,7 @@ internal fun LoopGlyph(tint: Color = Color.White) {
 }
 
 @Composable
-internal fun MirrorGlyph(tint: Color = Color.White) {
+fun MirrorGlyph(tint: Color = Color.White) {
     Canvas(Modifier.size(GlyphSize)) {
         val s = size.width
         val stroke = 1.6.dp.toPx()
@@ -107,7 +107,7 @@ internal fun MirrorGlyph(tint: Color = Color.White) {
 }
 
 @Composable
-internal fun BackgroundListenGlyph(tint: Color = Color.White) {
+fun BackgroundListenGlyph(tint: Color = Color.White) {
     Canvas(Modifier.size(GlyphSize)) {
         val s = size.width
         val stroke = 1.7.dp.toPx()
@@ -174,7 +174,7 @@ internal fun ColorAssistGlyph(tint: Color = Color.White) {
 }
 
 @Composable
-internal fun SpeedGlyph(tint: Color = Color.White) {
+fun SpeedGlyph(tint: Color = Color.White) {
     Canvas(Modifier.size(GlyphSize)) {
         val s = size.width
         val stroke = 1.6.dp.toPx()
@@ -198,7 +198,7 @@ internal fun SpeedGlyph(tint: Color = Color.White) {
 }
 
 @Composable
-internal fun TimerGlyph(tint: Color = Color.White) {
+fun TimerGlyph(tint: Color = Color.White) {
     Canvas(Modifier.size(GlyphSize)) {
         val s = size.width
         val stroke = 1.6.dp.toPx()
@@ -210,7 +210,7 @@ internal fun TimerGlyph(tint: Color = Color.White) {
 }
 
 @Composable
-internal fun SubtitleGlyph(tint: Color = Color.White) {
+fun SubtitleGlyph(tint: Color = Color.White) {
     Canvas(Modifier.size(GlyphSize)) {
         val s = size.width
         val stroke = 1.5.dp.toPx()
@@ -227,7 +227,7 @@ internal fun SubtitleGlyph(tint: Color = Color.White) {
 }
 
 @Composable
-internal fun DanmakuSettingGlyph(tint: Color = Color.White) {
+fun DanmakuSettingGlyph(tint: Color = Color.White) {
     Canvas(Modifier.size(GlyphSize)) {
         val s = size.width
         val stroke = 1.5.dp.toPx()
@@ -250,7 +250,7 @@ internal fun DanmakuSettingGlyph(tint: Color = Color.White) {
 }
 
 @Composable
-internal fun DislikeGlyph(tint: Color = Color.White, sizeDp: androidx.compose.ui.unit.Dp = 24.dp) {
+fun DislikeGlyph(tint: Color = Color.White, sizeDp: androidx.compose.ui.unit.Dp = 24.dp) {
     Canvas(Modifier.size(sizeDp)) {
         val s = size.width
         val stroke = 1.5.dp.toPx()
@@ -297,7 +297,7 @@ internal fun CacheGlyphSmall(tint: Color = Color.White, sizeDp: androidx.compose
 }
 
 @Composable
-internal fun PipGlyphSmall(tint: Color = Color.White, sizeDp: androidx.compose.ui.unit.Dp = 24.dp) {
+fun PipGlyphSmall(tint: Color = Color.White, sizeDp: androidx.compose.ui.unit.Dp = 24.dp) {
     Canvas(Modifier.size(sizeDp)) {
         val s = size.width
         val stroke = 1.5.dp.toPx()
@@ -318,7 +318,7 @@ internal fun PipGlyphSmall(tint: Color = Color.White, sizeDp: androidx.compose.u
 }
 
 @Composable
-internal fun CastGlyphSmall(tint: Color = Color.White, sizeDp: androidx.compose.ui.unit.Dp = 24.dp) {
+fun CastGlyphSmall(tint: Color = Color.White, sizeDp: androidx.compose.ui.unit.Dp = 24.dp) {
     Canvas(Modifier.size(sizeDp)) {
         val s = size.width
         val stroke = 1.5.dp.toPx()

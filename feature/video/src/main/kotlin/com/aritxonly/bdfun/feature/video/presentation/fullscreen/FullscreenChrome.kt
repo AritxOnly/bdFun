@@ -32,14 +32,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.kyant.shapes.Capsule
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
 @Composable
-internal fun FullscreenPlayerChrome(
+fun FullscreenPlayerChrome(
     info: FullscreenPlayerInfo,
     playback: FullscreenPlaybackState,
     actions: FullscreenActions,
@@ -47,23 +46,14 @@ internal fun FullscreenPlayerChrome(
     onPanelChanged: (FullscreenPanel) -> Unit,
     modifier: Modifier = Modifier,
     scrubOnly: Boolean = false,
-    onScrubStart: () -> Unit = {},
-    onScrubEnd: () -> Unit = {},
-    onScrubLook: (Float) -> Unit = {},
-    onScrubPreview: (Long) -> Unit = {},
+    scrub: FullscreenScrubActions = FullscreenScrubActions({}, {}, {}, {}),
     onPanelHidden: () -> Unit = {},
+    appearance: FullscreenAppearance,
+    slots: FullscreenChromeSlots,
 ) {
 
     if (playback.audioOnly) {
-        FullscreenAudioMode(
-            info = info,
-            playback = playback,
-            onBack = { actions.onAudioOnlyChanged(false) },
-            onPlayPause = actions.onPlayPause,
-            onSeek = actions.onSeek,
-            onSeekRelative = actions.onSeekRelative,
-            modifier = modifier,
-        )
+        slots.audio(info, playback, actions, modifier)
         return
     }
 
@@ -78,12 +68,12 @@ internal fun FullscreenPlayerChrome(
                     alpha = if (!panelVisible && !scrubOnly) 1f else 0f
                 },
         ) {
-        FullscreenChromeMasks()
-        FullscreenHeader(info, actions, onPanelChanged)
-        FullscreenAuthor(info, actions)
-        FullscreenTimeline(playback, actions, FullscreenScrubActions(onScrubStart, onScrubEnd, onScrubLook, onScrubPreview))
+        FullscreenChromeMasks(appearance)
+        FullscreenHeader(info, actions, onPanelChanged, appearance)
+        FullscreenAuthor(info, actions, appearance, slots)
+        FullscreenTimeline(playback, actions, scrub)
 
-        FullscreenBottomControls(info, playback, actions, onPanelChanged)
+        FullscreenBottomControls(info, playback, actions, onPanelChanged, appearance)
         }
 
         // 二级面板：统一右侧渐变遮罩
@@ -95,13 +85,15 @@ internal fun FullscreenPlayerChrome(
                 actions = actions,
                 onClose = { onPanelChanged(FullscreenPanel.None) },
                 visible = panel != FullscreenPanel.None,
+                accentColor = appearance.accentColor,
+                danmakuContent = slots.danmaku,
             )
         }
     }
 }
 
 
-internal class FullscreenScrubActions(
+class FullscreenScrubActions(
     val onScrubStart: () -> Unit, val onScrubEnd: () -> Unit,
     val onScrubLook: (Float) -> Unit, val onScrubPreview: (Long) -> Unit,
 )

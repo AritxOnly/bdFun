@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.BrandPink
 
 @Composable
 internal fun QualityPanel(
@@ -29,6 +28,7 @@ internal fun QualityPanel(
     playback: FullscreenPlaybackState,
     actions: FullscreenActions,
     onClose: () -> Unit,
+    accentColor: Color,
 ) {
 
     PanelCard(title = "画质") {
@@ -41,7 +41,7 @@ internal fun QualityPanel(
                     .weight(1f)
                     .verticalScroll(rememberScrollState()),
             ) {
-                AutomaticQualityRow(playback.autoQuality, actions, onClose)
+                AutomaticQualityRow(playback.autoQuality, actions, onClose, accentColor)
                 playback.qualities
                     .let { list ->
                         // 和半屏播放器一致：不列 720P 以下的档位；
@@ -50,7 +50,7 @@ internal fun QualityPanel(
                     }
                     .forEach { item ->
                     val active = !playback.autoQuality && item.id == playback.qualityId
-                    QualityOptionRow(item, active, actions, onClose)
+                    QualityOptionRow(item, active, actions, onClose, accentColor)
                 }
             }
         }
@@ -58,14 +58,14 @@ internal fun QualityPanel(
 
 
 @Composable
-private fun AutomaticQualityRow(active: Boolean, actions: FullscreenActions, onClose: () -> Unit) {
+private fun AutomaticQualityRow(active: Boolean, actions: FullscreenActions, onClose: () -> Unit, accentColor: Color) {
     // 自动：按当前网速挑一档；选中后画质标签显示「自动」
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(
-                if (active) BrandPink.copy(alpha = 0.18f) else Color.Transparent,
+                if (active) accentColor.copy(alpha = 0.18f) else Color.Transparent,
             )
             .clickable(interactionSource = null, indication = null) {
                 actions.onQualitySelected(0)
@@ -76,23 +76,23 @@ private fun AutomaticQualityRow(active: Boolean, actions: FullscreenActions, onC
     ) {
         Text(
             text = "自动",
-            color = if (active) BrandPink else Color.White,
+            color = if (active) accentColor else Color.White,
             fontSize = 15.sp,
             fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
             modifier = Modifier.weight(1f),
         )
-        if (active) CheckGlyph(BrandPink)
+        if (active) CheckGlyph(accentColor)
     }
 }
 
 @Composable
-private fun QualityOptionRow(item: com.aritxonly.bdfun.data.Quality, active: Boolean, actions: FullscreenActions, onClose: () -> Unit) {
+private fun QualityOptionRow(item: com.aritxonly.bdfun.core.model.video.Quality, active: Boolean, actions: FullscreenActions, onClose: () -> Unit, accentColor: Color) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(
-                if (active) BrandPink.copy(alpha = 0.18f) else Color.Transparent,
+                if (active) accentColor.copy(alpha = 0.18f) else Color.Transparent,
             )
             .clickable(interactionSource = null, indication = null) {
                 actions.onQualitySelected(item.id)
@@ -104,7 +104,7 @@ private fun QualityOptionRow(item: com.aritxonly.bdfun.data.Quality, active: Boo
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = qualityMenuLabel(item.label),
-                color = if (active) BrandPink else Color.White,
+                color = if (active) accentColor else Color.White,
                 fontSize = 15.sp,
                 fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
             )
@@ -117,6 +117,6 @@ private fun QualityOptionRow(item: com.aritxonly.bdfun.data.Quality, active: Boo
                 )
             }
         }
-        if (active) CheckGlyph(BrandPink)
+        if (active) CheckGlyph(accentColor)
     }
 }

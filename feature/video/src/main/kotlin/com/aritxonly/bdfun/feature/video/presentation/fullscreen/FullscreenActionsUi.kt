@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.teak.common.player.PixelIcon
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
@@ -17,13 +19,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.BrandPink
 import com.kyant.shapes.Capsule
 
 @Composable
 internal fun BadgeStatAction(
     icon: Int,
     count: Long,
+    accentColor: Color,
     active: Boolean = false,
     yOffset: androidx.compose.ui.unit.Dp = (-7).dp,
     xOffset: androidx.compose.ui.unit.Dp = 0.dp,
@@ -41,13 +43,13 @@ internal fun BadgeStatAction(
     ) {
         PixelIcon(
             res = icon,
-            tint = if (active) BrandPink else Color.White,
+            tint = if (active) accentColor else Color.White,
             modifier = Modifier.size(22.dp),
         )
         if (count > 0L) {
             Text(
                 text = compactCount(count),
-                color = if (active) BrandPink else Color.White,
+                color = if (active) accentColor else Color.White,
                 fontSize = 9.5.sp,
                 lineHeight = 10.sp,
                 fontWeight = FontWeight.Medium,
@@ -108,6 +110,7 @@ internal fun PlayerIconButton(
 @Composable
 internal fun PlayerTextAction(
     text: String,
+    accentColor: Color,
     active: Boolean = false,
     muted: Boolean = false,
     onClick: () -> Unit,
@@ -116,7 +119,7 @@ internal fun PlayerTextAction(
     Text(
         text = text,
         color = when {
-            active -> BrandPink
+            active -> accentColor
             muted -> Color.White.copy(alpha = 0.35f)
             else -> Color.White
         },

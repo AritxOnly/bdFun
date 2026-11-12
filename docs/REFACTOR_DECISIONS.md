@@ -460,3 +460,11 @@ Brotli 0.1.2沿用main选择，集中版本表并仅由infra:bili声明，用于
 - ui/video、ui/player、VideoPlayer与presentation/comment新增禁止AppGraph、旧全局别名和直接日志实现的守卫；诊断回调仍指向原debug日志，不改变日志格式或release开关。
 - 五个纯展示文件（FullscreenFormatting/QualityLabel/Status/SeekBar/SeekThumb）进入实际视频模块；只调整跨模块可见性和SubtitleCue模型import，逐文件去掉import/visibility后内容完全一致。全屏进度状态类原样分离，内联进度状态留原调用方；不改尺寸、字体、颜色、指针手势或布局节点。
 - 这是模块边界继续收口，不代表全部视频渲染已迁完；原生装配和剩余展示组合仍在app，完整生命周期及最终交付继续。
+
+## 2026-11-13 · 全屏控制根组合与七个面板进入视频模块
+
+- Speed/Quality/Episodes/Subtitles/Favorite/Cache/More及公共卡片、标题、纯glyph、面板渐变/动画主机迁入feature:video。强调色为显式Color参数，app仍传入原BrandPink；不是改用Miuix主色或固定粉色。7个面板去除import/可见性/显式accent传参后布局与动作token一致，PanelHeader/Card体逐字一致。
+- FullscreenPlayerChrome、顶栏/作者/时间轴/底栏、按钮与资源绘制迁入模块。资源ID与showActions/showViewerCount/showTime归组装壳显式传入；原9个TeakIcon值一一对应，不更换图片。头像slot保留原rememberImageRequest/Coil节点和modifier，不在新模块复制图片策略。音频/弹幕内容暂由app slot接入，保留后续实际迁移范围。
+- 4个scrub回调归入原FullscreenScrubActions，根入口维持≤12参数。原264ms显隐、遮罩断点、尺寸/间距/字体/文字/条件、选中状态与业务回调不改；主机瞬态状态按现有规范放入StateHolder。
+- 面板主机改用TeakUI已有rememberManualProgress；已逐字核对它与旧app函数的动画体一致（含LaunchedEffect键、8ms delay和起止处理），不新增第二套动画实现。
+- PixelIcon/PlayGlyph/PauseGlyph被视频和直播共同使用，放入TeakUI纯展示；不得让直播通过视频feature取得图标。PlayerSettingGlyphs及其它视频专用绘制归视频模块。所有新帮助函数按实际跨模块调用保留internal，未增加新依赖或新UI模块。

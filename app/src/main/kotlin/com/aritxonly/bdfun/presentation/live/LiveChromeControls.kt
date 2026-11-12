@@ -1,5 +1,8 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.teak.common.player.PlayGlyph
+import com.aritxonly.teak.common.player.PauseGlyph
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -57,7 +60,7 @@ internal fun LiveChromeRender.LiveChromePrimaryControls() {
                         if (playing) {
                             PauseGlyph()
                         } else {
-                            PlayGlyph(size = if (landscape) 24.dp else 22.dp)
+                            PlayGlyph(com.aritxonly.bdfun.ui.TeakIcon.PlayerPlay, size = if (landscape) 24.dp else 22.dp)
                         }
                     }
                     Spacer(Modifier.width(if (landscape) 12.dp else 7.dp))
