@@ -16,12 +16,13 @@ internal fun BindPlayerInitialEffects(
     playback: VideoPlaybackPlatform, media: VideoMediaInput, ui: VideoPlayerUiStateHolder,
 ) {
     val log = LocalVideoPageState.current.dependencies.log
+    val settings = LocalVideoPageState.current.settings
     val bvid = media.bvid
     val info = media.info
     val quality = media.quality
     var usingFallback by ui.usingFallback
     var usingOriginal by ui.usingOriginal
-    BindPlayerLifecycle(playback, ui)
+    BindPlayerLifecycle(playback, ui, LocalVideoPageState.current) { settings.backgroundPlay }
     BindPlayerBuffering(playback, ui)
     LaunchedEffect(info, quality) {
         usingFallback = false
@@ -32,7 +33,7 @@ internal fun BindPlayerInitialEffects(
                 "qualities=${info?.qualities?.size ?: 0}",
         )
     }
-    BindPlayerLoudness(playback, ui)
+    BindPlayerLoudness(playback, ui) { settings.loudnessEq }
 }
 
 @Composable
@@ -49,7 +50,7 @@ internal fun BindPlayerPresentationSetup(
     val qualitySpring =
         rememberSpringFloat(if (qualityMenu) 1f else 0f, stiffness = 300f, damping = 22f)
     // 全屏新 UI 的本地状态：二级面板、听视频、镜像、循环、画面尺寸、定时关闭等
-    BindPlayerOrientation(fullscreen, ui)
+    BindPlayerOrientation(fullscreen, ui, LocalVideoPageState.current)
     var fsAutoPlayNext by ui.fsAutoPlayNext
     LaunchedEffect(fsAutoPlayNext) {
         settings.autoPlayNext = fsAutoPlayNext
@@ -93,11 +94,14 @@ internal fun BindPlayerEngineEffects(
     media: VideoMediaInput, presentation: VideoPlayerPresentation,
     actions: VideoPlayerActions, ui: VideoPlayerUiStateHolder, tracking: PlaybackTrackingStateHolder,
 ) {
+    val pageSettings = LocalVideoPageState.current.settings
     val playing by observed.playing
     BindPlayerMediaBridge(playback, media, presentation, actions, ui)
-    BindPlayerControlVisibility(playback, presentation.fullscreen, playing, ui)
+    BindPlayerControlVisibility(playback, presentation.fullscreen, playing, ui, LocalVideoPageState.current)
     BindPlayerObserver(playback, media, actions, ui)
-    BindPlayerSource(playback, media, presentation, ui)
+    BindPlayerSource(playback, media, presentation, ui, rememberPlayerDiagnostics()) {
+        pageSettings.autoPlay
+    }
     BindPlayerProgressTracking(playback, media.bvid, ui, tracking)
 }
 

@@ -11,7 +11,7 @@ internal fun androidx.compose.foundation.layout.BoxScope.VideoActivityTabs(
 ) {
     val page = LocalVideoPageState.current
     val settings = page.settings
-    VideoPageTabs(layout, page.playerBottomPx, pager,
+    VideoPageTabs(layout, { page.playerBottomPx }, pager,
         onSelect = { scope.launch { pager.animateScrollToPage(it) } },
         danmakuOn = settings.danmakuOn,
         onOpenInput = { ui.danmakuInputOpen.value = true },

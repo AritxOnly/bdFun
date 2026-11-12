@@ -19,7 +19,7 @@ internal class VideoPagePresentationState(
     val settings: com.aritxonly.bdfun.core.domain.SettingsRepository,
     val dependencies: VideoPageDependencies,
     private val holder: VideoPageStateHolder = VideoPageStateHolder(),
-) {
+) : PlayerPageHost {
     private var snapshot by mutableStateOf(holder.state.value)
     init { scope.launch(start = CoroutineStart.UNDISPATCHED) { holder.state.collect { snapshot = holder.state.value } } }
     private fun update(transform: (com.aritxonly.bdfun.core.application.VideoPageState) -> com.aritxonly.bdfun.core.application.VideoPageState) {
@@ -145,28 +145,28 @@ internal class VideoPagePresentationState(
                 fullscreen = value,
             ),
         ) }
-    var controlsVisible: Boolean
+    override var controlsVisible: Boolean
         get() = snapshot.controlsVisible
         set(value) = update { it.copy(
             player = it.player.copy(
                 controlsVisible = value,
             ),
         ) }
-    var danmakuPanelOpen: Boolean
+    override var danmakuPanelOpen: Boolean
         get() = snapshot.danmakuPanelOpen
         set(value) = update { it.copy(
             player = it.player.copy(
                 danmakuPanelOpen = value,
             ),
         ) }
-    var danmakuInteract: Int
+    override var danmakuInteract: Int
         get() = snapshot.danmakuInteract
         set(value) = update { it.copy(
             requests = it.requests.copy(
                 danmakuInteract = value,
             ),
         ) }
-    var orientationLocked: Boolean
+    override var orientationLocked: Boolean
         get() = snapshot.orientationLocked
         set(value) = update { it.copy(
             player = it.player.copy(
@@ -202,8 +202,8 @@ internal class VideoPagePresentationState(
     val orientation get() = Orientation(this)
     val replyTarget get() = Reply(this)
     fun requestAutoNext() { autoNextRequest++ }
-    fun registerPause(owner: Any?, hook: (Boolean) -> Unit) = pauses.register(owner, hook)
-    fun unregisterPause(hook: (Boolean) -> Unit) = pauses.unregister(hook)
+    override fun registerPause(owner: Any?, hook: (Boolean) -> Unit) = pauses.register(owner, hook)
+    override fun unregisterPause(hook: (Boolean) -> Unit) = pauses.unregister(hook)
     fun pauseFor(owner: Any) = pauses.pauseFor(owner)
     fun pauseAll(allowResume: Boolean = true) = pauses.pauseAll(allowResume)
 

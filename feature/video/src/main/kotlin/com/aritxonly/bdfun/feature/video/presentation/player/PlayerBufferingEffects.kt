@@ -12,7 +12,7 @@ import com.aritxonly.bdfun.core.application.PlaybackPhase
 import kotlinx.coroutines.delay
 
 @Composable
-internal fun BindPlayerBuffering(playback: PlaybackController, ui: VideoPlayerUiStateHolder) {
+fun BindPlayerBuffering(playback: PlaybackController, ui: VideoPlayerUiStateHolder) {
     val state = playback.state.collectAsState()
     val buffering by remember(playback) {
         derivedStateOf { state.value.phase == PlaybackPhase.Buffering || state.value.phase == PlaybackPhase.Idle }

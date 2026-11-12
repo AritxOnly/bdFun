@@ -9,15 +9,13 @@ import com.aritxonly.bdfun.feature.video.presentation.VideoPlaybackPlatform
 import androidx.compose.ui.platform.LocalContext
 
 @Composable
-internal fun BindPlayerSource(
+fun BindPlayerSource(
     playback: VideoPlaybackPlatform,
     media: VideoMediaInput,
     presentation: VideoPlayerPresentation,
-    ui: VideoPlayerUiStateHolder,
+    ui: VideoPlayerUiStateHolder, diagnostics: PlayerDiagnostics, autoPlay: () -> Boolean,
 ) {
-    val log = LocalVideoPageState.current.dependencies.log
-    val settings = LocalVideoPageState.current.settings
-    val context = LocalContext.current
+    val log = diagnostics.log
     val bvid = media.bvid
     val info = media.info
     val quality = media.quality
@@ -42,7 +40,7 @@ internal fun BindPlayerSource(
                     "usingOriginal=$usingOriginal usingFallback=$usingFallback",
             )
             if (info != null && info.qualities.isEmpty() && info.fallbackUrl.isNullOrBlank()) {
-                context.showToast("播放地址为空，已记录日志")
+                diagnostics.toast("播放地址为空，已记录日志")
             }
             return@LaunchedEffect
         }
@@ -60,7 +58,7 @@ internal fun BindPlayerSource(
         playback.prepare(PlaybackSource(
             videoUrl = url, audioUrl = audioUrl,
             headers = mapOf("Referer" to "https://www.bilibili.com/video/$bvid/"), userAgent = playback.userAgent,
-            resumePositionMs = resumePositionMs, autoPlay = settings.autoPlay, speed = speed,
+            resumePositionMs = resumePositionMs, autoPlay = autoPlay(), speed = speed,
         ))
     }
 

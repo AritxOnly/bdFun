@@ -9,11 +9,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import com.aritxonly.bdfun.core.application.PlaybackController
-import com.aritxonly.bdfun.data.DanmakuItem
+import com.aritxonly.bdfun.core.model.video.DanmakuItem
+import com.aritxonly.bdfun.core.domain.selectHotDanmaku
 import kotlin.math.abs
 
 @Composable
-internal fun BindPlayerHotDanmaku(
+fun BindPlayerHotDanmaku(
     playback: PlaybackController,
     danmaku: List<DanmakuItem>,
     danmakuVisible: Boolean,
@@ -31,18 +32,7 @@ internal fun BindPlayerHotDanmaku(
         }
         while (true) {
             val now = positionMs
-            val from = (now - 15_000L).coerceAtLeast(0L)
-            hotDanmaku = danmaku.asSequence()
-                .filter { it.id > 0L && it.text.isNotBlank() && it.likeCount >= 10L }
-                .filter { it.timeMs in from..now }
-                .sortedWith(
-                    compareByDescending<DanmakuItem> { it.likeCount }.thenBy { it.id },
-                )
-                .distinctBy { it.id }
-                .distinctBy { it.text }
-                .take(2)
-                .map { it.text to it.likeCount }
-                .toList()
+            hotDanmaku = selectHotDanmaku(danmaku, now)
             kotlinx.coroutines.delay(1_000L)
         }
     }
@@ -50,7 +40,7 @@ internal fun BindPlayerHotDanmaku(
 }
 
 @Composable
-internal fun BindPlayerDanmakuClock(
+fun BindPlayerDanmakuClock(
     playback: PlaybackController,
     playing: Boolean,
     danmakuVisible: Boolean,

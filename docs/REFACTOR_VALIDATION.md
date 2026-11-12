@@ -634,3 +634,13 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - 15个原文件数值/中文文案字面量序列相同（已确认无调用的PlayPauseButton删除；TvBuffering 26.4dp原值移至app槽）。TeakActionSheet外壳体逐字相同；UI状态/投影、图标、缩放动画及原手势变换保持。未新增业务策略，不为机械搬迁追加镜像单测。
 - `/tmp/bdfun-player-surface-runtime.log`最终源码首轮通过：当前debug真实PLAYING、内联更多/关闭、听视频进入/退出与原画面/控制条恢复，crash空/force-stop，没有改设置/账号数据。`/tmp/bdfun-inline-more.png`、`/tmp/bdfun-inline-audio.png`及`/tmp/bdfun-player-surface-return.png`已查看，确认原快速动作/图片/暂停图标/进度与真实原生画面。未声称亮度/音量/缩放手势、全屏生命周期或全站main逐像素验收已完成。
 - 原生命周期/媒体/窗口装配接线及最终验收继续；旧release不覆盖本批生产源码，最终收尾统一重建，不重复每批release。
+
+### 2026-11-13 生命周期控制迁移与tab旋转位置修复
+
+- `/tmp/bdfun-player-lifecycle.log`最终28s通过checkLayering、独立feature/app debug及4项HotDanmakuSelectionTest；首轮缺WindowCompat依赖，显式声明原catalog同版本AndroidX Core后通过。`/tmp/bdfun-hot-danmaku-final.log`3s重新运行同4项并通过（补强同赞id排序、较低点赞重复id在输入中先出现的边界），没有增加镜像UI测试。
+- 原WindowEffects/BufferingEffects除可见性/core模型import外体逐字一致；PageHost委托原StateFlow与PauseRegistry，设置读点用getter，原Effect键及延迟不变。最初973文件/10491节点/0违规。
+- 原生驱动尝试不计完整通过：先两次只写系统方向键未改变运行时WM锁；采集确认init=1080x2424、VideoActivity请求USER而WM实际lock1。改用wm user-rotation lock0后窗口前提成立；播放中的语义变化又使uiautomator等到控件隐藏，暂停后按真实tab边界定位控件，旋转段通过。直接启动非导出VideoActivity的返回命令被Android拒绝，未更改manifest；改用系统PiP菜单，驱动仍未找到展开入口。未反复重跑这条PiP返回路径，也没有把任务mode=pinned当整条通过。
+- `/tmp/bdfun-lifecycle-module-runtime.log`整体退出1，保留PiP返回缺口；其中独立通过：真实竖屏→独占全屏横屏/原chrome→Back简介→WM竖屏；Home实际pinned且当前包PLAYING；后台开启时Home不进入PiP且PLAYING，后台关闭时ON_STOP PAUSED。PiP展开返回未验证成功。所有分支finally逐字恢复settings.xml及.bak的原字节/不存在状态、原WM/系统方向并force-stop。没有账号写操作。
+- 查看旋转后截图额外发现上一批迁移引入tab停在正文中的真实偏差。对照main 4c4e03b VideoActivity.kt:466-468，恢复在graphicsLayer内通过getter读取原底边，未改位置公式或TeakPagerTabs。`/tmp/bdfun-tab-position-read.log`37s通过独立模块/app与架构，最新973文件/10493节点/0违规。
+- `/tmp/bdfun-tab-position-runtime.log`最终源码首轮通过专门回归：真实起播后暂停以稳定采集→WM竖屏→控件进入独占横屏→原chrome→返回简介→WM竖屏→断言tab.bottom<=author.top，crash空。实际tab=[97,787,168,850]、author=[173,915,289,978]；截图`/tmp/bdfun-lifecycle-tab-position-after-rotation.png`已查看，tab重回视频底边。设置/WM方向精确恢复。这里主动使用WM回竖屏，不声称验证了物理传感器自动旋转或全套PiP/进度恢复。
+- 本批不再重复PiP驱动；媒体/后台交接及进度等装配继续，完整行为、最终main/release与交付仍未完成。

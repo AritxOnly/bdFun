@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun androidx.compose.foundation.layout.BoxScope.VideoPageTabs(
-    layout: VideoActivityLayout, playerBottomPx: Float,
+    layout: VideoActivityLayout, playerBottomPx: () -> Float,
     pager: androidx.compose.foundation.pager.PagerState, onSelect: (Int) -> Unit,
     danmakuOn: Boolean, onOpenInput: () -> Unit, onToggleDanmaku: () -> Unit,
     chip: @Composable (String, Boolean, androidx.compose.ui.unit.Dp, () -> Unit) -> Unit,
@@ -42,7 +42,7 @@ fun androidx.compose.foundation.layout.BoxScope.VideoPageTabs(
                 .then(if (splitPanes) Modifier.width(paneLayout.detailsWidthDp.dp) else Modifier.fillMaxWidth())
                 .graphicsLayer {
                     alpha = overlayAlpha
-                    translationY = if (splitPanes) 0f else playerBottomPx
+                    translationY = if (splitPanes) 0f else playerBottomPx()
                 },
         ) {
             Row(

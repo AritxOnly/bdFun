@@ -468,3 +468,7 @@ app/ui/player/fullscreen原三份剩余展示已迁入feature:video。听视频�
 ### 2026-11-13 内联播放器与播放表面模块归属
 
 内联控件/音频/更多及瞬时VideoPlayerUiState、只读播放投影、提示/缩放/画面覆盖和实际PlayerSurface进入feature:video。原生View仍经VideoPlaybackPlatform创建；UiState原资源引用随组合生命周期，不能升为单例。app仅提供原资源/图片/缓冲指示器和DanmakuLayer槽；设置以显式值传入。TeakActionSheet原共用外壳已下沉TeakUI，消息/详情调用同一函数，无新设计系统。
+
+### 2026-11-13 播放器生命周期端口与读取时机
+
+生命周期/控件显隐/方向/系统栏/HDR/来源/音效/弹幕时钟进入feature:video，通过PlayerPageHost读写原页面投影与暂停注册表，不新增第二份状态。设置在原回调/Effect读点使用getter，不能冻结为首次值。尤其graphicsLayer/draw中的状态读取迁移后必须保留在原绘制阶段：VideoPageTabs的playerBottomPx以getter输入，禁止提前取Float，否则旋转后tab会滞留旧高度。热门弹幕筛选为core:domain的selectHotDanmaku，原窗口/排序/去重顺序不变。

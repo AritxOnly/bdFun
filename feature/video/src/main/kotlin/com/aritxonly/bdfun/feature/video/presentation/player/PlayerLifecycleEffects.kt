@@ -10,9 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
 @Composable
-internal fun BindPlayerLifecycle(playback: PlaybackController, ui: VideoPlayerUiStateHolder) {
-    val settings = LocalVideoPageState.current.settings
-    val VideoPageBus = LocalVideoPageState.current
+fun BindPlayerLifecycle(playback: PlaybackController, ui: VideoPlayerUiStateHolder, page: PlayerPageHost, backgroundPlay: () -> Boolean) {
     val activity = LocalContext.current as? Activity
     var resumeOnReturn by ui.resumeOnReturn
     DisposableEffect(playback) {
@@ -23,9 +21,9 @@ internal fun BindPlayerLifecycle(playback: PlaybackController, ui: VideoPlayerUi
                 playback.refresh().phase != PlaybackPhase.Idle
             playback.pause()
         }
-        VideoPageBus.registerPause(activity, pauseHook)
+        page.registerPause(activity, pauseHook)
         onDispose {
-            VideoPageBus.unregisterPause(pauseHook)
+            page.unregisterPause(pauseHook)
         }
     }
     // 关闭「后台播放」后，App 退到后台立即暂停
@@ -34,7 +32,7 @@ internal fun BindPlayerLifecycle(playback: PlaybackController, ui: VideoPlayerUi
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             when (event) {
                 androidx.lifecycle.Lifecycle.Event.ON_STOP -> {
-                    if (!settings.backgroundPlay) {
+                    if (!backgroundPlay()) {
                         playback.pause()
                     }
                 }

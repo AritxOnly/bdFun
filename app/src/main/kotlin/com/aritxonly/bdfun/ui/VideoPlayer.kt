@@ -10,9 +10,6 @@ import androidx.compose.ui.unit.dp
 // 高倍速放最上面。
 internal val SPEEDS = listOf(2f, 1.5f, 1.25f, 1f, 0.75f, 0.5f)
 
-/** 控件无操作后自动渐隐的时长。 */
-internal const val HIDE_DELAY_MS = 4000L
-
 internal val TopGradientFullscreen = 120.dp
 internal val TopGradientInline = 64.dp
 internal val BottomGradientFullscreen = 160.dp

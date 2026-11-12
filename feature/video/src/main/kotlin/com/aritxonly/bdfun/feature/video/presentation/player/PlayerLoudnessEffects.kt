@@ -11,15 +11,14 @@ import androidx.compose.runtime.setValue
 import com.aritxonly.bdfun.feature.video.presentation.VideoPlaybackPlatform
 
 @Composable
-internal fun BindPlayerLoudness(playback: VideoPlaybackPlatform, ui: VideoPlayerUiStateHolder) {
-    val settings = LocalVideoPageState.current.settings
+fun BindPlayerLoudness(playback: VideoPlaybackPlatform, ui: VideoPlayerUiStateHolder, loudnessEq: () -> Boolean) {
     val state = playback.state.collectAsState()
     val ready by remember(playback) { derivedStateOf { state.value.ready } }
     var loudnessEnhancer by ui.loudnessEnhancer
-    LaunchedEffect(ready, settings.loudnessEq) {
+    LaunchedEffect(ready, loudnessEq()) {
         loudnessEnhancer?.release()
         loudnessEnhancer = null
-        if (ready && settings.loudnessEq) {
+        if (ready && loudnessEq()) {
             loudnessEnhancer = playback.createLoudnessEffect()
         }
     }

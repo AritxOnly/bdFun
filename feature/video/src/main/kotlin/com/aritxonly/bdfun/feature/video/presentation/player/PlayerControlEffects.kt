@@ -12,14 +12,13 @@ import com.aritxonly.bdfun.feature.video.presentation.VideoPlaybackPlatform
 import kotlinx.coroutines.delay
 
 @Composable
-internal fun BindPlayerControlVisibility(
+fun BindPlayerControlVisibility(
     playback: VideoPlaybackPlatform,
     fullscreen: Boolean,
     playing: Boolean,
-    ui: VideoPlayerUiStateHolder,
+    ui: VideoPlayerUiStateHolder, page: PlayerPageHost,
 ) {
     val context = LocalContext.current
-    val PlayerUiState = LocalVideoPageState.current.playerUi
     var controlsVisible by ui.controlsVisible
     var speedMenu by ui.speedMenu
     var fsPanel by ui.fsPanel
@@ -38,14 +37,14 @@ internal fun BindPlayerControlVisibility(
         }
     }
 
-    LaunchedEffect(controlsVisible) { PlayerUiState.controlsVisible = controlsVisible }
+    LaunchedEffect(controlsVisible) { page.controlsVisible = controlsVisible }
     DisposableEffect(Unit) {
-        onDispose { PlayerUiState.controlsVisible = false }
+        onDispose { page.controlsVisible = false }
     }
 
     LaunchedEffect(controlsVisible) {
         if (!controlsVisible) {
-            PlayerUiState.danmakuPanelOpen = false
+            page.danmakuPanelOpen = false
             speedMenu = false
             fsPanel = FullscreenPanel.None
             fsInputOpen = false
@@ -57,7 +56,7 @@ internal fun BindPlayerControlVisibility(
         lastFullscreenForControls = fullscreen
         // 进入 / 退出全屏（包括旋转触发）都不自动弹出控件，全部先收起。
         controlsVisible = false
-        PlayerUiState.controlsVisible = false
+        page.controlsVisible = false
         if (!fullscreen) {
             fsPanel = FullscreenPanel.None
             fsInputOpen = false
@@ -68,18 +67,17 @@ internal fun BindPlayerControlVisibility(
     LaunchedEffect(fsAudioOnly) {
         if (fsAudioOnly) {
             controlsVisible = true
-            PlayerUiState.controlsVisible = true
+            page.controlsVisible = true
         }
         // 听视频：真正关掉视频轨，只保留音频解码，不是拿一张图盖住画面
         playback.setVideoEnabled(!fsAudioOnly)
     }
 
-    BindPlayerControlsAutoHide(ui)
+    BindPlayerControlsAutoHide(ui, page)
 }
 
 @Composable
-private fun BindPlayerControlsAutoHide(ui: VideoPlayerUiStateHolder) {
-    val PlayerUiState = LocalVideoPageState.current.playerUi
+private fun BindPlayerControlsAutoHide(ui: VideoPlayerUiStateHolder, page: PlayerPageHost) {
     var controlsVisible by ui.controlsVisible
     val interactionTick by ui.interactionTick
     val boosting by ui.boosting
@@ -90,22 +88,25 @@ private fun BindPlayerControlsAutoHide(ui: VideoPlayerUiStateHolder) {
     LaunchedEffect(
         controlsVisible,
         interactionTick,
-        PlayerUiState.danmakuPanelOpen,
-        PlayerUiState.danmakuInteract,
+        page.danmakuPanelOpen,
+        page.danmakuInteract,
         boosting,
         fsPanel,
         fsInputOpen,
         fsAudioOnly,
         fsScrubbing,
     ) {
-        if (controlsVisible && !PlayerUiState.danmakuPanelOpen && !boosting &&
+        if (controlsVisible && !page.danmakuPanelOpen && !boosting &&
             fsPanel == FullscreenPanel.None && !fsInputOpen && !fsAudioOnly &&
             !fsScrubbing
         ) {
             delay(HIDE_DELAY_MS)
             controlsVisible = false
-            PlayerUiState.controlsVisible = false
+            page.controlsVisible = false
         }
     }
 
 }
+
+/** 原控件4秒自动隐藏；搬迁不改变交互时序。 */
+private const val HIDE_DELAY_MS = 4000L

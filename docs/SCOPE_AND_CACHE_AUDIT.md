@@ -50,3 +50,7 @@
 ### 2026-11-13 播放器展示状态物理迁移
 
 VideoPlayerUiStateHolder/PlayerObservedStateHolder移入feature:video，创建点与remember键、Dispose/资源释放点未变。VideoOutput、ForegroundMediaSession、PlaybackAudioEffect、Job等引用仍属原播放器组合；迁移不把对象加入AppContainer或静态缓存。PlayerSurfaceSlots只传原DanmakuLayer组合，位置getter继续在读取时计算frameMs-btLatencyMs，不缓存首帧位置或页面状态。
+
+### 2026-11-13 生命周期与页面端口
+
+PlayerPageHost由原VideoPagePresentationState直接实现，四项控制状态仍委托原StateFlow；暂停钩子仍由同一PlaybackPauseRegistry按原Activity owner登记/注销，没有额外状态或进程引用。后台/自动播放/音效设置getter保持原事件读取时机。新增PlayerDiagnostics为页面组合内日志/Toast接线，不进入进程缓存。

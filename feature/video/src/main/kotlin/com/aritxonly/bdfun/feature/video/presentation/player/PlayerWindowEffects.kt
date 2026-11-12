@@ -10,10 +10,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.aritxonly.bdfun.data.Quality
+import com.aritxonly.bdfun.core.model.video.Quality
 
 @Composable
-internal fun BindPlayerSystemBars(
+fun BindPlayerSystemBars(
     fullscreen: Boolean,
     immersiveStatusBar: Boolean,
     ui: VideoPlayerUiStateHolder,
@@ -60,7 +60,7 @@ internal fun BindPlayerSystemBars(
 }
 
 @Composable
-internal fun BindPlayerHdrWindow(quality: Quality?, fullscreen: Boolean) {
+fun BindPlayerHdrWindow(quality: Quality?, fullscreen: Boolean) {
     val activity = LocalContext.current as? Activity
     // HDR / 杜比视界：把屏幕亮度拉到最高，请求 HDR 颜色模式与 10bit 输出。
     // 部分机型不会因为 Surface 是 HDR 就自动提亮，这里显式做一次。
