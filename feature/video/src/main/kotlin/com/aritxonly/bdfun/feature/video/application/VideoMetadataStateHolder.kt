@@ -7,14 +7,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-internal data class VideoMetadataState(
+data class VideoMetadataState(
     val followers: Long = 0, val videos: Long = 0,
     val onlineCount: Long = 0, val onlineText: String = "",
     val subtitles: List<SubtitleTrack> = emptyList(), val selectedSubtitle: SubtitleTrack? = null,
     val subtitleCues: List<SubtitleCue> = emptyList(),
 )
 
-internal class VideoMetadataStateHolder(private val repository: VideoMetadataRepository) {
+class VideoMetadataStateHolder(private val repository: VideoMetadataRepository) {
     private val mutableState = MutableStateFlow(VideoMetadataState())
     val state = mutableState.asStateFlow()
     private var authorRevision = 0L

@@ -104,6 +104,7 @@ kotlin {
 
 dependencies {
     implementation(project(":feature:home"))
+    implementation(project(":feature:video"))
     implementation(project(":infra:storage"))
     implementation(project(":infra:playback"))
     implementation(project(":infra:bili"))

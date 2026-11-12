@@ -7,16 +7,16 @@ import com.aritxonly.bdfun.ui.FullscreenInteractionInfo
 import com.aritxonly.bdfun.core.model.video.*
 import com.aritxonly.bdfun.feature.video.application.*
 
-internal data class VideoPlayerContent(
+data class VideoPlayerContent(
     val video: VideoItem, val detail: VideoDetail?, val playInfo: PlayInfo?, val quality: Quality?,
     val danmaku: List<DanmakuItem>, val selection: VideoPlaybackSelection,
     val interaction: VideoInteractionState, val metadata: VideoMetadataState, val loggedIn: Boolean,
 )
-internal data class VideoPlayerFlags(val fullscreen: Boolean, val immersiveStatusBar: Boolean, val pictureInPicture: Boolean)
-internal data class VideoPlayerAssembly(val media: VideoMediaInput, val presentation: VideoPlayerPresentation)
+data class VideoPlayerFlags(val fullscreen: Boolean, val immersiveStatusBar: Boolean, val pictureInPicture: Boolean)
+data class VideoPlayerAssembly(val media: VideoMediaInput, val presentation: VideoPlayerPresentation)
 
 /** 将应用状态投影为现有播放器入参，不改变封面/标题回退与自动清晰度文案。 */
-internal fun assembleVideoPlayer(content: VideoPlayerContent, flags: VideoPlayerFlags): VideoPlayerAssembly {
+fun assembleVideoPlayer(content: VideoPlayerContent, flags: VideoPlayerFlags): VideoPlayerAssembly {
     val detail = content.detail
     val video = content.video
     val media = VideoMediaInput(content.selection.bvid, content.playInfo, content.quality, content.selection.autoQuality,

@@ -1,13 +1,13 @@
 package com.aritxonly.bdfun.ui
 
-import com.aritxonly.bdfun.data.FavoriteFolder
-import com.aritxonly.bdfun.data.DanmakuItem
-import com.aritxonly.bdfun.data.Quality
-import com.aritxonly.bdfun.data.SubtitleCue
-import com.aritxonly.bdfun.data.SubtitleTrack
-import com.aritxonly.bdfun.data.VideoPage
+import com.aritxonly.bdfun.core.model.library.FavoriteFolder
+import com.aritxonly.bdfun.core.model.video.DanmakuItem
+import com.aritxonly.bdfun.core.model.video.Quality
+import com.aritxonly.bdfun.core.model.video.SubtitleCue
+import com.aritxonly.bdfun.core.model.video.SubtitleTrack
+import com.aritxonly.bdfun.core.model.video.VideoPage
 
-internal enum class FullscreenPanel {
+enum class FullscreenPanel {
     None,
     Favorite,
     More,
@@ -19,9 +19,9 @@ internal enum class FullscreenPanel {
     Cache,
 }
 
-internal val FullscreenSpeeds = listOf(2f, 1.5f, 1.25f, 1f, 0.75f, 0.5f)
+val FullscreenSpeeds = listOf(2f, 1.5f, 1.25f, 1f, 0.75f, 0.5f)
 
-internal data class FullscreenPlayerInfo(
+data class FullscreenPlayerInfo(
     val video: FullscreenVideoInfo,
     val interaction: FullscreenInteractionInfo,
     val media: FullscreenMediaInfo,
@@ -51,7 +51,7 @@ internal data class FullscreenPlayerInfo(
     val danmakuItems get() = media.danmakuItems
 }
 
-internal data class FullscreenVideoInfo(
+data class FullscreenVideoInfo(
     val title: String,
     val author: String,
     val authorFace: String,
@@ -60,7 +60,7 @@ internal data class FullscreenVideoInfo(
     val cover: String,
 )
 
-internal data class FullscreenInteractionInfo(
+data class FullscreenInteractionInfo(
     val followed: Boolean = false,
     val liked: Boolean,
     val likeCount: Long,
@@ -73,7 +73,7 @@ internal data class FullscreenInteractionInfo(
     val loggedIn: Boolean,
 )
 
-internal data class FullscreenMediaInfo(
+data class FullscreenMediaInfo(
     val qualityLabel: String,
     val pages: List<VideoPage>,
     val currentCid: Long,
@@ -84,7 +84,7 @@ internal data class FullscreenMediaInfo(
 )
 
 
-internal data class FullscreenPlaybackState(
+data class FullscreenPlaybackState(
     val transport: FullscreenTransport,
     val options: FullscreenPlaybackOptions,
 ) {
@@ -109,7 +109,7 @@ internal data class FullscreenPlaybackState(
     val scrubbing get() = transport.scrubbing
 }
 
-internal data class FullscreenTransport(
+data class FullscreenTransport(
     val playing: Boolean,
     val positionMs: Long,
     val durationMs: Long,
@@ -119,7 +119,7 @@ internal data class FullscreenTransport(
     val scrubbing: Boolean = false,
 )
 
-internal data class FullscreenPlaybackOptions(
+data class FullscreenPlaybackOptions(
     val qualities: List<Quality>,
     val qualityId: Int,
     val autoQuality: Boolean = false,
@@ -135,7 +135,7 @@ internal data class FullscreenPlaybackOptions(
 )
 
 
-internal class FullscreenActions(
+class FullscreenActions(
     val navigation: FullscreenNavigationActions,
     val playback: FullscreenTransportActions,
     val social: FullscreenSocialActions,
@@ -174,7 +174,7 @@ internal class FullscreenActions(
     val onSeekRelative get() = playback.onSeekRelative
 }
 
-internal data class FullscreenNavigationActions(
+data class FullscreenNavigationActions(
     val onBack: () -> Unit,
     val onNext: () -> Unit,
     val onEpisodes: () -> Unit,
@@ -186,7 +186,7 @@ internal data class FullscreenNavigationActions(
     val onCast: () -> Unit,
 )
 
-internal data class FullscreenSocialActions(
+data class FullscreenSocialActions(
     val onLike: () -> Unit,
     val onShare: () -> Unit,
     val onToggleFolder: (Long) -> Unit,
@@ -195,7 +195,7 @@ internal data class FullscreenSocialActions(
     val onAddWatchLater: () -> Unit,
 )
 
-internal data class FullscreenTransportActions(
+data class FullscreenTransportActions(
     val onPlayPause: () -> Unit,
     val onSeek: (Long) -> Unit,
     val onQualitySelected: (Int) -> Unit,
@@ -206,7 +206,7 @@ internal data class FullscreenTransportActions(
     val onSeekRelative: (Long) -> Unit,
 )
 
-internal data class FullscreenPreferenceActions(
+data class FullscreenPreferenceActions(
     val onAudioOnlyChanged: (Boolean) -> Unit,
     val onAutoPlayNextChanged: (Boolean) -> Unit,
     val onLoopModeChanged: (Int) -> Unit,

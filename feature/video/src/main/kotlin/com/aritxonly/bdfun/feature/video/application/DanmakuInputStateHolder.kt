@@ -7,13 +7,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-internal data class DanmakuInputState(val text: String = "", val sending: Boolean = false, val failed: Boolean = false)
-internal enum class DanmakuInputResult { Success, Failure, Ignored }
-internal class PendingDanmakuInputSend(val text: String, val sender: suspend (String, Int, Int, Int) -> Boolean) {
+data class DanmakuInputState(val text: String = "", val sending: Boolean = false, val failed: Boolean = false)
+enum class DanmakuInputResult { Success, Failure, Ignored }
+class PendingDanmakuInputSend(val text: String, val sender: suspend (String, Int, Int, Int) -> Boolean) {
     var started = false
 }
 /** 半屏输入固定滚动/25号/白色；失败保留草稿，关闭后不再响应迟到成功。 */
-internal class DanmakuInputStateHolder {
+class DanmakuInputStateHolder {
     private val mutable = MutableStateFlow(DanmakuInputState())
     val state = mutable.asStateFlow()
     private var closed = false

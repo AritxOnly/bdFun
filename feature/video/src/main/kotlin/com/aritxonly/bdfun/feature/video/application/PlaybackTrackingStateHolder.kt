@@ -10,13 +10,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-internal data class PlaybackTrackingState(
+data class PlaybackTrackingState(
     val bvid: String = "", val segments: List<SponsorSegment> = emptyList(),
     val reporting: Boolean = false, val lastReportedAtMs: Long = 0,
 )
 
 /** 历史请求不阻塞进度轮询；片段按 bvid/开关版本隔离，协程取消继续传播。 */
-internal class PlaybackTrackingStateHolder(
+class PlaybackTrackingStateHolder(
     private val history: PlaybackHistoryRepository, private val sponsors: SponsorRepository,
 ) {
     private val mutableState = MutableStateFlow(PlaybackTrackingState())

@@ -73,3 +73,5 @@ include(":infra:playback")
 
 include(":feature:home")
 include(":tools:kotlin-audit")
+
+include(":feature:video")

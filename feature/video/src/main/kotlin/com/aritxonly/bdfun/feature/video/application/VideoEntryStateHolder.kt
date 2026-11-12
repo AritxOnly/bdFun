@@ -11,13 +11,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-internal data class VideoEntryState(
+data class VideoEntryState(
     val video: VideoItem?, val loading: Boolean, val error: AppError? = null,
 )
-internal enum class VideoEntryResolution { Ready, Close, Obsolete }
+enum class VideoEntryResolution { Ready, Close, Obsolete }
 
 /** 入口快照优先；BV/AV 回包映射沿用 Activity 原字段，页面只处理关闭与显示。 */
-internal class VideoEntryStateHolder(private val repository: VideoEntryRepository, snapshot: VideoItem? = null) {
+class VideoEntryStateHolder(private val repository: VideoEntryRepository, snapshot: VideoItem? = null) {
     private val initialSnapshot = snapshot
     private val mutableState = MutableStateFlow(VideoEntryState(snapshot, snapshot == null))
     val state = mutableState.asStateFlow()

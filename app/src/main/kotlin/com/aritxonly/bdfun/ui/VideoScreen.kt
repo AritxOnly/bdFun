@@ -2,9 +2,9 @@ package com.aritxonly.bdfun.ui
 
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import com.aritxonly.bdfun.feature.video.presentation.observeVideoFeatureState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 
@@ -15,10 +15,9 @@ internal fun VideoScreen(
 ) {
     val page = LocalVideoPageState.current
     val holders = rememberVideoScreenStateHolders(request)
-    val detail by holders.controllers.detail.state.collectAsState()
-    val selection by holders.controllers.selection.state.collectAsState()
-    val interaction by holders.controllers.interaction.state.collectAsState()
-    val metadata by holders.metadata.state.collectAsState()
+    val collected = observeVideoFeatureState(holders.controllers.detail, holders.controllers.selection,
+        holders.controllers.interaction, holders.metadata)
+    val (detail, selection, interaction, metadata) = collected
     // 只更新当前标识；真正退出时仍由 Activity 清理读取缓存。
     LaunchedEffect(selection.bvid) { page.currentBvid = selection.bvid }
     val playing by holders.ui.playing

@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-internal data class VideoInteractionState(
+data class VideoInteractionState(
     val detail: VideoDetail? = null,
     val liked: Boolean = false, val disliked: Boolean = false, val likeCount: Long = 0,
     val coined: Boolean = false, val coinCount: Long = 0,
@@ -24,14 +24,14 @@ internal data class VideoInteractionState(
     val pendingFolder get() = favorites.pendingFolder
 }
 
-internal data class VideoFavoriteState(
+data class VideoFavoriteState(
     val folders: List<FavoriteFolder> = emptyList(), val folderIds: Set<Long> = emptySet(),
     val favoritesLoading: Boolean = false, val favoritesLoaded: Boolean = false,
     val pendingFolder: Long? = null,
 )
 
 /** 写操作按视频隔离；失败或取消撤销乐观状态，旧单集响应不能回写当前单集。 */
-internal class VideoInteractionStateHolder(private val repository: VideoActionsRepository) {
+class VideoInteractionStateHolder(private val repository: VideoActionsRepository) {
     private val mutableState = MutableStateFlow(VideoInteractionState())
     val state = mutableState.asStateFlow()
     private var revision = 0L

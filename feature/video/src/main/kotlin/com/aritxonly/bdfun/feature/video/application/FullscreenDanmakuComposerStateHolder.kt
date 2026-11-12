@@ -9,13 +9,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-internal data class FullscreenDanmakuComposerState(
+data class FullscreenDanmakuComposerState(
     val text: String = "", val sending: Boolean = false,
     val mode: Int = 1, val fontSize: Int = 25, val color: Int = 0xFFFFFF,
 )
 
 /** 全屏输入无论请求成功与否都收起，保留与半屏输入不同的原有规则。 */
-internal class FullscreenDanmakuComposerStateHolder {
+class FullscreenDanmakuComposerStateHolder {
     private val mutable = MutableStateFlow(FullscreenDanmakuComposerState())
     val state = mutable.asStateFlow()
     private var closed = false

@@ -2,14 +2,14 @@ package com.aritxonly.bdfun.feature.video.application
 
 import com.aritxonly.bdfun.core.model.video.*
 
-internal data class VideoCacheEntry(
+data class VideoCacheEntry(
     val detail: VideoDetail, val playInfo: PlayInfo?,
     val danmaku: List<DanmakuItem>, val related: List<VideoItem>,
 )
-internal data class VideoReadCacheOwner(val mid: Long?, val revision: Long)
+data class VideoReadCacheOwner(val mid: Long?, val revision: Long)
 
 /** 进程持有有界缓存，页面只取得当前身份的句柄，不能重新选择身份写入。 */
-internal class VideoReadCache(private val currentOwner: () -> VideoReadCacheOwner) {
+class VideoReadCache(private val currentOwner: () -> VideoReadCacheOwner) {
     private var owner: VideoReadCacheOwner? = null
     private var closed = false
     private val recommendations = HashMap<String, List<VideoItem>>()
@@ -57,7 +57,7 @@ internal class VideoReadCache(private val currentOwner: () -> VideoReadCacheOwne
 }
 
 /** 关闭只阻止本页面迟到访问；旋转仍保留同账号缓存供新页面读取。 */
-internal class VideoReadCacheScope internal constructor(
+class VideoReadCacheScope internal constructor(
     private val cache: VideoReadCache, private val owner: VideoReadCacheOwner,
 ) {
     private var closed = false

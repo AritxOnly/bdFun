@@ -4,13 +4,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-internal data class VideoPlaybackSelection(
+data class VideoPlaybackSelection(
     val bvid: String, val cid: Long, val quality: Int,
     val autoQuality: Boolean = quality == 0, val resumePositionMs: Long = 0,
 )
 
 /** 显式定位 > 本地进度 > 云端进度；切集清零，手动换档延续当前播放位置。 */
-internal class VideoPlaybackSelectionStateHolder(bvid: String, cid: Long, quality: Int, initialPositionMs: Long) {
+class VideoPlaybackSelectionStateHolder(bvid: String, cid: Long, quality: Int, initialPositionMs: Long) {
     private val mutableState = MutableStateFlow(VideoPlaybackSelection(bvid, cid, quality, resumePositionMs = initialPositionMs))
     val state = mutableState.asStateFlow()
 

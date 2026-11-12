@@ -5,10 +5,10 @@ import com.aritxonly.bdfun.core.common.Outcome
 import com.aritxonly.bdfun.core.domain.*
 import com.aritxonly.bdfun.core.model.video.*
 
-internal data class BackgroundTrack(val detail: VideoDetail, val cid: Long, val audioUrl: String)
+data class BackgroundTrack(val detail: VideoDetail, val cid: Long, val audioUrl: String)
 
 /** 后台选集仍走已有详情与播放源仓储；新选集/退出会使旧请求失效。 */
-internal class BackgroundQueueLoader(
+class BackgroundQueueLoader(
     private val videos: VideoRepository,
     private val playback: VideoPlaybackRepository,
 ) {

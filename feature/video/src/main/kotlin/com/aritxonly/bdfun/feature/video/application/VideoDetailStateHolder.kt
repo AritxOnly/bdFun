@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-internal data class VideoDetailReadState(
+data class VideoDetailReadState(
     val detail: VideoDetail? = null,
     val related: List<VideoItem> = emptyList(),
     val playInfo: PlayInfo? = null,
@@ -20,7 +20,7 @@ internal data class VideoDetailReadState(
 )
 
 /** 缓存与离线数据由入口提供；首屏播放就绪后，推荐和弹幕继续并行补齐。 */
-internal class VideoDetailStateHolder(
+class VideoDetailStateHolder(
     private val repository: VideoRepository,
     initialRelated: List<VideoItem> = emptyList(),
     private val playback: VideoPlaybackRepository,
