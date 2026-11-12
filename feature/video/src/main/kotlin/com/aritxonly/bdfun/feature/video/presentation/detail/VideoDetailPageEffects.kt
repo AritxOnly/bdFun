@@ -1,27 +1,21 @@
 package com.aritxonly.bdfun.ui
 
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.snapshotFlow
-import com.aritxonly.bdfun.data.DanmakuItem
-import com.aritxonly.bdfun.data.Quality
-import com.aritxonly.bdfun.data.VideoDetail
-import com.aritxonly.bdfun.data.VideoItem
-import kotlin.math.roundToInt
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
+import com.aritxonly.bdfun.core.model.video.Quality
+import com.aritxonly.bdfun.core.model.video.VideoDetail
+import com.aritxonly.bdfun.core.model.video.VideoItem
 
 @Composable
-internal fun RegisterVideoDanmakuSender(
+fun RegisterVideoDanmakuSender(
     detail: VideoDetail?, currentCid: Long,
     metadataController: com.aritxonly.bdfun.feature.video.application.VideoMetadataStateHolder,
     detailController: com.aritxonly.bdfun.feature.video.application.VideoDetailStateHolder,
+    ports: VideoDetailEffectPorts,
 ) {
-    val VideoPageBus = LocalVideoPageState.current
-    // 把本页的 aid/cid 与「发弹幕」发送器交给 Activity 覆盖层（那边在采集层之外，拿不到 api）
+    val VideoPageBus = ports.danmaku
+    // 本页发送器共享给采集层外的Activity覆盖层，仍随原aid/cid绑定和释放。
     DisposableEffect(currentCid, detail?.aid) {
         val d = detail
         if (d != null) {
@@ -34,7 +28,7 @@ internal fun RegisterVideoDanmakuSender(
                     ),
                 )
                 if (ok) {
-                    VideoPageBus.dependencies.sentHistory.record(
+                    ports.sentHistory().record(
                         kind = "danmaku",
                         text = text,
                         bvid = d.bvid,
@@ -42,7 +36,7 @@ internal fun RegisterVideoDanmakuSender(
                         videoTimeMs = VideoPageBus.danmakuProgressMs,
                     )
                     // 自己刚发的弹幕立即出现在弹幕层里（带圆角底）
-                    detailController.appendDanmaku(com.aritxonly.bdfun.data.DanmakuItem(
+                    detailController.appendDanmaku(com.aritxonly.bdfun.core.model.video.DanmakuItem(
                         timeMs = VideoPageBus.danmakuProgressMs,
                         mode = mode,
                         color = color,
@@ -60,8 +54,7 @@ internal fun RegisterVideoDanmakuSender(
 }
 
 @Composable
-internal fun BindBackgroundVideoMetadata(video: VideoItem, detail: VideoDetail?, currentCid: Long, activeQuality: Quality?) {
-    val background = LocalVideoPageState.current.dependencies.background
+fun BindBackgroundVideoMetadata(video: VideoItem, detail: VideoDetail?, currentCid: Long, activeQuality: Quality?, ports: VideoDetailEffectPorts) {
     // 底栏唱片用：当前播放的视频、标题、封面、集数。切 P / 切合集时一起更新。
     LaunchedEffect(
         video.bvid,
@@ -88,18 +81,6 @@ internal fun BindBackgroundVideoMetadata(video: VideoItem, detail: VideoDetail?,
                 cid = currentCid,
             ),
         )
-        background.updateInfo(
-            video = item,
-            title = item.title,
-            author = item.ownerName,
-            cover = item.cover,
-        )
-        background.updateSession(
-            video = item,
-            detail = d,
-            currentCid = currentCid,
-            qualityId = activeQuality?.id ?: 0,
-        )
+        ports.updateBackground(item, d, currentCid, activeQuality?.id ?: 0)
     }
-
 }

@@ -8,11 +8,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
 @Composable
-internal fun BindVideoScreenEffects(
+fun BindVideoDetailEffects(
     request: VideoScreenRequest, content: VideoScreenContent,
     holders: VideoScreenStateHolders, actions: VideoDetailViewActions, pager: PagerState,
+    load: VideoDetailLoadPorts, ports: VideoDetailEffectPorts,
 ) {
-    val page = LocalVideoPageState.current
     val detail = content.read.detail
     val currentCid = content.selection.cid
     val controllers = holders.controllers
@@ -37,10 +37,10 @@ internal fun BindVideoScreenEffects(
             else -> actions.leaveVideo()
         }
     }
-    LoadInitialVideo(request.video, request.defaultQuality, controllers, ui, rememberVideoDetailLoadPorts())
+    LoadInitialVideo(request.video, request.defaultQuality, controllers, ui, load)
     BindVideoPageMetadata(detail, currentCid, content.loggedIn, holders.metadata, controllers.interaction, ui)
-    RegisterVideoDanmakuSender(detail, currentCid, holders.metadata, controllers.detail)
-    BindVideoFullscreenState(ui) { page.playerUi.fullscreen = it }
-    BindBackgroundVideoMetadata(request.video, detail, currentCid, content.quality)
+    RegisterVideoDanmakuSender(detail, currentCid, holders.metadata, controllers.detail, ports)
+    BindVideoFullscreenState(ui, ports.publishFullscreen)
+    BindBackgroundVideoMetadata(request.video, detail, currentCid, content.quality, ports)
     ReconcileVideoPager(pager)
 }

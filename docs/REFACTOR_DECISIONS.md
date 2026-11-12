@@ -535,3 +535,9 @@ P5-03继续迁移实际VideoDetailLayout/ContentPager及收起Compose状态；ap
 ### 2026-11-13 详情加载效果与播放器视口
 
 P5-03将页面控制器分组、remember状态创建、初次加载和元信息预取迁入实际视频模块。下载/进度/工厂/设置仍由app提供原实例，不在feature创建基础设施。原离线优先、内存缓存恢复、网络成功写缓存、resume条件、作者关系token、175ms延时与每条LaunchedEffect键保持。全屏发布采用原页面回调；pager吸附算法不改。实际播放器Box/Modifier迁入VideoDetailPlayerViewport，布局修饰器逐字一致，app保留原播放器装配内容且无额外布局节点。
+
+### 2026-11-13 详情入口与动作端口
+
+P5-03将VideoDetailEntry、详情效果编排、页面弹幕发送绑定/后台元数据投影、VideoDetailViewActions及播放器动作映射迁入实际视频模块。app只组装原Context提示/Intent分享/后台交接、页面实例和评论/收藏夹等跨feature槽。原业务动作/控制器未新建副本；设置/进度/下载仍在事件时读原值，remember动作的原键与latestOnBack保持。分享仍先打开原ACTION_SEND chooser再recordShare，退出仍先按原条件requestHandOff再onBack。发送器成功后历史记录/自身弹幕插入顺序、每个进度读点、aid/cid绑定/释放和后台元数据Effect键保持。
+
+初版十参数Composable布局槽触发当前编译器Function with 11 params had 1 changed params but expected 2；改为VideoDetailLayoutContent具名对象（10字段），原调用参数/节点不变，不升级依赖或放宽尺寸限制。原跨功能收藏夹面板仍由app提供，避免feature间依赖。

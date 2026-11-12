@@ -19,7 +19,7 @@ internal class VideoPagePresentationState(
     val settings: com.aritxonly.bdfun.core.domain.SettingsRepository,
     val dependencies: VideoPageDependencies,
     private val holder: VideoPageStateHolder = VideoPageStateHolder(),
-) : PlayerPageHost {
+) : PlayerPageHost, VideoDetailDanmakuHost {
     private var snapshot by mutableStateOf(holder.state.value)
     init { scope.launch(start = CoroutineStart.UNDISPATCHED) { holder.state.collect { snapshot = holder.state.value } } }
     private fun update(transform: (com.aritxonly.bdfun.core.application.VideoPageState) -> com.aritxonly.bdfun.core.application.VideoPageState) {
@@ -196,7 +196,7 @@ internal class VideoPagePresentationState(
         ) }
     var panelBackdrop by mutableStateOf<ImageBitmap?>(null)
     var commentSender: (suspend (String, String?) -> Boolean)? = null
-    var danmakuSender: (suspend (String, Int, Int, Int) -> Boolean)? = null
+    override var danmakuSender: (suspend (String, Int, Int, Int) -> Boolean)? = null
     var playerCollapseScroll: ((Float) -> Float)? = null
     val playerUi get() = this
     val orientation get() = Orientation(this)

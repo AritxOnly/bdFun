@@ -492,3 +492,7 @@ VideoPlayerEntry在feature:video内拥有原remember状态/平台实例/追踪�
 ### 2026-11-13 详情加载与视口模块化
 
 VideoDetailControllers/ScreenStateHolders、初次离线→内存→网络加载、作者/观看人数/字幕/收藏预取及全屏/pager效果进入feature:video。依赖由app的VideoDetailLoadAssembly提供原实例；下载保持provider延迟取值，设置按原事件读点读取，remember键及175ms元信息超时不改。VideoDetailPlayerViewport实际布局在模块，app只装配原播放器资源/动作；播放器底边仍通过SideEffect发布到同一页面状态，tab在graphicsLayer读取。禁止建立同package同文件名的跨模块JVM文件类。
+
+### 2026-11-13 详情入口、动作与效果归属
+
+VideoDetailEntry在feature:video拥有原状态观察/作用域/画质选择/效果/渲染顺序；app VideoScreen只转发并组装平台和跨feature槽。VideoDetailViewActions与播放器动作绑定移入视频模块，VideoDetailActionHost只提供原提示/分享/下载/进度/后台交接，不复制状态。remember动作的原bvid/控制器/scope键保持；onBack继续rememberUpdatedState。页面本身直接实现VideoDetailDanmakuHost，sender与aid/cid/进度使用原实例，DisposableEffect键和原释放行为不改。布局输入用具名对象跨模块传递，规避当前Compose编译器十参数回调changed-mask异常；没有改变原布局层级。

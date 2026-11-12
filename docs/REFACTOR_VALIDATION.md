@@ -678,3 +678,10 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - 初次加载效果经依赖/可见性正规化后逐字一致，播放器viewport Modifier逐字一致；app/home/video同package同文件名清点无JVM facade碰撞。remember键、下载provider调用次序、设置读点、Effect键及组合中的原调用顺序保持。
 - `/tmp/bdfun-detail-effects-runtime.log`当前APK首轮通过：本包真实PLAYING 20,772ms→暂停/竖屏→评论头/滚动至56dp恢复工具栏→点击恢复本包PLAYING→简介原标题，crash空。查看`/tmp/bdfun-lifecycle-detail-effects-restored.png`，原视频表面、tab/作者/正文位置可见；这不是同数据像素全量对照。finally逐字恢复settings/playback_progress及各.bak字节/不存在状态，恢复WM与系统方向，force-stop。没有点赞/关注/发送等交互。
 - 未重复旋转/进度用例；PiP返回、服务重建、剩余平台接线与最终main/release/交付继续。
+
+### 2026-11-13 详情根入口、动作与页面效果
+
+- `/tmp/bdfun-detail-entry-module.log`首轮45s在app Compose IR生成失败，明确十参数跨模块布局lambda触发changed-mask校验异常；feature编译通过不代表app通过。改为具名VideoDetailLayoutContent后`/tmp/bdfun-detail-entry-grouped.log`46s通过checkLayering、独立feature/app debug及既有VideoDetailStateHolderTest6、VideoInteractionStateHolderTest10、VideoPlaybackSelectionStateHolderTest4，共20项/0失败/错误/跳过。997生产文件/10603 PSI节点/0违规。没有新增算法/依赖或镜像UI测试。
+- quality/page/cache/next/exit函数经native host/model包正规化后与迁移前逐字一致；最初文本比较工具把class尾括号算入旧leaveVideo，修正方法体边界后通过，没有改生产函数迎合检查。app/home/video同包同文件名JVM facade清点无冲突。
+- `/tmp/bdfun-detail-entry-runtime.log`当前APK首轮通过：本包PLAYING 20,390ms→暂停稳定采集→WM竖屏→独占横屏→更多→第一次Back只关面板仍保留全屏→第二次Back简介→WM竖屏tab=[97,787,168,850]在author=[173,915,289,978]之上→正常Back退出本包会话消失→crash空。已查看`/tmp/bdfun-lifecycle-detail-entry-returned.png`。finally精确恢复settings/playback_progress及各.bak字节/不存在状态、WM和系统方向并force-stop。没有发送/点赞/关注等交互。
+- 这里验证新模块根入口/动作Back与原视口，未将其当作全部画质/分P/后台服务/PiP返回验收。剩余Activity壳/平台装配、最终main/release和交付继续。
