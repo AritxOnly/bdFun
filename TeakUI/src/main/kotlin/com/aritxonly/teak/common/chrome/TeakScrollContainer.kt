@@ -3,8 +3,13 @@ package com.aritxonly.teak.common.chrome
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.Constraints
@@ -24,10 +29,20 @@ fun TeakScrollContainer(
     maxWidth: Dp? = null,
     content: @Composable () -> Unit,
 ) {
+    // 反向聊天列表与普通列表的状态增量方向相反；只在方向变化时重组。
+    val reverseDirection by remember(scrollState) {
+        derivedStateOf {
+            when (scrollState) {
+                is LazyListState -> !scrollState.layoutInfo.reverseLayout
+                is LazyGridState -> !scrollState.layoutInfo.reverseLayout
+                else -> true
+            }
+        }
+    }
     val gutterModifier = if (scrollState == null) Modifier else Modifier.scrollable(
         state = scrollState,
         orientation = Orientation.Vertical,
-        reverseDirection = true,
+        reverseDirection = reverseDirection,
     )
     Layout(modifier = modifier, content = {
         // 内容最后绘制，让内容内的弹出层仍拥有原来的命中优先级。

@@ -13,7 +13,7 @@ internal data class PrivateChatRuntime(val controller: PrivateChatStateHolder, v
 
 @Composable
 internal fun rememberPrivateChatRuntime(session: MessageSession): PrivateChatRuntime {
-    val owner = AppGraph.session.value?.mid
+    val owner = AppGraph.session.identity
     val parent = rememberCoroutineScope()
     val controller = remember(owner, session.talkerId, session.sessionType) { AppGraph.privateChatStateHolder(session) }
     val scope = remember(controller) {

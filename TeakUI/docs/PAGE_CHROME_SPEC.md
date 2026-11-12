@@ -146,3 +146,5 @@ TeakActivityScaffold(
 `TeakPageScaffold`在限定内容宽度时统一接入，覆盖设置、帮助、捐赠、致谢、缓存、日志及共用该外壳的列表。搜索落地页与两个结果列表显式接入；普通说明页同样接入。`centeredListWidth`仅做宽度测量，不再接受scrollState。空间的头部折叠联动、独立弹窗/播放器面板、合集内滚动不是此处的重复转发，保留各自的滚动契约。
 
 只用一个列表/ScrollState记录位置；切换页面由原页面管理状态。窄屏没有可点击留白区域；容器不新增滚动偏移、不积分delta、不创建第二份列表状态。弹出宿主、backdrop、内容padding与标题几何保持原值。
+
+反向LazyColumn/Grid的宽屏留白拖动从layoutInfo.reverseLayout读取方向；固定顶栏页面使用BindTeakPageScrollState单独绑定，不增加折叠/材质观察。绑定随composition释放，旧页面释放不会清理后来绑定的另一个state。

@@ -93,7 +93,7 @@ fun TrackTeakPageScroll(
     thresholdPx: Float = TeakPageScrollState.DefaultThresholdPx,
     collapseRangePx: Float = TeakPageScrollState.DefaultCollapseRangePx,
 ) {
-    androidx.compose.runtime.SideEffect { pageState.scrollableState = state }
+    BindTeakPageScrollState(state, pageState)
     val density = LocalDensity.current.density
     LaunchedEffect(state, pageState, thresholdPx, collapseRangePx, density) {
         snapshotFlow { state.firstVisibleItemIndex to state.firstVisibleItemScrollOffset }
@@ -111,7 +111,7 @@ fun TrackTeakPageScroll(
     thresholdPx: Float = TeakPageScrollState.DefaultThresholdPx,
     collapseRangePx: Float = TeakPageScrollState.DefaultCollapseRangePx,
 ) {
-    androidx.compose.runtime.SideEffect { pageState.scrollableState = state }
+    BindTeakPageScrollState(state, pageState)
     val density = LocalDensity.current.density
     LaunchedEffect(state, pageState, thresholdPx, collapseRangePx, density) {
         snapshotFlow { state.value }
@@ -129,7 +129,7 @@ fun TrackTeakPageScroll(
     thresholdPx: Float = TeakPageScrollState.DefaultThresholdPx,
     collapseRangePx: Float = TeakPageScrollState.DefaultCollapseRangePx,
 ) {
-    androidx.compose.runtime.SideEffect { pageState.scrollableState = state }
+    BindTeakPageScrollState(state, pageState)
     val density = LocalDensity.current.density
     LaunchedEffect(state, pageState, thresholdPx, collapseRangePx, density) {
         snapshotFlow { state.firstVisibleItemIndex to state.firstVisibleItemScrollOffset }
@@ -153,10 +153,24 @@ fun TrackTeakPageScroll(
     state: androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState,
     pageState: TeakPageScrollState = LocalTeakPageScrollState.current,
 ) {
-    androidx.compose.runtime.SideEffect { pageState.scrollableState = state }
+    BindTeakPageScrollState(state, pageState)
     val density = LocalDensity.current.density
     LaunchedEffect(state, pageState, density) {
         snapshotFlow { state.firstVisibleItemIndex to state.firstVisibleItemScrollOffset }
             .collect { (index, offset) -> pageState.update(index, offset.toFloat(), density = density) }
+    }
+}
+
+/** 只连接宽屏留白的滚动，不改变固定顶栏的材质或折叠进度。 */
+@Composable
+fun BindTeakPageScrollState(
+    state: androidx.compose.foundation.gestures.ScrollableState,
+    pageState: TeakPageScrollState = LocalTeakPageScrollState.current,
+) {
+    androidx.compose.runtime.DisposableEffect(state, pageState) {
+        pageState.scrollableState = state
+        onDispose {
+            if (pageState.scrollableState === state) pageState.scrollableState = null
+        }
     }
 }

@@ -59,6 +59,7 @@ internal fun PrivateChatRoot(session: MessageSession) {
         },
         ),
     ) {
+        com.aritxonly.teak.common.chrome.BindTeakPageScrollState(listState)
         PrivateChatMessages(content, session, listState, onRetry = { ui.reloadTick++ },
             onHistory = { runtime.scope.launch { controller.loadHistory() } })
     }

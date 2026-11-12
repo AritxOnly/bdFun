@@ -13,7 +13,7 @@ import com.aritxonly.teak.common.chrome.TrackTeakPageScroll
 @Composable
 fun MessageDetailScreen(kind: MessageFeedKind) {
     val context = LocalContext.current
-    val owner = AppGraph.session.value?.mid
+    val owner = AppGraph.session.identity
     val controller = remember(owner, kind) { AppGraph.messageFeedStateHolder(kind) }
     val scope = rememberMessageTaskScope(controller) { controller.close() }
     val snapshot by androidx.compose.runtime.key(controller) { controller.state.collectAsState() }
