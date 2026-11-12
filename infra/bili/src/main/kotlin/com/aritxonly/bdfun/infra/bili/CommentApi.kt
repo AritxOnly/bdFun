@@ -92,17 +92,7 @@ internal suspend fun BiliApiContext.commentsByOid(
             "sort" to sort.toString(),
         ),
     )
-    val list = mutableListOf<CommentItem>()
-    data.optJSONArray("top")?.objects()?.forEach { list += parseComment(it, upMid, true) }
-    data.optJSONArray("replies")?.objects()?.forEach { list += parseComment(it, upMid, false) }
-    val pageData = data.optJSONObject("page")
-    val count = pageData?.optInt("count") ?: 0
-    CommentPage(
-        items = list.distinctBy { it.rpid },
-        page = page,
-        isEnd = page >= count,
-        total = pageData?.optInt("acount") ?: 0,
-    )
+    mapCommentPage(data, page, upMid)
 }
 
 internal suspend fun BiliApiContext.replies(aid: Long, root: Long, page: Int = 1, upMid: Long = 0): CommentPage =
@@ -127,15 +117,7 @@ internal suspend fun BiliApiContext.repliesByOid(
             "nohot" to if (sortTime) "1" else "0",
         ),
     )
-    val list = data.optJSONArray("replies").objects().map { parseComment(it, upMid, false) }
-    val pageData = data.optJSONObject("page")
-    val count = pageData?.optInt("count") ?: 0
-    CommentPage(
-        items = list.distinctBy { it.rpid },
-        page = page,
-        isEnd = page >= count,
-        total = pageData?.optInt("acount") ?: 0,
-    )
+    mapCommentPage(data, page, upMid, includeTop = false)
 }
 
 internal suspend fun BiliApiContext.addComment(
@@ -301,16 +283,6 @@ internal suspend fun BiliApiContext.replyEmotes(): List<EmoteItem> = withContext
             "/x/emote/user/panel/web",
             mapOf("business" to "reply"),
         )
-        val out = mutableListOf<EmoteItem>()
-        data.optJSONArray("packages")?.objects()?.forEach { pkg ->
-            pkg.optJSONArray("emote")?.objects()?.forEach { emote ->
-                val text = emote.s("text").removeSurrounding("[", "]").trim()
-                val url = image(emote.s("url"), 120)
-                if (text.isNotBlank() && url.isNotBlank()) {
-                    out += EmoteItem(text = text, url = url)
-                }
-            }
-        }
-        out
+        mapReplyEmotes(data)
     }.getOrDefault(emptyList())
 }

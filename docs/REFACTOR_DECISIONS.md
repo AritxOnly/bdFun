@@ -561,3 +561,9 @@ P1-04/P1-10审计发现playInfo仍在API分片读取字段并组装模型；新�
 原诊断形状读取与jsonStrings只去掉context接收者，体逐字一致；确认无消费者的codecPriority/codecMatches旧转发随旧解析体删除，策略实现保留core/domain。HTTP错误信封/请求编码仍属传输层；其他业务API的字段映射继续审计，不将本条表述为全库JSON职责已完成。
 
 2026-11-13无Cookie公开playurl响应47,681字节作为固定样本（6视频表示、3音频表示）；accept_quality的64并未返回对应视频流，测试保留这种实际差异。未伪造真实字段或登录响应，URLs只作离线字符串，不在测试访问。
+
+### 2026-11-13 评论字段映射与页面共用
+
+P1-04/P1-06将原递归parseComment移入mapper（除去context接收者外逐字一致），删除仅存该实现的CommentApi2。评论列表、楼中楼与动态评论转发同一mapCommentPage，楼中楼显式includeTop=false；保持top优先、distinctBy(rpid)、page>=count及acount，不借迁移修改分页解释。预览仍最多三条一级，长整数、图片/表情/@人规则不变。原表情面板字段读取也迁入ReplyEmoteMapper；发送rpid提取、图片上传与pictures请求编码不改，不执行真实写操作。
+
+采集无Cookie公开评论响应code0，67,942字节，3根评论及一级预览，固定样本与显式边界变体分开标记。此条补齐评论读模型映射，不声称消息、搜索、媒体库等其余API职责已全部收齐。

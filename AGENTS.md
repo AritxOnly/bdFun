@@ -508,3 +508,7 @@ VideoActivityPageStateHolder、VideoActivityHostActions中立契约、入口解�
 ### 2026-11-13 播放响应映射边界
 
 播放地址响应字段先在infra:bili/mapper读取为dto，再映射core:model；API分片只保留请求/错误/重试与转发。必须保留原同id分组/编码与带宽选择、blank URL跳过顺序、音频id优先级、原URL与CDN URL双份、timelength回退及accept_quality顺序；不按preferred删清晰度。真实匿名样本须记录来源，测试修改样本的边界变体必须与原响应区分。HTTP响应信封/请求编码仍为传输职责，不将全库org.json命中都误当业务泄漏。
+
+### 2026-11-13 评论响应映射边界
+
+评论/楼中楼/动态评论共用infra:bili/mapper字段解析，API只负责原请求。必须保留top优先且按rpid去重、page>=count的原结束判断（本次不另改分页含义）、acount总数、只取前三条一级preview且不继续嵌套、mid/oid/root/parent的Long及原图片/表情/@人字段规则。发送rpid/上传pictures属于传输结果/请求编码，本轮不更改发送或上传行为。

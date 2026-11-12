@@ -707,3 +707,9 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - 请求签名/错误/重试代码未改；视频流DTO边界完成并不证明其余所有API的JSON映射已收齐，剩余职责审计、完整必要回归、最终release与交付继续。
 
 - 远端CI本次查询：e05e0bb的[43314797028](https://github.com/AritxOnly/bdFun/actions/runs/43314797028)已成功；91d19eb的43316343313被并发新运行取消，84a76c2的43317746491仍in_progress。未将取消/在途结果记为通过，也不宣称它覆盖当前未推送的播放流变更。
+
+### 2026-11-13 评论/楼中楼/动态评论映射
+
+- `/tmp/bdfun-comment-mappers.log`首轮23s通过checkLayering、6项CommentMapperTest与app debug；1011生产文件/10636 PSI节点/0违规。真实公开无Cookie样本67,942字节、code0，来源记录于json/README。6项必要测试覆盖实际长整数/图片/预览、top去重优先与楼中楼忽略top、空页/原count边界、三条/一级预览上限、图片/表情/@人/VIP/位置缺省，以及面板表情过滤。0失败/错误/跳过；没有修改既有断言。
+- parseComment经接收者/包路径替换后逐字一致；API原请求、CSRF、排序/分页参数和发送/上传路径未改。共用page mapper保留page>=count，即使真实count=253也不在迁移中改解释。本批只有网络映射变动，按用户要求不重复播放器装机或全套测试；不将离线样本当作真实发送/删除等写操作验收。
+- 其余API映射审计、必要最终行为回归、release与交付继续。

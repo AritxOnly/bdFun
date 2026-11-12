@@ -75,17 +75,7 @@ internal suspend fun BiliApiContext.dynamicComments(id: String, page: Int = 1): 
                 "sort" to "2",
             ),
         )
-        val list = mutableListOf<CommentItem>()
-        data.optJSONArray("top")?.objects()?.forEach { list += parseComment(it, 0, true) }
-        data.optJSONArray("replies")?.objects()?.forEach { list += parseComment(it, 0, false) }
-        val pageData = data.optJSONObject("page")
-        val count = pageData?.optInt("count") ?: 0
-        CommentPage(
-            items = list.distinctBy { it.rpid },
-            page = page,
-            isEnd = page >= count,
-            total = pageData?.optInt("acount") ?: 0,
-        )
+        mapCommentPage(data, page, 0)
     }
 
 internal suspend fun BiliApiContext.sendDynamicComment(id: String, message: String): Boolean =
