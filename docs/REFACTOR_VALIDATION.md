@@ -658,3 +658,10 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - 首次装机初始起播失败，实际crash明确NoSuchMethodError PlayerLayoutKt.PlayerLayout，不能算驱动成功；确认同包同文件名冲突后将模块文件改名VideoPlayerLayout.kt。`/tmp/bdfun-player-root-facade.log`26s通过重新编译和架构，977文件/10512 PSI节点/0违规。未清全局缓存或重复全量测试。
 - `/tmp/bdfun-player-root-runtime.log`最终源码通过：真实起播/暂停稳定采集→WM竖屏/原手势点击显示控件→独占全屏→更多→第一次Back只关面板、原全屏chrome仍在→第二次Back简介→WM竖屏tab位置仍在作者之上（tab [97,787,168,850]，author [173,915,289,978]）→crash空。设置、.bak与WM/系统方向逐字/原值恢复，结束force-stop。没有点选面板设置或发送内容。
 - 截图`/tmp/bdfun-lifecycle-root-module-more.png`已查看，原面板/图标/布局保留；本轮不重复上一批进度/后台/PiP全套，不声称音量/亮度所有原生手势或PiP返回已验证。平台动作/共用弹幕与更多接线及最终整体验收继续。
+
+### 2026-11-13 模块播放器入口与资源残留清理
+
+- 全仓Kotlin引用核对后，VideoFrameLoader/BindPlayerFrameResources只构造/释放空实例，无frame调用或输出消费者；speedBackdrop及thumbFrame系列旧状态、五个旧速度/渐变常量均无消费者。构造不创建retriever。删除残留及无调用app PlayerLayout壳。app入口薄转发到模块VideoPlayerEntry，蓝牙观察单独留app平台接线；app/home/video同包同名文件一次清点无潜在文件类冲突。
+- `/tmp/bdfun-player-entry-module.log`首轮28s通过严格checkLayering、独立feature/app debug；979文件/10526 PSI节点/0违规。没有新增业务算法或依赖，不追加镜像工厂/界面单测，也不重复已过的进度/旋转用例。
+- `/tmp/bdfun-player-entry-runtime.log`首轮通过：安装最终debug→模块入口创建本包会话PLAYING 20,316ms→系统暂停PAUSED 22,262ms→正常Back后本包媒体会话释放/消失→crash空。settings及playback_progress和各.bak逐字/不存在状态恢复，结束force-stop；没有点赞/发送等交互。截图`/tmp/bdfun-player-entry-module.png`已查看，真实原生画面和原TeakUI详情/tab/动作保留。
+- 此条证明正常创建/暂停/退出释放，不作为PiP返回、后台服务重建、全部设置即时生效或全站像素一致性证明。视频详情/剩余平台装配与最终main/release/交付继续。

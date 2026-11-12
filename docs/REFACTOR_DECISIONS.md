@@ -519,3 +519,9 @@ P5-03将原手势会话/识别/绑定、根布局、全屏/内联/弹幕输入�
 PlayerPanelControls/PlayerSeekBar/PlayerSeekBarUiState全仓仅有声明及内部互相引用，没有生产/测试调用，删除这3个旧文件；活跃FullScreenSeekBar、弹幕设置slider未变。原4项PlayerGestureSessionTest随实现原样进入模块presentation测试，CI定向视频测试为51项。为原BackHandler显式声明app已用的同版本Activity Compose；让app代持BackHandler会移动原返回注册顺序，故保留模块内原位置，不换导航库。
 
 首轮装机发现app装配和模块根实现都名为PlayerLayout.kt/同package，生成相同PlayerLayoutKt，运行时报NoSuchMethodError。模块文件改名VideoPlayerLayout.kt消除JVM文件类冲突；一次清点app/home/video同package同名源文件后无剩余潜在冲突。不通过改变包名、留旧副本或放宽签名绕过。
+
+### 2026-11-13 播放器入口与效果编排收口
+
+P5-03将VideoPlayer入口的状态/平台实例/追踪控制器创建、初始化/展示设置/引擎效果编排移入feature:video。app旧VideoPlayer成为调用VideoPlayerEntry的薄装配，平台工厂/Decoder模式getter、设置回调、蓝牙观察及资源接线通过PlayerEntryPorts/PlayerEnginePorts提供。原remember键与初始化读点、Effect顺序和自动连播设置回写不改；不把页面状态提升到进程。module入口文件使用独立VideoPlayerEntry.kt，避免与app VideoPlayer.kt文件类或已有VideoPlayerContent数据模型重名。
+
+BindPlayerFrameResources只创建空VideoFrameLoader，从未调用frame；retriever仅在frame内创建，因此原路径没有真实取帧/网络/解码资源。删该空管线、未消费的speed/quality弹簧结果、六项旧缩略帧状态/五个无调用常量与已无消费者的app PlayerLayout装配壳。现行SeekBar/缓冲/热弹幕/原生画面均不变，不为旧预览补功能。

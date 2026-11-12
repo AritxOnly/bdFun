@@ -62,3 +62,7 @@ ForegroundPlaybackAttachment仅抽出原attach/detach/fullscreen与Actions契约
 ### 2026-11-13 根绘制与手势会话
 
 PlayerRenderPorts为当前组合装配，不加入AppContainer/静态缓存。手势callback及开关继续rememberUpdatedState，pointerInput(Unit)、PlayerTapStateHolder与coroutineScope仍属于原Modifier组合；识别会话与4项测试体逐字保留。发送器以getter取最新page.danmakuSender，图片/全屏资源仍在原条件分支调用槽，未提前冻结为初始值。
+
+### 2026-11-13 入口状态创建归属
+
+VideoPlayerEntry的UiState、playback、tracking仍沿用原无键remember，观察/事件Effect的原键和调用顺序保持；只是创建位置从app进入实际视频模块。PlayerEntryPorts的工厂/default值在原remember执行时读取，回调不存进程缓存；蓝牙观察继续由原rememberBluetoothAudioConnected管理。正常Back后当前debug媒体会话消失已实测，不代表所有异常销毁或服务交接已验收。

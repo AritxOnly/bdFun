@@ -480,3 +480,7 @@ app/ui/player/fullscreen原三份剩余展示已迁入feature:video。听视频�
 ### 2026-11-13 播放器根绘制与Kotlin文件类
 
 VideoPlayerLayout、手势识别/绑定、全屏/内联/输入覆盖与赞助展示归feature:video，app的PlayerLayout仅装配PlayerRenderPorts；getter/Composable槽保持原读点与条件分支。不得在不同物理模块里保留同package、同名且含顶层函数的Kotlin文件：它们会生成同名FooKt，可能编译通过但装机NoSuchMethodError。本批模块文件使用VideoPlayerLayout.kt，app装配仍为PlayerLayout.kt。文件路径迁移要连JVM文件类名一起检查。
+
+### 2026-11-13 播放器模块入口
+
+VideoPlayerEntry在feature:video内拥有原remember状态/平台实例/追踪控制器以及效果编排，app ui/VideoPlayer仅装配PlayerEntryPorts。初始化值继续在原remember中通过getter读取，Decoder异常fallback与平台工厂留app；蓝牙平台观察也由app槽提供。PlayerEnginePorts只传原页面/进度/挂接/退出/日志与设置回调，不创建第二份状态。VideoFrameLoader无frame调用及旧缩略帧槽/未消费动画已删除，不重建死资源管线。
