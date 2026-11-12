@@ -774,4 +774,12 @@ release安装成功；冷启动1734ms、真实首页推荐与BV1orW46aEba起播�
 - P2-01补齐原任务卡明确要求的core/application UiState和StateHolder只读StateFlow契约，首页模板实现；业务动作仍由具体页面提供。首轮编译32s失败：首页未声明core:application依赖，已补显式project依赖；没有改守卫规则。修正后 `/tmp/bdfun-state-contract-corrected.log` 3m38s通过checkLayering、原首页22项测试、debug和R8 release。1032文件/10709节点/0违规；未再次跑1089项全套，没有新增镜像测试或第三方依赖。之前交付的2b5cd24候选包来源不变，不把它冒充本次新增契约的产物。
 - 原后台正常操作用例仅重复一次以观察服务重建：两轮均正常Back交接到真实前台后台服务，媒体暂停/播放成功，stop后同包session和service消失；第二轮重新启动同包新的媒体会话（120→122），再次停止正常，crash空。`/tmp/bdfun-service-recreation-runtime.log` exit0，测试设置与进度四文件逐字/缺失状态恢复并force-stop。该证据是显式停止后的正常重建，不冒充系统杀进程后的START_STICKY/null-intent恢复。
 - 核对P1-02：recoverSignedRead已实际接入BiliRequestGateway，签名GET拒签最多一次恢复；原5项SignedRequestRecoveryTest在1089项集中测试中已通过。原卡“尚未实现”是旧记录，本次纠正状态，未重复实现。
-- P4-03仍有真实代码缺口：VideoEntry缺参后Close→finish；Space/Dynamic缺参直接finish；PrivateChat尚未对talkerId<=0给出明确提示。不将这几条静默路径算作“少传参数明确报错”已完成，下一步补齐原生提示并保持合法入口渲染与交互不变。
+- P4-03仍有真实代码缺口：VideoEntry缺参后Close→finish；Space/Dynamic缺参直接finish；PrivateChat缺少会话标识时未给出明确提示。不将这几条静默路径算作“少传参数明确报错”已完成，下一步补齐原生提示并保持合法入口渲染与交互不变。
+
+### 2026-11-13 P4-03缺参明确报错实现
+
+统一finishForMissingRoute原生Toast+finish：视频无快照/BV/正数AV、空间原mid缺失/非正数、动态缺原详情数据、私信缺Route与legacy talker_id时明确提示。私信判断只看参数缺失，保留原服务端字段值语义。未改有效入口、Route编码、原页面布局，未为测试改exported或引入新依赖。
+
+首轮debug/架构29s通过，复核将私信从值域判断改为仅参数存在性后，`/tmp/bdfun-missing-route-corrected.log`16s通过checkLayering/debug；1032文件/10710节点/0违规。本批为低影响原生错误提示，不加复述实现的单测、不重复1089项全套。原有纯入口解析测试已覆盖无BV/AV时释放loading/Close，不以它冒充Toast装机证据。
+
+手工验收清单：分别缺视频标识、空间mid、动态快照、会话参数时看到对应原因并返回；有快照的视频、BV-only、AV-only、合法空间/动态和Route/legacy extras私信仍按原流程打开。不扩大Activity导出范围，未进行账号发送操作。提示装机/R8及更新后的最终交付仍需收尾，旧交付包来源保持2b5cd24。

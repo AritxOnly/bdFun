@@ -34,3 +34,9 @@ internal fun createRouteIntent(context: Context, route: Route): Intent {
 }
 
 internal fun readRouteIntent(intent: Intent): Route? = intent.getStringExtra(EXTRA_ROUTE)?.let(RouteJsonCodec()::decode)
+
+/** 非法入口保留原关闭行为，同时让用户知道原因，而不是看到页面一闪而过。 */
+internal fun android.app.Activity.finishForMissingRoute(argument: String) {
+    android.widget.Toast.makeText(this, "缺少$argument，无法打开页面", android.widget.Toast.LENGTH_LONG).show()
+    finish()
+}

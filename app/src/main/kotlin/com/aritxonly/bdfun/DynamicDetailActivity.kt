@@ -1,6 +1,7 @@
 package com.aritxonly.bdfun
 
 import com.aritxonly.bdfun.navigation.readRouteIntent
+import com.aritxonly.bdfun.navigation.finishForMissingRoute
 import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -54,7 +55,7 @@ class DynamicDetailActivity : ComponentActivity() {
         syncStatusBarIcons()
         val dynamic = (readRouteIntent(intent) as? com.aritxonly.bdfun.core.navigation.Route.Dynamic)?.snapshot
         if (dynamic == null) {
-            finish()
+            finishForMissingRoute("动态详情数据")
             return
         }
         setContent { DynamicDetailContent(dynamic, onBack = { finish() }) }

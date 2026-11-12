@@ -593,3 +593,8 @@ P1-04/P1-07/P1-09将空间投稿/合集/文章/番剧/小店/brief/计数/IP与�
 P1-04收口LiveResponseMapper、AccountResponseMapper、AppRecommendationMapper、VideoSupplementMapper和VideoDanmakuMapper。Live API只保留原请求/重试：plain→signed、room_init后的实际id与清WBI重试顺序不变；模型解析保留原FLV+AVC/首url_info、443稳定host排序、画质accept字典与三档过滤。账号只搬nav/QR非成功模型，成功分支saveTvLogin→nav、凭据/Cookie/buvid/WBI体不改。App卡片原32位aid限制、args对象/字符串回退与理由去重优先级保持。
 
 字幕/空降与弹幕转换从API分片抽离，protobuf/XML转换体去接收者后逐字一致，未修改danmaku-engine、解压或分段请求并发。复查补齐渐进fallback、CDN样本地址与云续播字段的最后三处业务读取；原字段/URL选择规则保持。传输错误信封、认证和评论发送/上传回执编码保留在infra适配器，不为消除org.json字样而创建空壳DTO。
+
+### 2026-11-13 P2-01模板与P4-03缺参提示
+
+- 原任务明确要求core/application提供UiState/StateHolder基础契约，现由首页模板实现；StateFlow只读，具体事件仍归业务类，不另建事件Bus。home新增的是对已有core:application模块的project依赖，无第三方运行时依赖。
+- P4-03明确要求少传参数报错。视频无snapshot/BV/正数AV、空间原mid缺失/非正数、动态原snapshot缺失时，在原关闭动作前显示原因；私信只检查Route/legacy talker_id参数是否缺失，不假定服务端ID符号或限制原字段值。合法Route、兼容extras及原渲染不改，不为验证将Activity改为exported。原生Toast/finish接线为低影响UI改动，不增加只复述实现的测试；保留手工核验项。

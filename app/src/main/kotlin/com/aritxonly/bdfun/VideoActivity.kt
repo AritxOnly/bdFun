@@ -1,6 +1,7 @@
 package com.aritxonly.bdfun
 
 import com.aritxonly.bdfun.navigation.readRouteIntent
+import com.aritxonly.bdfun.navigation.finishForMissingRoute
 import com.aritxonly.bdfun.navigateToVideo
 import android.content.pm.ActivityInfo
 import android.os.Bundle
@@ -283,6 +284,10 @@ class VideoActivity : ComponentActivity() {
         val route = readRouteIntent(intent) as? com.aritxonly.bdfun.core.navigation.Route.Video
         val requestedBvid = route?.bvid?.takeIf { it.isNotBlank() } ?: intent?.getStringExtra("bvid")
         val requestedAid = route?.aid ?: intent?.getLongExtra("aid", 0L) ?: 0L
+        if (route?.snapshot == null && requestedBvid.isNullOrBlank() && requestedAid <= 0L) {
+            finishForMissingRoute("视频标识")
+            return
+        }
         setContent {
             androidx.compose.runtime.CompositionLocalProvider(LocalVideoPageState provides pageState,
                 com.aritxonly.bdfun.feature.settings.presentation.LocalSettingsBindings provides settings,

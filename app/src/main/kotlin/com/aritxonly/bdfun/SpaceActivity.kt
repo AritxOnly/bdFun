@@ -1,6 +1,7 @@
 package com.aritxonly.bdfun
 
 import com.aritxonly.bdfun.navigation.readRouteIntent
+import com.aritxonly.bdfun.navigation.finishForMissingRoute
 import com.aritxonly.bdfun.ui.ActivityPageOptions
 import com.aritxonly.bdfun.ui.ActivityPageSlots
 import android.os.Bundle
@@ -40,7 +41,7 @@ class SpaceActivity : ComponentActivity() {
         AppGraph.ensure(applicationContext)
         val mid = (readRouteIntent(intent) as? com.aritxonly.bdfun.core.navigation.Route.Space)?.mid
         if (mid == null || mid <= 0) {
-            finish()
+            finishForMissingRoute("用户标识")
             return
         }
         val page = ViewModelProvider(this, viewModelFactory {
