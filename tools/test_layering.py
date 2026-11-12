@@ -64,6 +64,18 @@ val raw = """org.json.JSONObject"""
         self.assertEqual(code.count('\n'), source.count('\n') + 1)
         self.assertIn('android.content.Context?', code)
 
+    def test_string_template_expressions_are_real_dependencies(self):
+        for source in ('val x = "${android.os.Build.MODEL}"',
+                       'val x = """${org.json.JSONObject()}"""',
+                       'val x = "${if (true) { android.os.Build.MODEL } else { "literal" }}"'):
+            self.check_source('core/domain/src/main/kotlin/Test.kt', source)
+
+    def test_nested_template_literals_and_escaped_dollars_remain_text(self):
+        source = 'val x = "${if (true) { "android.os.Build" } else { "ok" }}"'
+        self.check_source('core/domain/src/main/kotlin/Test.kt', source, False)
+        self.check_source('core/domain/src/main/kotlin/Test.kt',
+                          r'val x = "\${android.os.Build.MODEL}"', False)
+
     def test_legacy_player_cannot_import_media3(self):
         self.check_source('app/src/main/kotlin/com/aritxonly/bdfun/ui/player/Test.kt', 'import androidx.media3.ui.PlayerView')
 

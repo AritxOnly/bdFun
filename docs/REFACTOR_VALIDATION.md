@@ -547,3 +547,19 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - 最终`/tmp/bdfun-global-final3.log`成功1m：checkLayering（含严格尺寸）、HttpRetryPolicyTest3、LiveProtocolTest2、AppThemePaletteTest2与debug均过，0失败/错误/跳过。新开发仅协议固定字节/压缩损坏兄弟包2项、主题独立来源/真实Snapshot观察2项；未重新跑147个数据分组或历史全套。协议样本明确是main格式结构用例，不冒充线上弹幕。
 - 编译中定位并修正BiliBackend薄转发与新换算函数同名造成的递归接线（明确调用biliAidToBvid），及`..PROTO_VER_BROTLI`范围上界符号、导入别名遮蔽；未用显式返回类型掩盖递归。错误构建不计通过。
 - 原导航Intent键/路由JSON、HTTP路径/参数/常量、回退房间字段/文字、主题ARGB与UI树保持。删掉无调用的随机LiveMock样本；native播放器/弹幕渲染生产实现没有逻辑变更。APK最终原生链路回归留到模块收尾后合并执行，避免每个命名空间搬迁都重复装机。
+
+### 2026-11-13 视频实际模块
+
+- 新建`:feature:video`，移动原11个application文件、平台端口及展示值对象/纯装配函数；原测试跟随移动。app只改依赖及四个StateFlow的等价观察接线，未改布局、tab、手势及生命周期effect。
+- `/tmp/bdfun-video-module.log`：独立assembleDebug、checkLayering（含严格尺寸）、app assembleDebug通过，3m03s。仅执行原VideoDetailStateHolder6、VideoReadCache14、VideoInteractionStateHolder10、VideoPlayerAssembly2项测试，共32项，无失败。没有新增重复测试。
+
+### 2026-11-13 滚动绑定与依赖负例
+
+- 反向LazyColumn/Grid的留白拖动方向跟随原layoutInfo.reverseLayout；聊天只绑定滚动状态，不写入固定顶栏进度。绑定随composition释放，旧页面不会清除新页面的状态。
+- 消息/私信控制器remember键改用已有SessionIdentity（UID+revision）；关系页面按同一identity重建，沿用原关闭和子协程取消流程。现有SessionPresentationStateHolder测试覆盖合并通知下的账号往返。
+- `/tmp/bdfun-scroll-bind.log`：checkLayering与app assembleDebug通过，28s。设置宽屏中心/两侧拖动装机证据沿用本批此前记录；反向聊天尚无真实账号装机验证。
+- `.github/workflows/architecture.yml`加入Java21、SDK37、固定Miuix源码、严格架构/尺寸、debug及必要纯逻辑测试。Action提交由官方GitHub API查询后固定。
+- `tools/check-module-graph-negative.sh`在独立Gradle init配置注入feature:home→infra:bili的debugImplementation，只接受指定违规信息，其他构建错误仍失败。首次发现init脚本也会应用到Miuix的build-logic，已限定只含目标feature的主构建。`/tmp/bdfun-module-negative.log`重跑确实输出指定错误并PASS。远端CI尚未运行，不将本地证据写成CI已通过。
+- 源码守卫补齐字符串模板表达式检查，原字面文本仍忽略；仅新增两个针对遗漏的测试方法，21项守卫反例通过，生产扫描通过。
+
+`/tmp/bdfun-scope-key.log`：5项既有SessionPresentationStateHolder测试和checkLayering通过，34s；最新严格PSI报告954文件/10428节点/0违规。

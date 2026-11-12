@@ -2,7 +2,7 @@
 
 > 2026-11-12：严格尺寸门槛已通过，当前违规0；这只代表结构门槛，不代表全量重构验收完成。
 
-使用同版本Kotlin PSI开发工具`:tools:kotlin-audit`，扫描953个自有生产Kotlin文件（含debug），共10421个可调用/函数类型节点。文件≤400行、函数体/lambda/init≤80行、声明/构造/函数类型输入参数≤12，阈值与范围不变。没有排除数据类、表达式或长构造器；原17项正反例保持。
+使用同版本Kotlin PSI开发工具`:tools:kotlin-audit`，扫描954个自有生产Kotlin文件（含debug），共10428个可调用/函数类型节点。文件≤400行、函数体/lambda/init≤80行、声明/构造/函数类型输入参数≤12，阈值与范围不变。没有排除数据类、表达式或长构造器；原17项正反例保持。
 
 严格任务`:tools:kotlin-audit:checkKotlinSizes`已接入`checkLayering`；reportKotlinSizes继续仅用于定位，退出0不能代替严格任务。完整机器报告位于`build/reports/kotlin-audit/report.json`。
 

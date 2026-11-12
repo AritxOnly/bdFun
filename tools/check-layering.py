@@ -6,36 +6,66 @@ import re
 
 
 def code_only(source):
-    """保留行号，屏蔽注释/字面量，避免文档中的示例误报。支持嵌套块注释。"""
+    """屏蔽注释与字面文本，但保留字符串模板表达式中的真实代码和行号。"""
     chars = list(source)
-    i = 0
-    while i < len(source):
-        start = i
-        if source.startswith('//', i):
-            end = source.find('\n', i)
-            i = len(source) if end < 0 else end
-        elif source.startswith('/*', i):
-            depth = 1
-            i += 2
-            while i < len(source) and depth:
-                if source.startswith('/*', i): depth += 1; i += 2
-                elif source.startswith('*/', i): depth -= 1; i += 2
-                else: i += 1
-        elif source.startswith('"""', i):
-            end = source.find('"""', i + 3)
-            i = len(source) if end < 0 else end + 3
-        elif source[i] in ('"', "'"):
-            quote = source[i]
-            i += 1
-            while i < len(source):
-                if source[i] == '\\': i += 2
-                elif source[i] == quote: i += 1; break
-                else: i += 1
-        else:
-            i += 1
-            continue
-        for n in range(start, min(i, len(chars))):
+    size = len(source)
+
+    def blank(start, end):
+        for n in range(start, min(end, size)):
             if chars[n] != '\n': chars[n] = ' '
+
+    def string(i, delimiter):
+        start = i
+        raw = delimiter == '\"\"\"'
+        i += len(delimiter)
+        while i < size:
+            if not raw and source[i] == '\\':
+                i += 2
+            elif source.startswith(delimiter, i):
+                i += len(delimiter)
+                blank(start, i)
+                return i
+            elif delimiter != "'" and source.startswith('${', i):
+                blank(start, i + 2)
+                i = code(i + 2, template=True)
+                start = i
+            else:
+                i += 1
+        blank(start, i)
+        return i
+
+    def code(i, template=False):
+        braces = 0
+        while i < size:
+            start = i
+            if source.startswith('//', i):
+                end = source.find('\n', i)
+                i = size if end < 0 else end
+                blank(start, i)
+            elif source.startswith('/*', i):
+                depth = 1
+                i += 2
+                while i < size and depth:
+                    if source.startswith('/*', i): depth += 1; i += 2
+                    elif source.startswith('*/', i): depth -= 1; i += 2
+                    else: i += 1
+                blank(start, i)
+            elif source.startswith('\"\"\"', i):
+                i = string(i, '\"\"\"')
+            elif source[i] in ('"', "'"):
+                i = string(i, source[i])
+            elif template and source[i] == '}':
+                if braces == 0:
+                    blank(i, i + 1)
+                    return i + 1
+                braces -= 1
+                i += 1
+            else:
+                if template and source[i] == '{': braces += 1
+                i += 1
+        return i
+
+    code(0)
     return ''.join(chars)
 
 

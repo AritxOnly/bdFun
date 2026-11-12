@@ -10,7 +10,7 @@ P5 虽在原计划中标为可选，本次全量目标继续保留，不静默�
 | P0-02 新建 `:core:domain` 并定义 3 个仓储接口 | 历史阶段已验证 | core/domain 仓储契约与 JVM 测试 | 全模块依赖图复核 |
 | P0-03 新建 `:core:common` 并迁入纯函数 | 历史阶段已验证 | core/common 格式化/结果/错误类型及测试 | 最终构建复核 |
 | P0-04 建 `AppContainer`，收拢对象的创建 | 历史阶段已验证 | di/AppContainer 与 AppGraph 委托；真实首页冷启动 | 作用域和重复初始化最终复核见 P4-06 |
-| P0-05 加"架构守卫"检查 | 已接入，守卫继续补强 | check-layering.py；test_layering.py 反例测试 | 旧 ui 原生桥接、CI、字符串插值内引用尚不完整；实际Gradle生产模块图已接入并有注入反例 |
+| P0-05 加"架构守卫"检查 | 已接入，守卫继续补强 | check-layering.py；test_layering.py 反例测试 | 旧 ui 原生桥接仍需最终审计；CI已配置待远端运行；实际Gradle生产模块图已接入并有注入反例 |
 | P0-06 建 `:core:application` 与 `:core:navigation` 骨架（只建空壳） | 历史阶段已验证 | core/application、core/navigation；后续阶段已接线 | 空壳是当时要求，不用后续接线倒推本阶段违规 |
 | P1-01 抽出 `BiliHttpClient` | 实现已接入，局部验证 | infra/bili HTTP 执行层和重试；真实首页/播放 | 消息完整装机流程 |
 | P1-02 抽出 `WbiSigner` | 实现已接入，局部验证 | WbiSigner、SignedRequestRecovery 与单测 | 真实 key 过期及完整 view/playInfo/related 回归 |
@@ -37,7 +37,7 @@ P5 虽在原计划中标为可选，本次全量目标继续保留，不静默�
 | P3-04 拆 `SpaceScreen`（1,076 行） | 已拆分，待完整验收 | 空间头部/正文/横幅拆分；banner 图片规则纯化 | 四主 tab/投稿子类/折叠头/横幅逐项 main 对照 |
 | P3-05 拆评论相关（653 + 706 行） | 已拆分，待完整验收 | 评论行/线程/图片/输入/菜单及纯状态 | 真实列表/楼中楼/图片查看/回复/菜单完整装机 |
 | P3-06 拆 `App.kt` 的 `BdFunApp`（523 行） | 已拆分，局部验证 | MainShell、顶栏/底栏/搜索拆分；定向 main 对照 | 所有底栏返回栈/重复点击回顶完整流程 |
-| P3-07 清点重复 UI 并下沉到 `:core:ui` | 待完成 | TeakUI 保持原模块，不另建 core:ui | 重复 UI 完整清单；每项下沉或保留理由 |
+| P3-07 清点重复 UI 并下沉到 `:core:ui` | 清单与下沉完成 | SHARED_UI_AUDIT逐项列明；共同宽屏滚动进入TeakUI，其他差异保留main规格 | 最终页面验收继续 |
 | P3-08 删除 `*Memory` 内存补丁 | 未全部完成 | 分页状态已迁；RelatedMemory/VideoCache 已改为容器/账号/页面作用域缓存，缓存正常路径装机通过 | 继续全局静态Map/AST审计；两个旧缓存与无调用HTTP代理已删 |
 | P4-01 `VideoPageBus` → `StateFlow` | 实现已接入，待完整验收 | 页面作用域状态替换全局 VideoPageBus | 后台联动和指定评论跳转；兼容展示投影最终审计 |
 | P4-02 其余三个 Bus 收敛 | 实现已接入，待完整验收 | 滚顶/页面 chrome/刷新等作用域状态 | 清选择/回顶部/消息刷新跨页面装机 |
@@ -47,13 +47,13 @@ P5 虽在原计划中标为可选，本次全量目标继续保留，不静默�
 | P4-06 `AppContainer` 引入作用域 | 未完成 | AppContainer 已集中创建依赖与部分页面工厂 | 首页/动态资源槽按UID+revision失效；Compose保留identity；个人/媒体库晚回调与重建key已补revision。空间已改每Activity ViewModel与账号revision，关闭/取消竞态和Store隔离测试通过；消息/进程缓存/其他Activity统一获取继续审计；不能代表所有控制器/获取方式均完成 |
 | P5-01 抽 `:infra:bili` | 模块已建立，待依赖验收 | infra/bili 实际 Gradle 模块，不依赖 app | P1 完整验收与最终依赖图 |
 | P5-02 抽 `:feature:home` | 模块已建立，待完整验收 | 实际feature:home独立assembleDebug、16项原测试；页面/状态移入；Gradle生产图无环/禁止反向依赖 | P4-05前置仍未过；共享卡片过渡注入，完整首页main UI/交互验收 |
-| P5-03 抽 `:feature:video` | 未完成 | 目前只有 feature/video 包目录；infra/playback 已是模块 | 实际 Gradle feature:video 模块；完整视频链路 |
-| P5-04 CI 依赖规则校验 | 本地模块图守卫已接入，CI待完成 | Gradle实际配置导出生产模块图；6项纯规则测试；临时debugImplementation违规依赖被实际Gradle拒绝 | CI配置与CI中的违规失败验收；不将本地反例当作CI通过 |
+| P5-03 抽 `:feature:video` | 模块已建立，待链路验收 | 实际Gradle模块独立assembleDebug；11个状态控制器、播放平台端口、展示契约及纯投影已迁；32项既有定向测试通过；app debug通过 | app保留原TeakUI渲染和原生装配，继续审计完整视频链路 |
+| P5-04 CI 依赖规则校验 | CI已配置，待远端运行 | 固定构建环境与Action；真实Gradle注入负例脚本本地拒绝指定违规，CI执行同一脚本 | 远端CI通过记录；本地负例不冒充CI通过 |
 | P5-05 模块化收益复盘 | 未完成 | 尚无同环境冷/热构建与 APK 收益报告 | P5 前置完成后数据比较与继续/停止/部分回退结论 |
 
 ## 不可省略的最终门槛
 
-- Kotlin PSI尺寸已扫描953个自有生产文件/10421节点，当前0违规，严格门槛已接入checkLayering，详见KOTLIN_SIZE_AUDIT.md；依赖图与CI继续审计；播放器原生输出/会话类型已改端口；其余原生装配桥接移出纯展示、旧诊断钩子注入，清理旧兼容入口。当前守卫不是 Kotlin 编译器，字符串插值内的引用及旧 ui 的完整依赖仍须补足。
+- Kotlin PSI尺寸已扫描954个自有生产文件/10428节点，当前0违规，严格门槛已接入checkLayering，详见KOTLIN_SIZE_AUDIT.md；依赖图与CI继续审计；播放器原生输出/会话类型已改端口；其余原生装配桥接移出纯展示、旧诊断钩子注入，清理旧兼容入口。当前守卫不是 Kotlin 编译器，字符串模板表达式现已纳入；旧 ui 的完整依赖仍须最终审计。
 - 全部全局 object、缓存、页面/进程/账号作用域审计；账号快速切换及迟到请求隔离。
 - 所有页面以同 main 数据、主题、字号、窗口尺寸对照 TeakUI；只通过局部页不代表全站完全一致。
 - 视频、播放器、评论完整行为回归，含旋转、画中画、后台、媒体通知/耳机、恢复进度、进程回收和断网。
