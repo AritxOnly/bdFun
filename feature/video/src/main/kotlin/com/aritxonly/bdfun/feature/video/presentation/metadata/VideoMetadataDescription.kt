@@ -81,13 +81,13 @@ internal fun VideoMetadataIdentifier(content: VideoMetadataContent, description:
 }
 
 @Composable
-internal fun VideoMetadataDescription(descText: String?, descProgress: Float, description: VideoDescriptionStateHolder) {
+internal fun VideoMetadataDescription(descText: String?, descProgress: Float, description: VideoDescriptionStateHolder, slots: VideoMetadataSlots) {
     val colors = MiuixTheme.colorScheme
-    val context = LocalContext.current
     if (descText != null) {
         Spacer(Modifier.height(4.dp))
         CollapsibleDescription(
             text = descText,
+            slots = slots,
             progress = descProgress,
             color = colors.onBackgroundVariant,
             backgroundColor = colors.background,
@@ -98,8 +98,7 @@ internal fun VideoMetadataDescription(descText: String?, descProgress: Float, de
                 .pointerInput(descText) {
                     detectTapGestures(
                         onLongPress = {
-                            context.copyToClipboard("简介", descText)
-                            context.showToast("已复制简介")
+                            slots.copyDescription(descText)
                         },
                     )
                 },

@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.teak.common.icons.ResourceGlyph
+
 import com.aritxonly.teak.common.player.PlayGlyph
 import com.aritxonly.teak.common.player.PauseGlyph
 

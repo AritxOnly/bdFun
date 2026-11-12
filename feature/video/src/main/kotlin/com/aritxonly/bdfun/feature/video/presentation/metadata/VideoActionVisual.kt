@@ -1,5 +1,8 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.core.common.formatCount
+import com.aritxonly.teak.common.icons.ResourceGlyph
+
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
@@ -54,8 +57,8 @@ internal fun Modifier.videoActionPressInput(
 
 @Composable
 internal fun VideoActionVisual(
-    modifier: Modifier, label: String, value: Long, kind: ActionKind,
-    onClick: () -> Unit, hasLongPress: Boolean, state: VideoActionPressStateHolder, animatedTint: Color,
+    modifier: Modifier, label: String, value: Long, iconRes: Int,
+    onClick: () -> Unit, hasLongPress: Boolean, state: VideoActionPressStateHolder, animatedTint: Color, activity: android.app.Activity?,
 ) {
     Column(
         modifier = modifier
@@ -72,6 +75,7 @@ internal fun VideoActionVisual(
             if (hasLongPress) {
                 LikeRipple(
                     holding = state.rippleHolding,
+                    activity = activity,
                     burst = state.rippleBurst,
                 )
             }
@@ -87,7 +91,7 @@ internal fun VideoActionVisual(
                 contentAlignment = Alignment.Center,
             ) {
                 ResourceGlyph(
-                    res = kind.res,
+                    res = iconRes,
                     tint = animatedTint,
                     size = 27.dp,
                 )

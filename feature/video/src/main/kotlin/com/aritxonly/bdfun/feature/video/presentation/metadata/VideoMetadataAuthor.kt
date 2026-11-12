@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.core.common.formatCount
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -21,13 +23,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import com.aritxonly.bdfun.BrandPink
 import com.kyant.shapes.Capsule
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-internal fun VideoMetadataAuthor(content: VideoMetadataContent, interaction: com.aritxonly.bdfun.feature.video.application.VideoInteractionState, actions: VideoMetadataActions) {
+internal fun VideoMetadataAuthor(content: VideoMetadataContent, interaction: com.aritxonly.bdfun.feature.video.application.VideoInteractionState, actions: VideoMetadataActions, appearance: VideoMetadataAppearance, slots: VideoMetadataSlots) {
     val colors = MiuixTheme.colorScheme
     val detail = content.detail
     val video = content.video
@@ -35,11 +35,9 @@ internal fun VideoMetadataAuthor(content: VideoMetadataContent, interaction: com
     val upVideos = content.upVideos
     val followed = interaction.followed
     Row(verticalAlignment = Alignment.CenterVertically) {
-        AsyncImage(
-            model = rememberImageRequest(detail?.ownerFace ?: video.ownerFace),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
+        slots.avatar(
+            detail?.ownerFace ?: video.ownerFace,
+            Modifier
                 .size(40.dp)
                 .clickable(
                     interactionSource = null,
@@ -79,7 +77,7 @@ internal fun VideoMetadataAuthor(content: VideoMetadataContent, interaction: com
         Box(
             modifier = Modifier
                 .clip(Capsule())
-                .background(BrandPink)
+                .background(appearance.accentColor)
                 .clickable(interactionSource = null, indication = null) {
                     actions.toggleFollow()
                 }

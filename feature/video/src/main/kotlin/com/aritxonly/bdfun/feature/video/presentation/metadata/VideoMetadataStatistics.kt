@@ -1,5 +1,8 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.core.common.formatCount
+import com.aritxonly.bdfun.core.common.formatDateTime
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,7 +35,7 @@ internal fun VideoMetadataTitle(content: VideoMetadataContent) {
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-internal fun VideoMetadataStatistics(content: VideoMetadataContent) {
+internal fun VideoMetadataStatistics(content: VideoMetadataContent, slots: VideoMetadataSlots) {
     val colors = MiuixTheme.colorScheme
     val detail = content.detail
     val video = content.video
@@ -43,13 +46,13 @@ internal fun VideoMetadataStatistics(content: VideoMetadataContent) {
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            MetricGlyph(play = true, color = colors.onBackgroundVariant, size = 14.dp)
+            slots.metric(true, colors.onBackgroundVariant, 14.dp)
             Spacer(Modifier.width(3.dp))
             Text(formatCount(detail?.play ?: video.play.toLong()),
                 color = colors.onBackgroundVariant, fontSize = 12.sp, maxLines = 1)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            MetricGlyph(play = false, color = colors.onBackgroundVariant, size = 14.dp)
+            slots.metric(false, colors.onBackgroundVariant, 14.dp)
             Spacer(Modifier.width(3.dp))
             Text(formatCount(detail?.danmaku ?: video.danmaku.toLong()),
                 color = colors.onBackgroundVariant, fontSize = 12.sp, maxLines = 1)

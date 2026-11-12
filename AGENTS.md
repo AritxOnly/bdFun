@@ -452,3 +452,7 @@ SpaceApi的space只负责原五个并发请求、原await顺序和条件获赞�
 ### 2026-11-13 全屏音频/输入迁移检查点
 
 app/ui/player/fullscreen原三份剩余展示已迁入feature:video。听视频直接使用显式外观/封面请求；弹幕输入接收发送器getter，必须在点击submit时读取最新注册回调，不能改成composition时捕获sender值。DanmakuSettingsContent是设置/视频/直播共用设置展示，继续由app槽组装，禁止feature:video反向依赖settings feature。旧pointerInputSlider全仓无调用已删除；实际弹幕滑块私有androidPointerSlider保持原样。
+
+### 2026-11-13 视频详情正文模块归属
+
+作者/统计/简介/互动与分P展示、原生点赞水波纹已进入feature:video；app以VideoMetadataSlots注入原图片/图标/链接/复制与当前窗口。窗口只在页面组合内持有，不能进入进程容器。ResourceGlyph原样下沉TeakUI，业务资源目录仍在app。简介缓存键保持原链接标题映射，长按、动画和选择文本不改。

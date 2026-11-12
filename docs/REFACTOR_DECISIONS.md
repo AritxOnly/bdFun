@@ -475,3 +475,7 @@ Brotli 0.1.2沿用main选择，集中版本表并仅由infra:bili声明，用于
 - 输入发送器采用getter，在submit点击时读取最新页面注册回调；输入、字体、模式、颜色、80ms聚焦、键盘和成功/失败后收起规则保持。原8项纯状态测试逐字迁移到视频模块，不复制测试或更改断言。
 - DanmakuPanel保留原两层Column和唯一viewport滚动，设置正文通过app槽提供，传原info.danmakuItems/fullscreen=true/onInteract空回调；该正文还被设置和直播使用，不能为了视频模块迁移制造feature间依赖。
 - 原计划下沉pointerInputSlider，经全仓引用核对发现它实际无调用，真实滑块用私有androidPointerSlider；因此直接删除旧死函数，没有增加新的TeakUI手势API，也没有替换真实滑块。
+
+### 2026-11-13 视频详情正文进入实际视频模块
+
+P5-03继续迁移14个既有展示文件，包括作者/统计/简介/互动、分P条和原生点赞水波纹。图片/共享统计图标/链接注解/复制及当前Activity通过页面级VideoMetadataSlots传入；资源ID与强调色显式传入，不让feature依赖app。简介remember仍以原标题映射为失效键，链接尾部仍每次按原策略生成；原PixelCopy/shader、长按和动画体不重写。ResourceGlyph原函数体下沉现有TeakUI，所有旧app调用显式import同一实现。原业务资源目录不下沉。

@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.teak.common.chrome.rememberManualProgress
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,17 +28,17 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.data.VideoPage
+import com.aritxonly.bdfun.core.model.video.VideoPage
 import kotlinx.coroutines.delay
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
 @Composable
-internal fun VideoPageStrip(
-    pages: List<com.aritxonly.bdfun.data.VideoPage>,
+fun VideoPageStrip(
+    pages: List<com.aritxonly.bdfun.core.model.video.VideoPage>,
     currentCid: Long,
-    onSelect: (com.aritxonly.bdfun.data.VideoPage) -> Unit,
+    onSelect: (com.aritxonly.bdfun.core.model.video.VideoPage) -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
     val stripState = rememberLazyListState()
@@ -115,7 +117,7 @@ internal fun VideoPageStrip(
  * （60ms / 120ms → 30ms / 60ms），保留层次但整体更快。
  */
 @Composable
-internal fun rememberStaggerProgress(ready: Boolean, order: Int): Float {
+fun rememberStaggerProgress(ready: Boolean, order: Int): Float {
     var target by remember { mutableStateOf(0f) }
     LaunchedEffect(ready, order) {
         if (!ready) {

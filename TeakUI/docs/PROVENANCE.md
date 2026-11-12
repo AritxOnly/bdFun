@@ -108,3 +108,7 @@
 ### 2026-11-13 跨视频/直播共用播放绘制
 
 `common/player/PlayerGlyphs.kt`由bdFun既有FullscreenGlyphs中的PixelIcon/PlayGlyph/PauseGlyph原样迁入；PlayGlyph仅增加显式资源ID参数，仍绘制app传入的原TeakIcon.PlayerPlay。保留BitmapFactory、FilterQuality.High、暂停条尺寸/间距和内容描述；不包含业务模型、账号状态、网络或资源目录反向依赖。视频/直播都从TeakUI导入，不通过feature:video共享UI。
+
+### ResourceGlyph
+
+`common/icons/ResourceGlyph.kt`来自bdFun原`ui/TeakIcons.kt`的通用资源图片绘制，函数体、16dp默认尺寸、着色与contentDescription语义原样；只接收资源ID，不迁入业务图标目录或导航。

@@ -1,6 +1,7 @@
 package com.aritxonly.bdfun.ui
 
-import com.aritxonly.bdfun.navigateToVideoByBvid
+import com.aritxonly.teak.common.chrome.rememberManualProgress
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -30,28 +31,19 @@ internal fun CollapsibleDescription(
     backgroundColor: Color,
     onExpandableChange: () -> Unit,
     modifier: Modifier = Modifier,
+    slots: VideoMetadataSlots,
 ) {
     val density = LocalDensity.current
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
     val linkColor = MiuixTheme.colorScheme.primary
-    val biliTitles = rememberBiliLinkTitles(text)
+    val links = slots.links(text, linkColor)
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
     val style = androidx.compose.ui.text.TextStyle(
         color = color,
         fontSize = 12.sp,
         lineHeight = 18.sp,
     )
-    val annotatedText = androidx.compose.runtime.remember(text, linkColor, biliTitles) {
-        linkifyText(
-            text = text,
-            linkColor = linkColor,
-            titles = biliTitles,
-            onOpenVideo = { bvid ->
-                navigateToVideoByBvid(context, bvid)
-            },
-            onOpen = { uriHandler.openUri(it) },
-        )
+    val annotatedText = androidx.compose.runtime.remember(text, linkColor, links.cacheKey) {
+        links.annotate(text)
     }
     BoxWithConstraints(modifier) {
         val widthPx = with(density) { maxWidth.toPx() }.toInt().coerceAtLeast(1)
@@ -78,15 +70,7 @@ internal fun CollapsibleDescription(
             val layers = VideoDescriptionLayersContent(
                 fullPx, safeTopPx, p, tailText, annotatedText, style, backgroundColor, onExpandableChange,
             )
-            VideoDescriptionTail(layers) { tail ->
-                linkifyText(
-                    text = tail,
-                    linkColor = linkColor,
-                    titles = biliTitles,
-                    onOpenVideo = { bvid -> navigateToVideoByBvid(context, bvid) },
-                    onOpen = { uriHandler.openUri(it) },
-                )
-            }
+            VideoDescriptionTail(layers, links.annotate)
             VideoDescriptionFirstLines(layers)
         }
     }
@@ -94,7 +78,7 @@ internal fun CollapsibleDescription(
 
 /** 和简介一样的展开箭头：展开/收回都旋转，带补间动画。 */
 @Composable
-internal fun ExpandChevron(expanded: Boolean) {
+fun ExpandChevron(expanded: Boolean) {
     val colors = MiuixTheme.colorScheme
     val progress = rememberManualProgress(if (expanded) 1f else 0f, 300f)
     Box(

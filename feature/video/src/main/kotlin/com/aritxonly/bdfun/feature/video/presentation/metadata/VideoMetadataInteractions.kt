@@ -7,7 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
 @Composable
-internal fun VideoMetadataInteractions(interaction: com.aritxonly.bdfun.feature.video.application.VideoInteractionState, actions: VideoMetadataActions) {
+internal fun VideoMetadataInteractions(interaction: com.aritxonly.bdfun.feature.video.application.VideoInteractionState, actions: VideoMetadataActions, appearance: VideoMetadataAppearance, slots: VideoMetadataSlots) {
     val liked = interaction.liked
     val disliked = interaction.disliked
     val likedCount = interaction.likeCount
@@ -25,6 +25,9 @@ internal fun VideoMetadataInteractions(interaction: com.aritxonly.bdfun.feature.
             label = "点赞",
             value = likedCount,
             kind = ActionKind.ThumbUp,
+            iconRes = appearance.icons.like,
+            accentColor = appearance.accentColor,
+            activity = slots.activity,
             active = liked,
             onClick = { actions.toggleLike() },
             onLongPress = { actions.tripleAction() },
@@ -34,6 +37,9 @@ internal fun VideoMetadataInteractions(interaction: com.aritxonly.bdfun.feature.
             label = "不喜欢",
             value = 0,
             kind = ActionKind.ThumbDown,
+            iconRes = appearance.icons.dislike,
+            accentColor = appearance.accentColor,
+            activity = slots.activity,
             active = disliked,
             onClick = { actions.toggleDislike() },
         )
@@ -42,6 +48,9 @@ internal fun VideoMetadataInteractions(interaction: com.aritxonly.bdfun.feature.
             label = "投币",
             value = coinCount,
             kind = ActionKind.Coin,
+            iconRes = appearance.icons.coin,
+            accentColor = appearance.accentColor,
+            activity = slots.activity,
             active = coined,
             onClick = { actions.giveCoin() },
         )
@@ -50,6 +59,9 @@ internal fun VideoMetadataInteractions(interaction: com.aritxonly.bdfun.feature.
             label = "收藏",
             value = favoriteCount,
             kind = ActionKind.Star,
+            iconRes = appearance.icons.favorite,
+            accentColor = appearance.accentColor,
+            activity = slots.activity,
             active = favorited,
             onClick = { actions.toggleFavorite() },
         )
@@ -58,6 +70,9 @@ internal fun VideoMetadataInteractions(interaction: com.aritxonly.bdfun.feature.
             label = "分享",
             value = shareCount,
             kind = ActionKind.Share,
+            iconRes = appearance.icons.share,
+            accentColor = appearance.accentColor,
+            activity = slots.activity,
             active = false,
             onClick = { actions.shareVideo() },
         )

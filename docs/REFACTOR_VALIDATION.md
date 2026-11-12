@@ -606,3 +606,10 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - 静态对照：Composer除core模型import/可见性/最新sender getter外全部一致；Audio全部数值、颜色、字号、尺寸、跳转量和文案字面量序列一致，图片/设置读取仅替换为显式接缝。
 - `/tmp/bdfun-audio-composer-runtime.log`最终通过：当前debug包PLAYING→真实全屏→更多/听视频→原封面、标题、-10s/+10s和退出控制→退出音频→弹幕输入→draft_refactor_probe文本及全部原样式项→crash空，结束force-stop。没有点击发送或更改设置。首次输入后颜色行被IME裁切；增加收起键盘步骤后完整样式断言通过，没有改产品布局或降低断言。截图`/tmp/bdfun-module-audio.png`、`/tmp/bdfun-module-composer.png`已查看。
 - 上一批9cb8185的[CI 43280861557](https://github.com/AritxOnly/bdFun/actions/runs/43280861557)已成功，不替代本批新源码的后续CI与最终release。其余视频详情/平台接线及完整生命周期/最终交付继续。
+
+### 2026-11-13 视频详情正文迁移
+
+- `/tmp/bdfun-video-metadata.log`：checkLayering、独立feature:video与app debug通过，39s；963文件/10451 PSI节点/0违规。首轮只有一个旧导航import残留导致编译失败，删除并在app装配正确导入原导航后通过，没有改实现或断言。原无业务逻辑搬迁不追加镜像单测。
+- 14文件数值/中文文案字面量对照，除简介复制的原两句文案随操作转入app装配外一致；布局、手势与动画保持。`/tmp/bdfun-metadata-runtime.log`：当前debug真实起播、作者/标题/简介/互动/原简介tab通过，crash空并force-stop，无账号写操作。`/tmp/bdfun-metadata-runtime.png`已查看，确认BV1orW46aEba、原五图标和正文均渲染。
+- 自动化文字导出不含SelectionContainer中的编号；前两次编号文字断言失败，不算通过。等待动画后仍缺失导出，最终截图明确显示编号；保留其余文字断言。未修改产品选择语义，也未声称编号自动化断言通过。计数型分享按钮原本显示679而非“分享”，驱动改为核对实际原UI并截图。
+- 此次源码使旧release过期；剩余详情/平台接线、完整生命周期及最终release/交付继续，不把当前截图当全站与main逐像素验收。

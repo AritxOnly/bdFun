@@ -41,9 +41,9 @@ internal fun LikeRipple(
     holding: Boolean,
     burst: Int,
     modifier: Modifier = Modifier,
+    activity: android.app.Activity?,
 ) {
     val context = LocalContext.current
-    val activity = context.findHostActivity()
     var view by remember { mutableStateOf<LikeRippleView?>(null) }
     var rect by remember { mutableStateOf<Rect?>(null) }
     var lastBurst by remember { mutableStateOf(0) }

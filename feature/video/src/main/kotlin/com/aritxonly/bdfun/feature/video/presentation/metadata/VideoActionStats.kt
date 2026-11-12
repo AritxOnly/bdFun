@@ -16,7 +16,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.BrandPink
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -27,6 +26,7 @@ internal fun ActionStat(
     label: String,
     value: Long,
     kind: ActionKind,
+    iconRes: Int, accentColor: Color, activity: android.app.Activity?,
     active: Boolean = false,
     onClick: () -> Unit,
     onLongPress: (() -> Unit)? = null,
@@ -34,7 +34,7 @@ internal fun ActionStat(
     val colors = MiuixTheme.colorScheme
     val state = remember { VideoActionPressStateHolder() }
     VideoActionPressDecay(state, kind)
-    val colorTarget = if (active || state.isPressing || state.press > 0.01f) BrandPink else colors.onBackgroundVariant
+    val colorTarget = if (active || state.isPressing || state.press > 0.01f) accentColor else colors.onBackgroundVariant
     val animatedTint by androidx.compose.animation.animateColorAsState(
         targetValue = colorTarget,
         animationSpec = androidx.compose.animation.core.tween(
@@ -44,16 +44,10 @@ internal fun ActionStat(
         label = "action-tint",
     )
     VideoActionLongPress(state, onLongPress)
-    VideoActionVisual(modifier, label, value, kind, onClick, onLongPress != null, state, animatedTint)
+    VideoActionVisual(modifier, label, value, iconRes, onClick, onLongPress != null, state, animatedTint, activity)
 }
 
-internal enum class ActionKind(val res: Int) {
-    ThumbUp(TeakIcon.Like),
-    ThumbDown(TeakIcon.Dislike),
-    Coin(TeakIcon.Coin),
-    Star(TeakIcon.Star),
-    Share(TeakIcon.Share),
-}
+internal enum class ActionKind { ThumbUp, ThumbDown, Coin, Star, Share }
 
 @Composable
 internal fun MiniStat(text: String, playIcon: Boolean) {

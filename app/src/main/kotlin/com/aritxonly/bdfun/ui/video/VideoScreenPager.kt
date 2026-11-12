@@ -58,6 +58,7 @@ private fun VideoScreenMetadata(
     val onlineCount = content.metadata.onlineCount
     val onlineText = content.metadata.onlineText
     val interactionState = content.interaction
+    val metadata = rememberVideoMetadataAssembly()
     VideoMetadataSection(
         VideoMetadataContent(detail, video, metaReady, upFollowers, upVideos, onlineCount, onlineText),
         interactionState, description,
@@ -67,6 +68,7 @@ private fun VideoScreenMetadata(
                 VideoPageBus.pauseAll()
                 navigateToSpace(videoContext, detail?.ownerMid ?: video.ownerMid)
             }),
+        appearance = metadata.appearance, slots = metadata.slots,
     )
 }
 
