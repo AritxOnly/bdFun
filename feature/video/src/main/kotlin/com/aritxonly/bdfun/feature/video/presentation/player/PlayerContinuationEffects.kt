@@ -12,13 +12,12 @@ import com.aritxonly.bdfun.core.application.PlaybackController
 import kotlinx.coroutines.delay
 
 @Composable
-internal fun BindPlayerContinuation(
+fun BindPlayerContinuation(
     playback: PlaybackController,
     fullscreenInfo: FullscreenPlayerInfo,
-    onPageSelected: (com.aritxonly.bdfun.data.VideoPage) -> Unit,
-    ui: VideoPlayerUiStateHolder,
+    onPageSelected: (com.aritxonly.bdfun.core.model.video.VideoPage) -> Unit,
+    ui: VideoPlayerUiStateHolder, page: PlayerPageHost, hasNext: () -> Boolean, toast: (String) -> Unit,
 ) {
-    val VideoPageBus = LocalVideoPageState.current
     val state = playback.state.collectAsState()
     val ended by remember(playback) { derivedStateOf { state.value.ended } }
     val playerViewRef by ui.playerViewRef
@@ -52,19 +51,18 @@ internal fun BindPlayerContinuation(
                 )
             }
             (fsLoopMode == 2 || fsAutoPlayNext) &&
-                VideoPageBus.dependencies.queue.hasNext() -> {
+                hasNext() -> {
                 playback.acknowledgeEnd()
-                VideoPageBus.requestAutoNext()
+                page.requestAutoNext()
             }
         }
     }
 
-    BindPlayerSleepTimer(playback, ui)
+    BindPlayerSleepTimer(playback, ui, toast)
 }
 
 @Composable
-private fun BindPlayerSleepTimer(playback: PlaybackController, ui: VideoPlayerUiStateHolder) {
-    val context = LocalContext.current
+private fun BindPlayerSleepTimer(playback: PlaybackController, ui: VideoPlayerUiStateHolder, toast: (String) -> Unit) {
     var fsSleepAt by ui.fsSleepAt
     // 定时关闭
     LaunchedEffect(fsSleepAt) {
@@ -74,7 +72,7 @@ private fun BindPlayerSleepTimer(playback: PlaybackController, ui: VideoPlayerUi
             if (left <= 0L) {
                 playback.pause()
                 fsSleepAt = 0L
-                context.showToast("定时关闭已生效")
+                toast("定时关闭已生效")
                 break
             }
             delay(1000L)

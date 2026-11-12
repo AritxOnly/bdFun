@@ -35,7 +35,8 @@ internal fun VideoPlayer(
     val sponsor = rememberPlayerSponsor(media.bvid, tracking, observed)
     BindPlayerPresentationSetup(media, presentation, ui)
     val latencyMs = rememberPlayerBluetoothLatency()
-    BindPlayerContinuation(playback, presentation.fullscreenInfo, actions.transport.onPageSelected, ui)
+    BindPlayerContinuation(playback, presentation.fullscreenInfo, actions.transport.onPageSelected, ui,
+        LocalVideoPageState.current, dependencies.queue::hasNext, rememberPlayerDiagnostics().toast)
     BindPlayerFrameResources(media, playback.userAgent)
     BindPlayerEngineEffects(playback, observed, media, presentation, actions, ui, tracking)
     val audioOnly by ui.fsAudioOnly

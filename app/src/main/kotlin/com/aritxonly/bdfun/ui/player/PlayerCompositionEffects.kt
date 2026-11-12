@@ -94,15 +94,21 @@ internal fun BindPlayerEngineEffects(
     media: VideoMediaInput, presentation: VideoPlayerPresentation,
     actions: VideoPlayerActions, ui: VideoPlayerUiStateHolder, tracking: PlaybackTrackingStateHolder,
 ) {
-    val pageSettings = LocalVideoPageState.current.settings
+    val page = LocalVideoPageState.current
+    val pageSettings = page.settings
     val playing by observed.playing
-    BindPlayerMediaBridge(playback, media, presentation, actions, ui)
+    BindPlayerMediaBridge(playback, media, presentation, actions, ui, page.dependencies.background) {
+        pageSettings.boostDefaultSpeed
+    }
     BindPlayerControlVisibility(playback, presentation.fullscreen, playing, ui, LocalVideoPageState.current)
-    BindPlayerObserver(playback, media, actions, ui)
+    BindPlayerObserver(playback, media, actions, ui, page, page.dependencies.progress,
+        rememberPlayerExitHooks(), rememberPlayerDiagnostics())
     BindPlayerSource(playback, media, presentation, ui, rememberPlayerDiagnostics()) {
         pageSettings.autoPlay
     }
-    BindPlayerProgressTracking(playback, media.bvid, ui, tracking)
+    BindPlayerProgressTracking(playback, media.bvid, ui, tracking, page, page.dependencies.progress) {
+        pageSettings.resumePlayback
+    }
 }
 
 @Composable

@@ -9,18 +9,18 @@ import androidx.compose.ui.platform.LocalContext
 import com.aritxonly.bdfun.core.application.PlaybackController
 import com.aritxonly.bdfun.core.application.PlaybackPhase
 import com.aritxonly.bdfun.core.application.PlaybackFailure
+import com.aritxonly.bdfun.core.domain.PlaybackRecoveryAction
+import com.aritxonly.bdfun.core.domain.selectPlaybackRecovery
 
 @Composable
-internal fun BindPlayerObserver(
+fun BindPlayerObserver(
     playback: PlaybackController,
     media: VideoMediaInput,
     actions: VideoPlayerActions,
-    ui: VideoPlayerUiStateHolder,
+    ui: VideoPlayerUiStateHolder, page: PlayerPageHost,
+    progress: com.aritxonly.bdfun.core.domain.PlaybackProgressRepository,
+    exit: PlayerExitHooks, diagnostics: PlayerDiagnostics,
 ) {
-    val dependencies = LocalVideoPageState.current.dependencies
-    val settings = LocalVideoPageState.current.settings
-    val context = LocalContext.current
-    val PlayerUiState = LocalVideoPageState.current.playerUi
     val bvid = media.bvid
     val info = media.info
     val quality = media.quality
@@ -34,7 +34,7 @@ internal fun BindPlayerObserver(
         val listener = object : PlaybackController.Listener {
             override fun onRenderedFirstFrame() {
                 firstFrame = true
-                dependencies.log(
+                diagnostics.log(
                     "PLAYER",
                     "first-frame bvid=$bvid q=${latestQuality?.id}",
                 )
@@ -46,7 +46,7 @@ internal fun BindPlayerObserver(
 
             override fun onPhaseChanged(state: PlaybackPhase) {
                 if (state == PlaybackPhase.Buffering || state == PlaybackPhase.Ready) {
-                    dependencies.log(
+                    diagnostics.log(
                         "PLAYER",
                         "state=${if (state == PlaybackPhase.Buffering) "buffering" else "ready"} " +
                             "bvid=$bvid q=${latestQuality?.id}",
@@ -57,30 +57,30 @@ internal fun BindPlayerObserver(
                 }
                 if (state == PlaybackPhase.Ended) {
                     controlsVisible = true
-                    PlayerUiState.controlsVisible = true
+                    page.controlsVisible = true
                 }
             }
 
             override fun onError(error: PlaybackFailure) {
-                handlePlayerError(context, error, latestQuality, latestInfo, ui, dependencies.log)
+                handlePlayerError(diagnostics.toast, error, latestQuality, latestInfo, ui, diagnostics.log)
             }
         }
         playback.addListener(listener)
         onDispose {
-            if (settings.resumePlayback) {
+            if (exit.resumePlayback()) {
                 runCatching {
-                    dependencies.progress.save(latestBvid, playback.refresh().positionMs, playback.refresh().durationMs)
+                    progress.save(latestBvid, playback.refresh().positionMs, playback.refresh().durationMs)
                 }
             }
             playback.removeListener(listener)
-            val handOff = settings.showDiscAfterVideo && !settings.stopOnVideoPageExit &&
-                dependencies.background.shouldHandOff() &&
+            val handOff = exit.showDiscAfterVideo() && !exit.stopOnVideoPageExit() &&
+                exit.shouldHandOff() &&
                 playback.refresh().phase != PlaybackPhase.Idle
             if (handOff) {
                 // 页面正常关闭，但播放器继续活着：系统一镜到底退出动画照常播。
-                dependencies.background.adopt(playback, context)
+                exit.adopt(playback)
             } else {
-                dependencies.background.cancelHandOff()
+                exit.cancelHandOff()
                 playback.release()
             }
         }
@@ -89,10 +89,10 @@ internal fun BindPlayerObserver(
 }
 
 private fun handlePlayerError(
-    context: android.content.Context,
+    toast: (String) -> Unit,
     error: PlaybackFailure,
-    latestQuality: com.aritxonly.bdfun.data.Quality?,
-    latestInfo: com.aritxonly.bdfun.data.PlayInfo?,
+    latestQuality: com.aritxonly.bdfun.core.model.video.Quality?,
+    latestInfo: com.aritxonly.bdfun.core.model.video.PlayInfo?,
     ui: VideoPlayerUiStateHolder,
     log: (String, String) -> Unit,
 ) {
@@ -104,18 +104,12 @@ private fun handlePlayerError(
             "usingOriginal=$usingOriginal usingFallback=$usingFallback " +
             "message=${error.message?.take(300)}",
     )
-    // CDN 节点有时会拒绝带签名的 4K/音轨地址（403），先用原地址重试，再考虑降画质。
-    val rawVideo = latestQuality?.rawVideoUrl.orEmpty()
-    val rawAudio = latestInfo?.rawAudioUrl.orEmpty()
-    if (!usingOriginal && (rawVideo.isNotBlank() || rawAudio.isNotBlank())) {
-        usingOriginal = true
-        return
+    when (selectPlaybackRecovery(latestQuality, latestInfo, usingOriginal, usingFallback)) {
+        PlaybackRecoveryAction.RetryOriginal -> usingOriginal = true
+        PlaybackRecoveryAction.RetryFallback -> {
+            usingFallback = true
+            toast("当前清晰度播放失败，已切换到兼容画质")
+        }
+        PlaybackRecoveryAction.Fail -> toast("播放失败，请尝试切换清晰度")
     }
-    // DASH 高画质在部分 HyperOS / 解码器组合上会失败；优先退回 durl 兜底流。
-    if (!usingFallback && !latestInfo?.fallbackUrl.isNullOrBlank()) {
-        usingFallback = true
-        context.showToast("当前清晰度播放失败，已切换到兼容画质")
-        return
-    }
-    context.showToast("播放失败，请尝试切换清晰度")
 }

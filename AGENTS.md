@@ -472,3 +472,7 @@ app/ui/player/fullscreen原三份剩余展示已迁入feature:video。听视频�
 ### 2026-11-13 播放器生命周期端口与读取时机
 
 生命周期/控件显隐/方向/系统栏/HDR/来源/音效/弹幕时钟进入feature:video，通过PlayerPageHost读写原页面投影与暂停注册表，不新增第二份状态。设置在原回调/Effect读点使用getter，不能冻结为首次值。尤其graphicsLayer/draw中的状态读取迁移后必须保留在原绘制阶段：VideoPageTabs的playerBottomPx以getter输入，禁止提前取Float，否则旋转后tab会滞留旧高度。热门弹幕筛选为core:domain的selectHotDanmaku，原窗口/排序/去重顺序不变。
+
+### 2026-11-13 媒体会话/退出/进度端口
+
+前台挂接协议ForegroundPlaybackAttachment进入core:application，BackgroundPlaybackStateHolder仍实现原owner/token动作，禁止把具体app类型引回feature。媒体会话、进度轮询、连播/定时关闭与退出观察器归feature:video；退出Context由app的PlayerExitHooks捕获，设置仍在事件读取。播放来源选择/重试次序归core:domain的PlaybackSourcePolicy，保留空串与null、rawFallback不能单独触发原地址重试等原边界。

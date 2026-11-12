@@ -13,6 +13,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
+import com.aritxonly.bdfun.core.application.ForegroundPlaybackAttachment
 import com.aritxonly.bdfun.core.application.PlaybackController
 import com.aritxonly.bdfun.core.application.PlaybackSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
@@ -46,17 +47,7 @@ internal class BackgroundPlaybackStateHolder(
     private val session: com.aritxonly.bdfun.core.application.PlaybackSessionStateHolder,
     private val processScope: CoroutineScope,
     private val queue: com.aritxonly.bdfun.feature.video.application.BackgroundQueueLoader,
-) : com.aritxonly.bdfun.core.application.BackgroundDiscPlayback {
-
-    interface Actions {
-        fun next()
-        fun previous()
-        fun togglePlayPause()
-        fun boostStart()
-        fun boostEnd()
-        fun seekTo(ms: Long)
-        fun exit()
-    }
+) : com.aritxonly.bdfun.core.application.BackgroundDiscPlayback, ForegroundPlaybackAttachment {
 
     override val state get() = session.state
     private var snapshot by mutableStateOf(session.state.value)
@@ -65,7 +56,7 @@ internal class BackgroundPlaybackStateHolder(
     } }
     private fun sync() { snapshot = session.state.value }
     val fullscreen get() = snapshot.fullscreen
-    internal fun updateFullscreen(owner: Any, value: Boolean) { session.setFullscreen(owner, value); sync() }
+    override fun updateFullscreen(owner: Any, value: Boolean) { session.setFullscreen(owner, value); sync() }
     val active get() = snapshot.active
     val detached get() = snapshot.detached
     override val playing get() = snapshot.playback.playing
@@ -89,7 +80,7 @@ internal class BackgroundPlaybackStateHolder(
     private var qualityId: Int = 0
 
     private var token: Any? = null
-    private var actions: Actions? = null
+    private var actions: ForegroundPlaybackAttachment.Actions? = null
     private var appContext: Context? = null
 
     private var detachedPlayer: PlaybackController? = null
@@ -103,14 +94,14 @@ internal class BackgroundPlaybackStateHolder(
         Thread(r, "bdFun-player-teardown").apply { isDaemon = true }
     }
 
-    internal fun attach(token: Any, playback: PlaybackController, actions: Actions) {
+    override fun attach(token: Any, playback: PlaybackController, actions: ForegroundPlaybackAttachment.Actions) {
         this.token = token
         this.actions = actions
         session.attach(token, playback)
         sync()
     }
 
-    internal fun detach(token: Any) {
+    override fun detach(token: Any) {
         if (this.token !== token) return
         this.token = null
         if (detached || session.state.value.handOffRequested) {

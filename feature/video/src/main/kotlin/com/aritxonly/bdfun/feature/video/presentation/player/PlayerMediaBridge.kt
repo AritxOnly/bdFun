@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.core.common.formatDuration
+import com.aritxonly.bdfun.core.application.ForegroundPlaybackAttachment
 import android.app.Activity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -14,12 +16,12 @@ import com.aritxonly.bdfun.core.application.MediaQueueEntry
 import com.aritxonly.bdfun.feature.video.presentation.VideoPlaybackPlatform
 
 @Composable
-internal fun BindPlayerMediaBridge(
+fun BindPlayerMediaBridge(
     playback: VideoPlaybackPlatform,
     media: VideoMediaInput,
     presentation: VideoPlayerPresentation,
     actions: VideoPlayerActions,
-    ui: VideoPlayerUiStateHolder,
+    ui: VideoPlayerUiStateHolder, background: ForegroundPlaybackAttachment, boostDefaultSpeed: () -> Float,
 ) {
     val context = LocalContext.current
     val title = media.title
@@ -61,7 +63,7 @@ internal fun BindPlayerMediaBridge(
         mediaSession?.updateQueue(entries, index)
     }
 
-    BindPlayerBackgroundBridge(playback, presentation, actions, ui)
+    BindPlayerBackgroundBridge(playback, presentation, actions, ui, background, boostDefaultSpeed)
 }
 
 @Composable
@@ -69,10 +71,8 @@ private fun BindPlayerBackgroundBridge(
     playback: PlaybackController,
     presentation: VideoPlayerPresentation,
     actions: VideoPlayerActions,
-    ui: VideoPlayerUiStateHolder,
+    ui: VideoPlayerUiStateHolder, background: ForegroundPlaybackAttachment, boostDefaultSpeed: () -> Float,
 ) {
-    val background = LocalVideoPageState.current.dependencies.background
-    val settings = LocalVideoPageState.current.settings
     val context = LocalContext.current
     val fullscreenInfo = presentation.fullscreenInfo
     val fullscreen = presentation.fullscreen
@@ -91,7 +91,7 @@ private fun BindPlayerBackgroundBridge(
     DisposableEffect(bgToken) {
         background.attach(
             bgToken, playback,
-            object : BackgroundPlaybackStateHolder.Actions {
+            object : ForegroundPlaybackAttachment.Actions {
                 override fun next() {
                     val pages = bgPages
                     val index = pages.indexOfFirst { it.cid == bgCurrentCid }
@@ -110,7 +110,7 @@ private fun BindPlayerBackgroundBridge(
 
                 override fun boostStart() {
                     if (!playback.refresh().playing) return
-                    boostSpeed = settings.boostDefaultSpeed
+                    boostSpeed = boostDefaultSpeed()
                     playback.setSpeed(boostSpeed)
                     boosting = true
                 }

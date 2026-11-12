@@ -54,3 +54,7 @@ VideoPlayerUiStateHolder/PlayerObservedStateHolder移入feature:video，创建�
 ### 2026-11-13 生命周期与页面端口
 
 PlayerPageHost由原VideoPagePresentationState直接实现，四项控制状态仍委托原StateFlow；暂停钩子仍由同一PlaybackPauseRegistry按原Activity owner登记/注销，没有额外状态或进程引用。后台/自动播放/音效设置getter保持原事件读取时机。新增PlayerDiagnostics为页面组合内日志/Toast接线，不进入进程缓存。
+
+### 2026-11-13 挂接协议与退出进度
+
+ForegroundPlaybackAttachment仅抽出原attach/detach/fullscreen与Actions契约，旧token身份比较和状态变更体一致。PlayerExitHooks在页面组合remember(context,page)，adopt捕获当前Context并转发原后台实现；没有把Activity放入核心层或进程缓存。进度aid/cid/弹幕位置继续读写原页面投影，媒体会话仍按原title/author键创建释放，旧session释放只清理自己。正常退出保存后force-stop再重入已验证持久化读取，不代表未保存时杀进程、服务重建或所有退出组合都已验证。

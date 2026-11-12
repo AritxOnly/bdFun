@@ -15,15 +15,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-internal fun BindPlayerProgressTracking(
+fun BindPlayerProgressTracking(
     playback: PlaybackController,
     bvid: String,
     ui: VideoPlayerUiStateHolder,
-    trackingController: PlaybackTrackingStateHolder,
+    trackingController: PlaybackTrackingStateHolder, page: PlayerPageHost,
+    progress: com.aritxonly.bdfun.core.domain.PlaybackProgressRepository, resumePlayback: () -> Boolean,
 ) {
-    val dependencies = LocalVideoPageState.current.dependencies
-    val settings = LocalVideoPageState.current.settings
-    val VideoPageBus = LocalVideoPageState.current
     val state = playback.state.collectAsState()
     val playing by remember(playback) { derivedStateOf { state.value.playing } }
     val ready by remember(playback) { derivedStateOf { state.value.ready } }
@@ -42,15 +40,15 @@ internal fun BindPlayerProgressTracking(
             val durationMs = tick.durationMs
             val playing = tick.playing
             val ended = tick.ended
-            VideoPageBus.danmakuProgressMs = positionMs
+            page.danmakuProgressMs = positionMs
             // 上报官方历史记录：首次 3 秒后，之后每 15 秒一次；播放结束时补一次
             val now = System.currentTimeMillis()
-            if (settings.resumePlayback && now - lastProgressSaveAt >= 10_000L) {
+            if (resumePlayback() && now - lastProgressSaveAt >= 10_000L) {
                 lastProgressSaveAt = now
-                dependencies.progress.save(bvid, positionMs, durationMs)
+                progress.save(bvid, positionMs, durationMs)
             }
             // 独立协程保持原 300ms 轮询节奏，节流与 busy 由纯状态容器处理。
-            historyScope.launch { trackingController.reportIfDue(VideoPageBus.aid, VideoPageBus.cid, tick, now) }
+            historyScope.launch { trackingController.reportIfDue(page.aid, page.cid, tick, now) }
             mediaSession?.onPlayerState(
                 playing = playing,
                 buffering = buffering,

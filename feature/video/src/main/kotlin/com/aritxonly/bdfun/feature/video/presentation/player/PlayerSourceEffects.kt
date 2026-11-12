@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import com.aritxonly.bdfun.core.application.PlaybackController
 import com.aritxonly.bdfun.core.application.PlaybackSource
+import com.aritxonly.bdfun.core.domain.resolvePlaybackSourceUrls
 import com.aritxonly.bdfun.feature.video.presentation.VideoPlaybackPlatform
 import androidx.compose.ui.platform.LocalContext
 
@@ -25,14 +26,7 @@ fun BindPlayerSource(
     val usingOriginal by ui.usingOriginal
     val speed by ui.speed
     LaunchedEffect(info, quality, usingFallback, usingOriginal) {
-        val url = when {
-            usingFallback -> info?.fallbackUrl
-            usingOriginal -> quality?.rawVideoUrl?.takeIf { it.isNotBlank() }
-                ?: info?.rawFallbackUrl?.takeIf { it.isNotBlank() }
-                ?: quality?.videoUrl
-                ?: info?.fallbackUrl
-            else -> quality?.videoUrl ?: info?.fallbackUrl
-        } ?: run {
+        val source = resolvePlaybackSourceUrls(quality, info, usingOriginal, usingFallback) ?: run {
             log(
                 "PLAYER",
                 "no-source bvid=$bvid q=${quality?.id} hasInfo=${info != null} " +
@@ -44,11 +38,8 @@ fun BindPlayerSource(
             }
             return@LaunchedEffect
         }
-        val audioUrl = when {
-            usingFallback -> null
-            usingOriginal -> info?.rawAudioUrl?.takeIf { it.isNotBlank() } ?: info?.audioUrl
-            else -> info?.audioUrl
-        }
+        val url = source.videoUrl
+        val audioUrl = source.audioUrl
         log(
             "PLAYER",
             "source bvid=$bvid q=${quality?.id} auto=$autoQuality " +

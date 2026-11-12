@@ -26,14 +26,14 @@ internal class VideoPagePresentationState(
         holder.update(transform)
         snapshot = holder.state.value
     }
-    var aid: Long
+    override var aid: Long
         get() = snapshot.aid
         set(value) = update { it.copy(
             identity = it.identity.copy(
                 aid = value,
             ),
         ) }
-    var cid: Long
+    override var cid: Long
         get() = snapshot.cid
         set(value) = update { it.copy(
             identity = it.identity.copy(
@@ -82,7 +82,7 @@ internal class VideoPagePresentationState(
                 danmakuInputClose = value,
             ),
         ) }
-    var danmakuProgressMs: Long
+    override var danmakuProgressMs: Long
         get() = snapshot.danmakuProgressMs
         set(value) = update { it.copy(
             player = it.player.copy(
@@ -201,7 +201,7 @@ internal class VideoPagePresentationState(
     val playerUi get() = this
     val orientation get() = Orientation(this)
     val replyTarget get() = Reply(this)
-    fun requestAutoNext() { autoNextRequest++ }
+    override fun requestAutoNext() { autoNextRequest++ }
     override fun registerPause(owner: Any?, hook: (Boolean) -> Unit) = pauses.register(owner, hook)
     override fun unregisterPause(hook: (Boolean) -> Unit) = pauses.unregister(hook)
     fun pauseFor(owner: Any) = pauses.pauseFor(owner)

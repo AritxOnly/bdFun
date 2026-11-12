@@ -644,3 +644,10 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - 查看旋转后截图额外发现上一批迁移引入tab停在正文中的真实偏差。对照main 4c4e03b VideoActivity.kt:466-468，恢复在graphicsLayer内通过getter读取原底边，未改位置公式或TeakPagerTabs。`/tmp/bdfun-tab-position-read.log`37s通过独立模块/app与架构，最新973文件/10493节点/0违规。
 - `/tmp/bdfun-tab-position-runtime.log`最终源码首轮通过专门回归：真实起播后暂停以稳定采集→WM竖屏→控件进入独占横屏→原chrome→返回简介→WM竖屏→断言tab.bottom<=author.top，crash空。实际tab=[97,787,168,850]、author=[173,915,289,978]；截图`/tmp/bdfun-lifecycle-tab-position-after-rotation.png`已查看，tab重回视频底边。设置/WM方向精确恢复。这里主动使用WM回竖屏，不声称验证了物理传感器自动旋转或全套PiP/进度恢复。
 - 本批不再重复PiP驱动；媒体/后台交接及进度等装配继续，完整行为、最终main/release与交付仍未完成。
+
+### 2026-11-13 媒体会话、进度恢复与退出接线
+
+- `/tmp/bdfun-media-progress-module.log`首轮35s通过checkLayering、独立feature:video/app debug与6项PlaybackSourcePolicyTest（0失败/错误）。977生产文件/10522 PSI节点/0违规；没有新增依赖、修改尺寸阈值或增加镜像接口/工厂测试。ForegroundPlaybackAttachment为纯协议，不含新状态/算法；原BackgroundPlayback attach/detach正规化签名后体逐字一致。
+- Observer原保存/移除监听/交接/释放顺序保持；Progress原轮询/节流/媒体投影键保持；MediaBridge原session创建、队列更新与bgToken绑定保持；Continuation原循环/连播/定时暂停分支保持。播放来源/重试规则只抽纯函数，6项测试包含空串/null、raw优先级、两标记优先fallback及错误分支。
+- `/tmp/bdfun-progress-resume-module-runtime.log`最终通过：当前debug会话暂停/两次系统快进→PAUSED 20,457ms→正常Back退出后原CSV记录20,457/98,416ms→force-stop冷进程重启→同视频恢复PAUSED 20,842ms，差385ms；crash空，最后逐字恢复settings.xml/playback_progress.xml及各.bak原字节或不存在状态，并force-stop。截图`/tmp/bdfun-progress-resume-module.png`已查看。未点赞/关注/发送等交互操作，正常播放历史上报仍沿用原实现。
+- 首次同Activity重复原始链接的重入未建立会话，崩溃缓冲为空；查main 4c4e03b MainActivity.kt:87-90确认原lastHandledLink去重，未改产品或降低播放/进度断言。最终改为冷进程重入，验证真实磁盘读取而非内存缓存。没有重跑上一批旋转/PiP全套；PiP展开返回、后台交接/服务重建及最终release/验收仍待完成。

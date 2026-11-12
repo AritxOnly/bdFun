@@ -503,3 +503,11 @@ P5-03将原8个生命周期/方向/控件显隐/缓冲/音效/系统栏与HDR/�
 WindowCompat要求feature显式声明已有同版本libs.androidx.core，版本仍锁原catalog、APK原依赖已存在；替代为原生WindowInsetsController会重写系统栏行为，因此保留原调用。热门弹幕的15秒窗口、id/文字去重及点赞排序体抽到core:domain，不改规则；4项纯测试覆盖窗口端点/开头、无效字段与like阈值、先排序后去重/同赞id排序/前两项。
 
 实际旋转截图发现上一批tab接口把绘制阶段状态读成Float参数，旋转后滞留旧高度。main 4c4e03b的VideoActivity.kt:466-468原本在graphicsLayer内读取VideoPageBus.playerBottomPx；改为传getter并在同一graphicsLayer调用，恢复原时机和原视觉位置，不新增动画或布局。
+
+### 2026-11-13 媒体/进度/退出观察器与播放来源策略
+
+P5-03将原4个MediaBridge/Observer/Progress/Continuation文件迁入视频模块。前台与进程桥的纯挂接协议进入core:application；app原实现直接实现该协议，原attach/detach体一致。退出流程保持保存最新bvid进度→移除listener→按实时设置判断handoff→adopt或cancel+release的原顺序；Context只由app的页面级PlayerExitHooks捕获。原300/700ms轮询、10秒本地保存节流、history独立协程、媒体队列及更新键、定时关闭频率均不改。
+
+来源选择和错误恢复的原业务分支抽至core:domain，保留raw视频/音轨先试，再fallback，最后报错；rawFallback单独存在不会触发第一步。空串主URL仍与null不同，不在搬迁时顺手过滤。6项纯测试覆盖这些实际边界，UI只更新原标记和原Toast。
+
+main 4c4e03b MainActivity.kt:87-90在同一Activity内去重相同原始链接文本；迁移后IncomingVideoLinkStateHolder保留同样规则。进度重入驱动不能将重复Intent被去重当作播放器恢复失败；以正常退出保存后冷进程重启验证持久化路径，不修改main导航行为。
