@@ -29,6 +29,7 @@ internal fun PlayerInlineMore(
     if (!fullscreen) {
         HalfScreenMoreSheet(
             visible = halfMoreOpen,
+            accentColor = com.aritxonly.bdfun.BrandPink,
             onDismiss = { halfMoreOpen = false },
             state = HalfMoreState(
                 speed = speed,

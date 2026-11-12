@@ -489,3 +489,9 @@ P5-03继续将原9个分P/合集/详情尾部文件迁入视频模块。VideoDet
 P5-03将主pager、VideoPaneLayout/ActivityLayout、Screen契约、视口/收起遮罩及瞬时UiState迁入视频模块。pager在全屏/PiP仍只隐藏不卸载，保留原尺寸冻结、beyondViewportPageCount=1、overscroll=null、collapseConnection与列表key/padding。tab仍为原TeakPagerTabs，原chip通过slot调用；app拥有原设置读写和scope启动切页动画。未更改原48/60dp tab宽度、52dp栏高或playerBottomPx位移。收起遮罩仅显式传入原BrandPink及PlayerPlay资源，绘制不变。
 
 跨多业务的blockTouches原样下沉现有TeakUI，不复制到视频模块；7项既有几何测试原样迁入presentation测试目录，不因为Dp依赖放宽application限制。
+
+### 2026-11-13 内联控件、覆盖层与实际播放表面迁移
+
+P5-03将内联状态契约/控件/音频/更多/图标、瞬时UiState/播放只读投影、亮度音量提示/缩放/进度/热弹幕/赞助覆盖及实际PlayerSurface迁入视频模块。资源/强调色/图片以显式值与原策略槽提供；共享弹幕设置正文与DanmakuLayer仍由app接线，feature只使用既有VideoPlaybackPlatform创建原生输出。原PictureTransform双指缩放旋转、颜色模式和原生AndroidView工厂体不变。
+
+原通用TeakActionSheet无业务外壳原样进入TeakUI，其消息/详情与内联更多调用点显式import，SheetActionRow业务组合仍留app。全仓唯一PlayPauseButton只有声明无调用，随旧混合文件拆除，不为死代码新增资源适配；现行InlineCompactChrome/音频播放按钮不变。

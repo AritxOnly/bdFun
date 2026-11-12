@@ -46,3 +46,7 @@
 | 下载队列/播放进度/发送历史 | 正式持久化业务记录，使用storage端口，不以删用户记录来满足内存缓存门槛 |
 
 生产源码中旧六类Memory/Cache名称无残余；未发现无上限可变静态Map。剩余7个具名object生命周期见GLOBAL_OBJECT_AUDIT。此表是源码作用域结论，不冒充所有Activity的进程回收或账号装机验收。
+
+### 2026-11-13 播放器展示状态物理迁移
+
+VideoPlayerUiStateHolder/PlayerObservedStateHolder移入feature:video，创建点与remember键、Dispose/资源释放点未变。VideoOutput、ForegroundMediaSession、PlaybackAudioEffect、Job等引用仍属原播放器组合；迁移不把对象加入AppContainer或静态缓存。PlayerSurfaceSlots只传原DanmakuLayer组合，位置getter继续在读取时计算frameMs-btLatencyMs，不缓存首帧位置或页面状态。

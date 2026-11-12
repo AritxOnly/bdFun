@@ -32,11 +32,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import com.aritxonly.bdfun.BrandPink
 
 @Composable
-internal fun HalfScreenAudioMode(
+fun HalfScreenAudioMode(
     title: String,
     author: String,
     cover: String,
@@ -46,6 +44,7 @@ internal fun HalfScreenAudioMode(
     onExit: () -> Unit,
     onPlayPause: () -> Unit,
     onSeekRelative: (Long) -> Unit,
+    appearance: InlinePlayerAppearance, coverImage: @Composable (String, Modifier) -> Unit,
 ) {
 
     Box(
@@ -53,22 +52,18 @@ internal fun HalfScreenAudioMode(
             .fillMaxSize()
             .background(Color(0xFF08090D)),
     ) {
-        HalfAudioBackground(cover)
-        HalfAudioMetadata(title, author, cover)
+        HalfAudioBackground(cover, coverImage)
+        HalfAudioMetadata(title, author, cover, appearance.accentColor, coverImage)
         HalfAudioExit(onExit)
-        HalfAudioControls(playing, positionMs, durationMs, onPlayPause, onSeekRelative)
+        HalfAudioControls(playing, positionMs, durationMs, onPlayPause, onSeekRelative, appearance.playIcon)
     }
 }
 
 
 
 @Composable
-private fun HalfAudioBackground(cover: String) {
-    AsyncImage(
-        model = rememberImageRequest(cover),
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        modifier = Modifier
+private fun HalfAudioBackground(cover: String, coverImage: @Composable (String, Modifier) -> Unit) {
+    coverImage(cover, Modifier
             .fillMaxSize()
             .blur(36.dp)
             .graphicsLayer { alpha = 0.42f },
@@ -86,25 +81,21 @@ private fun HalfAudioBackground(cover: String) {
 }
 
 @Composable
-private fun BoxScope.HalfAudioMetadata(title: String, author: String, cover: String) {
+private fun BoxScope.HalfAudioMetadata(title: String, author: String, cover: String, accentColor: Color, coverImage: @Composable (String, Modifier) -> Unit) {
     Row(
         modifier = Modifier
             .align(Alignment.TopStart)
             .padding(start = 14.dp, top = 12.dp, end = 88.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AsyncImage(
-            model = rememberImageRequest(cover),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
+        coverImage(cover, Modifier
                 .size(66.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(Color.White.copy(alpha = 0.08f)),
         )
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text("听视频", color = BrandPink, fontSize = 11.sp, fontWeight = FontWeight.Normal)
+            Text("听视频", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.Normal)
             Spacer(Modifier.height(3.dp))
             Text(
                 text = title,
@@ -140,7 +131,7 @@ private fun BoxScope.HalfAudioExit(onExit: () -> Unit) {
 }
 
 @Composable
-private fun BoxScope.HalfAudioControls(playing: Boolean, positionMs: Long, durationMs: Long, onPlayPause: () -> Unit, onSeekRelative: (Long) -> Unit) {
+private fun BoxScope.HalfAudioControls(playing: Boolean, positionMs: Long, durationMs: Long, onPlayPause: () -> Unit, onSeekRelative: (Long) -> Unit, playIcon: Int) {
     Row(
         modifier = Modifier
             .align(Alignment.BottomCenter)
@@ -175,7 +166,7 @@ private fun BoxScope.HalfAudioControls(playing: Boolean, positionMs: Long, durat
                 .clickable(interactionSource = null, indication = null, onClick = onPlayPause),
             contentAlignment = Alignment.Center,
         ) {
-            if (playing) PauseGlyph() else PlayGlyph(com.aritxonly.bdfun.ui.TeakIcon.PlayerPlay)
+            if (playing) PauseGlyph() else PlayGlyph(playIcon)
         }
         Spacer(Modifier.width(6.dp))
         Text(

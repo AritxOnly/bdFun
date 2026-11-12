@@ -626,3 +626,11 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - 随后视口/收起遮罩与瞬时UiState进入同一模块；首次guard拒绝把含Compose Dp的视口测试放入application目录，迁入正确presentation目录后`/tmp/bdfun-video-layout-final.log`通过，36s：严格架构/独立模块/app debug、原4项分栏+3项视口共7项，0失败/错误。原测试字节一致，无新增镜像测试；CI定向列表增加这7项。
 - 主pager/视口/UiState除import/可见性外体逐字一致；收起遮罩除原强调色/资源显式传入外逐字一致；blockTouches只规范CRLF，其余函数体逐字一致。966生产文件/10465 PSI节点/0违规，阈值与扫描范围未变。
 - 前批e7158f7的[CI 43290018607](https://github.com/AritxOnly/bdFun/actions/runs/43290018607)成功，包含真实生产依赖负例；此前ac0147b的CI 43285143184也成功。本批新提交另行触发，不借用前批成功覆盖当前；剩余原生播放装配与完整验收/最终release继续。
+
+### 2026-11-13 内联播放器与真实画面表面
+
+- `/tmp/bdfun-inline-player.log`：独立feature/app与checkLayering通过，28s，968文件/10465 PSI节点/0违规。`/tmp/bdfun-inline-runtime.log`首轮通过：当前包真实PLAYING→原内联更多快速动作/倍速/循环行→原关闭按钮→耳机听视频→退出→crash空/force-stop，无设置/账号写操作。
+- 接续覆盖/实际表面迁移首轮编译发现重复SponsorSegment import与旧sponsorCategoryLabel引用，去重后把原辅助文件一并迁移；app缓冲槽缺dp import也按原尺寸补齐。未改守卫或测试。`/tmp/bdfun-player-surface.log`最终33s通过严格架构、独立视频模块和app debug，970文件/10474节点/0违规。
+- 15个原文件数值/中文文案字面量序列相同（已确认无调用的PlayPauseButton删除；TvBuffering 26.4dp原值移至app槽）。TeakActionSheet外壳体逐字相同；UI状态/投影、图标、缩放动画及原手势变换保持。未新增业务策略，不为机械搬迁追加镜像单测。
+- `/tmp/bdfun-player-surface-runtime.log`最终源码首轮通过：当前debug真实PLAYING、内联更多/关闭、听视频进入/退出与原画面/控制条恢复，crash空/force-stop，没有改设置/账号数据。`/tmp/bdfun-inline-more.png`、`/tmp/bdfun-inline-audio.png`及`/tmp/bdfun-player-surface-return.png`已查看，确认原快速动作/图片/暂停图标/进度与真实原生画面。未声称亮度/音量/缩放手势、全屏生命周期或全站main逐像素验收已完成。
+- 原生命周期/媒体/窗口装配接线及最终验收继续；旧release不覆盖本批生产源码，最终收尾统一重建，不重复每批release。

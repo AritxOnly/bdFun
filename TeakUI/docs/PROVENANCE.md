@@ -116,3 +116,7 @@
 ### blockTouches
 
 `common/interaction/BlockTouches.kt`来自bdFun原`ui/ManualAnimation.kt`，除换行规范外函数体逐字保留。用于透明覆盖层阻挡触摸，不涉及视频、路由或业务状态。原页面调用同一实现。
+
+### TeakActionSheet
+
+`common/modal/TeakActionSheet.kt`来自bdFun原`ui/TeakActionSheet.kt`的无业务外壳，函数体逐字保留：原MiuixBottomSheet、关闭按钮、默认标题、allowDismiss、Column滚动与padding均不变。业务动作行及资源目录仍在app/feature。

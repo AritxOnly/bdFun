@@ -24,7 +24,7 @@ import com.aritxonly.bdfun.core.model.video.SponsorSegment
 import com.aritxonly.bdfun.feature.video.presentation.VideoPlaybackPlatform
 
 @Composable
-internal fun PlayerSurface(
+fun PlayerSurface(
     playback: VideoPlaybackPlatform,
     media: VideoMediaInput,
     presentation: VideoPlayerPresentation,
@@ -32,6 +32,7 @@ internal fun PlayerSurface(
     danmakuVisible: Boolean,
     btLatencyMs: Int,
     sponsor: SponsorSegment?,
+    picture: VideoPictureSettings, slots: PlayerSurfaceSlots,
     onSkip: (SponsorSegment) -> Unit,
 ) {
     val state = playback.state.collectAsState()
@@ -56,20 +57,14 @@ internal fun PlayerSurface(
         )
 
         if (danmakuVisible) {
-            DanmakuLayer(
-                items = danmaku,
-                positionMs = { frameMs - btLatencyMs },
-                playing = playing,
-                playbackSpeed = if (boosting) boostSpeed else speed,
-                modifier = Modifier.fillMaxSize(),
-                fullscreen = fullscreen,
-            )
+            slots.danmaku(danmaku, { frameMs - btLatencyMs }, playing,
+                if (boosting) boostSpeed else speed, Modifier.fillMaxSize(), fullscreen)
         }
 
-        PlayerAlwaysProgress(ui, fullscreen, positionMs, durationMs)
-        PlayerHotDanmakuOverlay(ui, fullscreen)
+        PlayerAlwaysProgress(ui, fullscreen, positionMs, durationMs, picture.progressBarMode, picture.accentColor)
+        PlayerHotDanmakuOverlay(ui, fullscreen, picture.hotDanmakuEnabled)
         if (sponsor != null) {
-            PlayerSponsorOverlay(sponsor, fullscreen) { segment ->
+            PlayerSponsorOverlay(sponsor, fullscreen, picture.accentColor) { segment ->
                 onSkip(segment)
             }
         }

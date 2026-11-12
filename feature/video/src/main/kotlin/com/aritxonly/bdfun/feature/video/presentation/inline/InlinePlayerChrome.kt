@@ -51,14 +51,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
 @Composable
-internal fun InlineCompactChrome(state: InlineChromeState, actions: InlineChromeActions) {
+fun InlineCompactChrome(state: InlineChromeState, actions: InlineChromeActions, appearance: InlinePlayerAppearance) {
 
     Box(
         modifier = Modifier.fillMaxSize(),
     ) {
         InlineChromeMasks()
         InlineChromeTopActions(state, actions)
-        InlineChromeTransport(state, actions)
+        InlineChromeTransport(state, actions, appearance)
     }
 }
 
@@ -132,7 +132,7 @@ private fun BoxScope.InlineChromeTopActions(state: InlineChromeState, actions: I
 }
 
 @Composable
-private fun BoxScope.InlineChromeTransport(state: InlineChromeState, actions: InlineChromeActions) {
+private fun BoxScope.InlineChromeTransport(state: InlineChromeState, actions: InlineChromeActions, appearance: InlinePlayerAppearance) {
     Row(
         modifier = Modifier
             .align(Alignment.BottomCenter)
@@ -142,7 +142,7 @@ private fun BoxScope.InlineChromeTransport(state: InlineChromeState, actions: In
         verticalAlignment = Alignment.CenterVertically,
     ) {
         CompactIconButton(onClick = actions.onPlayPause, size = 28.dp) {
-            if (state.playing) PauseGlyph() else PlayGlyph(com.aritxonly.bdfun.ui.TeakIcon.PlayerPlay, size = 22.dp)
+            if (state.playing) PauseGlyph() else PlayGlyph(appearance.playIcon, size = 22.dp)
         }
         Spacer(Modifier.width(7.dp))
         FullscreenSeekBar(
@@ -167,7 +167,7 @@ private fun BoxScope.InlineChromeTransport(state: InlineChromeState, actions: In
         )
         Spacer(Modifier.width(7.dp))
         CompactIconButton(onClick = actions.onFullscreen, size = 29.dp) {
-            ResourceGlyph(res = TeakIcon.Fullscreen, tint = Color.White, size = 17.dp)
+            ResourceGlyph(res = appearance.fullscreenIcon, tint = Color.White, size = 17.dp)
         }
     }
 }
@@ -210,7 +210,7 @@ internal fun CompactIconButton(
 }
 
 @Composable
-internal fun BoostTriangles() {
+fun BoostTriangles() {
 
     val transition = rememberInfiniteTransition(label = "boost-triangles")
     val phase by transition.animateFloat(
@@ -239,50 +239,13 @@ internal fun BoostTriangles() {
     }
 }
 
-@Composable
-internal fun PlayPauseButton(playing: Boolean, onClick: () -> Unit) {
-
-    Box(
-        modifier = Modifier
-            .size(30.dp)
-            .clip(CircleShape)
-            .clickable(interactionSource = null, indication = null, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (playing) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(width = 4.dp, height = 13.dp)
-                        .clip(Capsule())
-                        .background(Color.White),
-                )
-                Box(
-                    modifier = Modifier
-                        .size(width = 4.dp, height = 13.dp)
-                        .clip(Capsule())
-                        .background(Color.White),
-                )
-            }
-        } else {
-            Image(
-                painter = painterResource(TeakIcon.Play),
-                contentDescription = "播放",
-                modifier = Modifier.height(14.dp),
-            )
-        }
-    }
-}
-
 /** 弹幕设置面板：黑底 + 白色高光描边，由 Activity 的覆盖层绘制，点外面一定收得掉。 */
 @Composable
 fun DanmakuSettingsPanel(
     onInteract: () -> Unit,
     modifier: Modifier = Modifier,
     backdrop: androidx.compose.ui.graphics.ImageBitmap? = null,
+    settingsContent: @Composable (() -> Unit) -> Unit,
 ) {
 
     TeakGlassPanel(
@@ -303,10 +266,7 @@ fun DanmakuSettingsPanel(
                     .heightIn(max = 640.dp)
                     .verticalScroll(rememberScrollState()),
             ) {
-                DanmakuSettingsContent(
-                    fullscreen = false,
-                    onInteract = onInteract,
-                )
+                settingsContent(onInteract)
             }
         }
     }

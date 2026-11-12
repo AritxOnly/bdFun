@@ -21,21 +21,19 @@ import androidx.compose.ui.unit.sp
 import com.kyant.shapes.Capsule
 
 @Composable
-internal fun BoxScope.PlayerStatusOverlays(
+fun BoxScope.PlayerStatusOverlays(
     ui: VideoPlayerUiStateHolder,
     fullscreen: Boolean,
     ended: Boolean,
     durationMs: Long,
+    buffering: @Composable (Modifier) -> Unit,
 ) {
     val showBuffering by ui.showBuffering
     // 首次进入不显示封面，直接全速起播；超过 1.5s 仍缓冲才显示小电视
 
     // 播放中加载：粉色矢量小电视 + 三点省略号 + 正在缓冲...
     if (showBuffering) {
-        TvBuffering(
-            modifier = Modifier.align(Alignment.Center),
-            tvSize = 26.4.dp,
-        )
+        buffering(Modifier.align(Alignment.Center))
     }
 
     // 播放结束：居中显示「播放完成」

@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.teak.common.modal.TeakActionSheet
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,9 +18,9 @@ import androidx.compose.ui.unit.dp
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-internal fun HalfScreenMoreSheet(
+fun HalfScreenMoreSheet(
     visible: Boolean, onDismiss: () -> Unit,
-    state: HalfMoreState, quick: HalfMoreQuickActions, settings: HalfMoreSettingsActions,
+    state: HalfMoreState, quick: HalfMoreQuickActions, settings: HalfMoreSettingsActions, accentColor: androidx.compose.ui.graphics.Color,
 ) {
 
     val now = System.currentTimeMillis()
@@ -40,8 +42,8 @@ internal fun HalfScreenMoreSheet(
         ) {
             HalfMoreQuickRow(onDismiss, quick)
             Spacer(Modifier.height(6.dp))
-            HalfMorePlaybackSettings(state, settings, timerMinutes)
-            HalfMoreExtraSettings(state, settings, onDismiss)
+            HalfMorePlaybackSettings(state, settings, timerMinutes, accentColor)
+            HalfMoreExtraSettings(state, settings, onDismiss, accentColor)
         }
     }
 }
@@ -80,19 +82,21 @@ private fun HalfMoreQuickRow(onDismiss: () -> Unit, quick: HalfMoreQuickActions)
 }
 
 @Composable
-private fun HalfMorePlaybackSettings(state: HalfMoreState, settings: HalfMoreSettingsActions, timerMinutes: Int) {
+private fun HalfMorePlaybackSettings(state: HalfMoreState, settings: HalfMoreSettingsActions, timerMinutes: Int, accentColor: androidx.compose.ui.graphics.Color) {
     val colors = MiuixTheme.colorScheme
     HalfSpeedRow(
         speed = state.speed,
+        accentColor = accentColor,
         onSelect = settings.onSpeed,
     )
     HalfMoreSwitchRow(
+        accentColor = accentColor,
         label = "自动连播",
         checked = state.autoPlayNext,
         glyph = { AutoPlayNextGlyph(colors.onBackground) },
         onToggle = settings.onAutoPlayNext,
     )
-    HalfLoopRow(loopMode = state.loopMode, onSelect = settings.onLoopMode)
+    HalfLoopRow(loopMode = state.loopMode, onSelect = settings.onLoopMode, accentColor = accentColor)
     HalfMoreChoiceRow(
         label = "定时关闭",
         value = if (timerMinutes > 0) "${timerMinutes}分钟" else "不开启",
@@ -109,15 +113,17 @@ private fun HalfMorePlaybackSettings(state: HalfMoreState, settings: HalfMoreSet
 }
 
 @Composable
-private fun HalfMoreExtraSettings(state: HalfMoreState, settings: HalfMoreSettingsActions, onDismiss: () -> Unit) {
+private fun HalfMoreExtraSettings(state: HalfMoreState, settings: HalfMoreSettingsActions, onDismiss: () -> Unit, accentColor: androidx.compose.ui.graphics.Color) {
     val colors = MiuixTheme.colorScheme
     HalfMoreSwitchRow(
+        accentColor = accentColor,
         label = "后台听视频",
         checked = state.backgroundPlay,
         glyph = { BackgroundListenGlyph(colors.onBackground) },
         onToggle = settings.onBackgroundPlay,
     )
     HalfMoreSwitchRow(
+        accentColor = accentColor,
         label = "字幕",
         checked = state.subtitlesOn,
         glyph = { SubtitleGlyph(colors.onBackground) },
@@ -132,6 +138,7 @@ private fun HalfMoreExtraSettings(state: HalfMoreState, settings: HalfMoreSettin
         onDismiss()
     }
     HalfMoreSwitchRow(
+        accentColor = accentColor,
         label = "镜像翻转",
         checked = state.mirror,
         glyph = { MirrorGlyph(colors.onBackground) },

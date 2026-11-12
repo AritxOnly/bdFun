@@ -133,6 +133,6 @@ internal fun GestureTip(label: String, modifier: Modifier = Modifier) {
     }
 }
 
-internal fun togglePlay(playback: PlaybackController, playing: Boolean) {
+fun togglePlay(playback: PlaybackController, playing: Boolean) {
     if (playing) playback.pause() else playback.play()
 }

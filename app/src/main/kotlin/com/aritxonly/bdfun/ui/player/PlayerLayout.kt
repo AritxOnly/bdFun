@@ -8,6 +8,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.aritxonly.bdfun.feature.video.presentation.VideoPlaybackPlatform
@@ -38,12 +39,17 @@ internal fun PlayerLayout(
         PlayerSurface(
             playback, media, presentation, ui, danmakuVisible, btLatencyMs,
             sponsor.active,
+            picture = VideoPictureSettings(VideoPageBus.settings.progressBarMode,
+                VideoPageBus.settings.hotDanmakuEnabled, com.aritxonly.bdfun.BrandPink),
+            slots = rememberPlayerSurfaceSlots(),
         ) { segment ->
             playback.seekTo(segment.endMs)
             sponsor.dismiss(segment)
         }
 
-        PlayerStatusOverlays(ui, fullscreen, ended, durationMs)
+        PlayerStatusOverlays(ui, fullscreen, ended, durationMs) { modifier ->
+            TvBuffering(modifier = modifier, tvSize = 26.4.dp)
+        }
 
         BindPlayerOverlayBackHandling(ui, fullscreen)
 

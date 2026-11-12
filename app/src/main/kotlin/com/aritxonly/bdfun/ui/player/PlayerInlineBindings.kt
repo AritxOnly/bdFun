@@ -56,6 +56,7 @@ internal fun PlayerInlineControls(
                     immersiveStatusBar = immersiveStatusBar,
                 ),
                 actions = inlineChromeActions(playback, observed, actions, fsActions, ui),
+                appearance = inlinePlayerAppearance(),
             )
         }
     }
@@ -79,6 +80,8 @@ internal fun PlayerInlineAudio(
     // 半屏听视频：不进入全屏也能用，播放器区域换成音频模式。
     if (!fullscreen && fsAudioOnly) {
         HalfScreenAudioMode(
+            appearance = inlinePlayerAppearance(),
+            coverImage = { cover, modifier -> InlinePlayerCover(cover, modifier) },
             title = fullscreenInfo.title,
             author = fullscreenInfo.author,
             cover = fullscreenInfo.cover,

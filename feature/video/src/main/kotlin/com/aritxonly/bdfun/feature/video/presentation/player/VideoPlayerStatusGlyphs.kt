@@ -12,7 +12,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-internal fun describeMediaUrl(url: String?): String {
+fun describeMediaUrl(url: String?): String {
     if (url.isNullOrBlank()) return "none"
     return runCatching {
         val uri = android.net.Uri.parse(url)
@@ -22,7 +22,7 @@ internal fun describeMediaUrl(url: String?): String {
 
 /** Fullscreen lock glyph: shackle closed when locked, open when unlocked. */
 @Composable
-internal fun LockGlyph(locked: Boolean) {
+fun LockGlyph(locked: Boolean) {
 
     Canvas(modifier = Modifier.size(23.dp)) {
         val w = size.width

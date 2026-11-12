@@ -9,7 +9,7 @@ import com.aritxonly.bdfun.core.application.PlaybackController
 import com.aritxonly.bdfun.core.application.PlaybackSnapshot
 
 /** 共享只读投影；事件闭包持有 State 委托，读取的是触发时的播放器状态。 */
-internal class PlayerObservedStateHolder(snapshot: State<PlaybackSnapshot>) {
+class PlayerObservedStateHolder(snapshot: State<PlaybackSnapshot>) {
     val playing = derivedStateOf { snapshot.value.playing }
     val ended = derivedStateOf { snapshot.value.ended }
     val positionMs = derivedStateOf { snapshot.value.positionMs }
@@ -18,7 +18,7 @@ internal class PlayerObservedStateHolder(snapshot: State<PlaybackSnapshot>) {
 }
 
 @Composable
-internal fun rememberPlayerObservedState(playback: PlaybackController): PlayerObservedStateHolder {
+fun rememberPlayerObservedState(playback: PlaybackController): PlayerObservedStateHolder {
     val snapshot = playback.state.collectAsState()
     return remember(playback) { PlayerObservedStateHolder(snapshot) }
 }

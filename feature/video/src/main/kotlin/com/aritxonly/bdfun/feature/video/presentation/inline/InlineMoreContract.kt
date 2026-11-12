@@ -1,6 +1,6 @@
 package com.aritxonly.bdfun.ui
 
-internal data class HalfMoreState(
+data class HalfMoreState(
     val speed: Float,
     val autoPlayNext: Boolean,
     val loopMode: Int,
@@ -10,7 +10,7 @@ internal data class HalfMoreState(
     val sleepAtMs: Long,
 )
 
-internal data class HalfMoreQuickActions(
+data class HalfMoreQuickActions(
     val onDislike: () -> Unit,
     val onWatchLater: () -> Unit,
     val onPictureInPicture: () -> Unit,
@@ -18,7 +18,7 @@ internal data class HalfMoreQuickActions(
     val onCache: () -> Unit,
 )
 
-internal data class HalfMoreSettingsActions(
+data class HalfMoreSettingsActions(
     val onSpeed: (Float) -> Unit,
     val onAutoPlayNext: () -> Unit,
     val onLoopMode: (Int) -> Unit,

@@ -20,19 +20,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.BrandPink
 import com.aritxonly.bdfun.core.model.video.SponsorSegment
 import com.kyant.shapes.Capsule
 
 @Composable
-internal fun BoxScope.PlayerAlwaysProgress(
+fun BoxScope.PlayerAlwaysProgress(
     ui: VideoPlayerUiStateHolder, fullscreen: Boolean, positionMs: Long, durationMs: Long,
+    progressBarMode: Int, accentColor: Color,
 ) {
-    val settings = LocalVideoPageState.current.settings
     val controlsVisible by ui.controlsVisible
     val fsAudioOnly by ui.fsAudioOnly
     // 进度条常显：控件整体隐藏时，在画面最底部留一条 1dp 的粉色进度。
-    val progressBarMode = settings.progressBarMode
     val alwaysProgress = !controlsVisible && !fsAudioOnly &&
         (progressBarMode == 3 ||
             (progressBarMode == 1 && !fullscreen) ||
@@ -51,20 +49,19 @@ internal fun BoxScope.PlayerAlwaysProgress(
                 .align(Alignment.BottomStart)
                 .fillMaxWidth(fraction)
                 .height(2.dp)
-                .background(BrandPink),
+                .background(accentColor),
         )
     }
 
 }
 
 @Composable
-internal fun BoxScope.PlayerHotDanmakuOverlay(ui: VideoPlayerUiStateHolder, fullscreen: Boolean) {
-    val settings = LocalVideoPageState.current.settings
+fun BoxScope.PlayerHotDanmakuOverlay(ui: VideoPlayerUiStateHolder, fullscreen: Boolean, hotDanmakuEnabled: Boolean) {
     val hotDanmaku by ui.hotDanmaku
     val controlsVisible by ui.controlsVisible
     val fsAudioOnly by ui.fsAudioOnly
     // 弹幕计数：按 BiliPai 的显示样式，纯白文字 + 黑色描影，居中等距排开，不用黑色胶囊。
-    if (settings.hotDanmakuEnabled &&
+    if (hotDanmakuEnabled &&
         hotDanmaku.isNotEmpty() && !controlsVisible && !fsAudioOnly
     ) {
         val hotShadow = androidx.compose.ui.text.TextStyle(
@@ -115,8 +112,8 @@ internal fun BoxScope.PlayerHotDanmakuOverlay(ui: VideoPlayerUiStateHolder, full
 }
 
 @Composable
-internal fun BoxScope.PlayerSponsorOverlay(
-    activeSponsor: SponsorSegment?, fullscreen: Boolean, onSkip: (SponsorSegment) -> Unit,
+fun BoxScope.PlayerSponsorOverlay(
+    activeSponsor: SponsorSegment?, fullscreen: Boolean, accentColor: Color, onSkip: (SponsorSegment) -> Unit,
 ) {
     // 空降助手：进入赞助片段时在右下角出现跳过按钮。
     activeSponsor?.let { segment ->
@@ -143,7 +140,7 @@ internal fun BoxScope.PlayerSponsorOverlay(
             Spacer(Modifier.width(8.dp))
             Text(
                 text = "跳过",
-                color = BrandPink,
+                color = accentColor,
                 fontSize = 12.sp,
             )
         }

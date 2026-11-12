@@ -1,6 +1,6 @@
 package com.aritxonly.bdfun.ui
 
-internal data class InlineChromeState(
+data class InlineChromeState(
     val playing: Boolean,
     val positionMs: Long,
     val durationMs: Long,
@@ -10,7 +10,7 @@ internal data class InlineChromeState(
     val immersiveStatusBar: Boolean,
 )
 
-internal data class InlineChromeActions(
+data class InlineChromeActions(
     val onBack: () -> Unit,
     val onHome: () -> Unit,
     val onRewind6: () -> Unit,

@@ -27,7 +27,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 @Composable
-internal fun BoxScope.PlayerZoomResetOverlay(ui: VideoPlayerUiStateHolder, fullscreen: Boolean) {
+fun BoxScope.PlayerZoomResetOverlay(ui: VideoPlayerUiStateHolder, fullscreen: Boolean) {
     val zoomScope = rememberCoroutineScope()
     var videoScale by ui.videoScale
     var videoRotation by ui.videoRotation

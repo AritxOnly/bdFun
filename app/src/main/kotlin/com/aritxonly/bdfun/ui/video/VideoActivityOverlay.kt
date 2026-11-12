@@ -179,6 +179,7 @@ private fun androidx.compose.foundation.layout.BoxScope.VideoActivityDanmakuPane
         DanmakuSettingsPanel(
             onInteract = { PlayerUiState.danmakuInteract++ },
             backdrop = VideoPageBus.panelBackdrop,
+            settingsContent = { onInteract -> DanmakuSettingsContent(fullscreen = false, onInteract = onInteract) },
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(top = statusBarDp + 54.dp, end = if (splitPanes) paneLayout.detailsWidthDp.dp + 12.dp else 12.dp)

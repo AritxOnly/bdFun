@@ -23,3 +23,5 @@
 - 详情正文迁移补充：原ResourceGlyph为多业务共用的纯资源绘制，函数体原样下沉TeakUI；业务TeakIcon资源目录留在app，以ID注入视频模块。头像/链接/复制继续采用既有app策略，未强行合并不同规格的组件。
 
 - 主布局迁移补充：blockTouches是首页导航、评论动作与视频透明层共用的纯手势primitive，原样下沉TeakUI；不新增另一种触摸消费规则或重写原玻璃chip。
+
+- 内联播放器迁移补充：消息/详情/播放器共同的TeakActionSheet纯外壳下沉TeakUI，函数体逐字保留，不把业务SheetActionRow/MenuGlyphKind一并下沉。面板内部固定高度视口与整页宽屏重复滚动不是同一问题，保留原max520dp等局部滚动规格。

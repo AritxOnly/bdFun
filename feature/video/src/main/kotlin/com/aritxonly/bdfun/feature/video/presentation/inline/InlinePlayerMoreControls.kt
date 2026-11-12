@@ -23,7 +23,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.BrandPink
 import com.kyant.shapes.Capsule
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.abs
@@ -31,7 +30,7 @@ import kotlin.math.abs
 internal val HALF_SPEEDS = listOf(3f, 2f, 1.5f, 1.25f, 1f)
 
 @Composable
-internal fun HalfSpeedRow(speed: Float, onSelect: (Float) -> Unit) {
+internal fun HalfSpeedRow(speed: Float, onSelect: (Float) -> Unit, accentColor: Color) {
 
     val colors = MiuixTheme.colorScheme
     Row(
@@ -56,7 +55,7 @@ internal fun HalfSpeedRow(speed: Float, onSelect: (Float) -> Unit) {
             Text(
                 text = if (value % 1f == 0f) value.toInt().toString() else value.toString(),
                 color = if (kotlin.math.abs(speed - value) < 0.01f) {
-                    BrandPink
+                    accentColor
                 } else {
                     colors.onBackgroundVariant
                 },
@@ -107,6 +106,7 @@ internal fun HalfQuickAction(
 internal fun HalfMoreSwitchRow(
     label: String,
     checked: Boolean,
+    accentColor: Color,
     glyph: @Composable () -> Unit,
     onToggle: () -> Unit,
 ) {
@@ -128,7 +128,7 @@ internal fun HalfMoreSwitchRow(
                 .width(40.dp)
                 .height(22.dp)
                 .clip(Capsule())
-                .background(if (checked) BrandPink else colors.onBackgroundVariant.copy(alpha = 0.22f)),
+                .background(if (checked) accentColor else colors.onBackgroundVariant.copy(alpha = 0.22f)),
         ) {
             Box(
                 modifier = Modifier
@@ -142,7 +142,7 @@ internal fun HalfMoreSwitchRow(
 }
 
 @Composable
-internal fun HalfLoopRow(loopMode: Int, onSelect: (Int) -> Unit) {
+internal fun HalfLoopRow(loopMode: Int, onSelect: (Int) -> Unit, accentColor: Color) {
 
     val colors = MiuixTheme.colorScheme
     Row(
@@ -167,7 +167,7 @@ internal fun HalfLoopRow(loopMode: Int, onSelect: (Int) -> Unit) {
             val active = if (index == 2) loopMode == 0 else loopMode == index + 1
             Text(
                 text = label,
-                color = if (active) BrandPink else colors.onBackgroundVariant,
+                color = if (active) accentColor else colors.onBackgroundVariant,
                 fontSize = 11.5.sp,
                 modifier = Modifier.clickable(interactionSource = null, indication = null) {
                     onSelect(if (index == 2) 0 else index + 1)

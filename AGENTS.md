@@ -464,3 +464,7 @@ app/ui/player/fullscreen原三份剩余展示已迁入feature:video。听视频�
 ### 2026-11-13 视频主布局模块归属
 
 详情pager、tab展示、分栏/视口/收起遮罩及瞬时UiState进入feature:video；app仅向tab传入原设置值和写入回调、原玻璃chip，保持TeakPagerTabs与原宽度/位置。分栏及视口既有7项测试随实现进入presentation测试，含Compose Dp的几何规则不属于application层。共享blockTouches原样进入TeakUI，所有旧调用改显式import。
+
+### 2026-11-13 内联播放器与播放表面模块归属
+
+内联控件/音频/更多及瞬时VideoPlayerUiState、只读播放投影、提示/缩放/画面覆盖和实际PlayerSurface进入feature:video。原生View仍经VideoPlaybackPlatform创建；UiState原资源引用随组合生命周期，不能升为单例。app仅提供原资源/图片/缓冲指示器和DanmakuLayer槽；设置以显式值传入。TeakActionSheet原共用外壳已下沉TeakUI，消息/详情调用同一函数，无新设计系统。
