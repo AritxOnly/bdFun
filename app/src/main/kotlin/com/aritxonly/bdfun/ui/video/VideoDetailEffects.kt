@@ -60,31 +60,6 @@ internal fun RegisterVideoDanmakuSender(
 }
 
 @Composable
-internal fun BindVideoFullscreenState(ui: VideoDetailUiStateHolder) {
-    val PlayerUiState = LocalVideoPageState.current.playerUi
-    var fullscreen by ui.fullscreen
-    var coinSheet by ui.coinSheet
-    var favSheet by ui.favSheet
-    // 独占全屏状态共享给 Activity；横屏分栏保留 tab / 回复栏。
-    LaunchedEffect(fullscreen) { PlayerUiState.fullscreen = fullscreen }
-    // 独占全屏时收回投币 / 收藏弹层。
-    LaunchedEffect(fullscreen) {
-        if (fullscreen) {
-            coinSheet = false
-            favSheet = false
-        }
-    }
-    // 横屏页面布局和播放器独占全屏分别管理。
-    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-    val landscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    // Rotation opens the two-pane page. Fullscreen is a separate, explicit player action.
-    // Rotating back to portrait still leaves fullscreen; entering it while portrait can rotate first.
-    LaunchedEffect(landscape) {
-        if (!landscape) fullscreen = false
-    }
-}
-
-@Composable
 internal fun BindBackgroundVideoMetadata(video: VideoItem, detail: VideoDetail?, currentCid: Long, activeQuality: Quality?) {
     val background = LocalVideoPageState.current.dependencies.background
     // 底栏唱片用：当前播放的视频、标题、封面、集数。切 P / 切合集时一起更新。
@@ -125,25 +100,6 @@ internal fun BindBackgroundVideoMetadata(video: VideoItem, detail: VideoDetail?,
             currentCid = currentCid,
             qualityId = activeQuality?.id ?: 0,
         )
-    }
-
-}
-
-@Composable
-internal fun ReconcileVideoPager(pager: androidx.compose.foundation.pager.PagerState) {
-    // 兜底：极少数情况下 pager 停在上一次拖动的中间位置，
-    // 松手后强制吸附到最近的一页，避免停在 0.3 / 0.7 这种位置。
-    LaunchedEffect(pager) {
-        snapshotFlow {
-            pager.isScrollInProgress to pager.currentPageOffsetFraction
-        }.collect { (scrolling, offset) ->
-            if (!scrolling && kotlin.math.abs(offset) > 0.02f) {
-                val target = (pager.currentPage + offset)
-                    .roundToInt()
-                    .coerceIn(0, pager.pageCount - 1)
-                runCatching { pager.animateScrollToPage(target) }
-            }
-        }
     }
 
 }

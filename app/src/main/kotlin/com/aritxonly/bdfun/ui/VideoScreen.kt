@@ -14,7 +14,7 @@ internal fun VideoScreen(
     pager: PagerState = rememberPagerState(pageCount = { 2 }),
 ) {
     val page = LocalVideoPageState.current
-    val holders = rememberVideoScreenStateHolders(request)
+    val holders = rememberVideoScreenStateHolders(request, rememberVideoDetailStatePorts())
     val collected = observeVideoFeatureState(holders.controllers.detail, holders.controllers.selection,
         holders.controllers.interaction, holders.metadata)
     val (detail, selection, interaction, metadata) = collected

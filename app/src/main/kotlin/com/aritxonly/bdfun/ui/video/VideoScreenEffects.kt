@@ -12,6 +12,7 @@ internal fun BindVideoScreenEffects(
     request: VideoScreenRequest, content: VideoScreenContent,
     holders: VideoScreenStateHolders, actions: VideoDetailViewActions, pager: PagerState,
 ) {
+    val page = LocalVideoPageState.current
     val detail = content.read.detail
     val currentCid = content.selection.cid
     val controllers = holders.controllers
@@ -36,10 +37,10 @@ internal fun BindVideoScreenEffects(
             else -> actions.leaveVideo()
         }
     }
-    LoadInitialVideo(request.video, request.defaultQuality, controllers, ui)
+    LoadInitialVideo(request.video, request.defaultQuality, controllers, ui, rememberVideoDetailLoadPorts())
     BindVideoPageMetadata(detail, currentCid, content.loggedIn, holders.metadata, controllers.interaction, ui)
     RegisterVideoDanmakuSender(detail, currentCid, holders.metadata, controllers.detail)
-    BindVideoFullscreenState(ui)
+    BindVideoFullscreenState(ui) { page.playerUi.fullscreen = it }
     BindBackgroundVideoMetadata(request.video, detail, currentCid, content.quality)
     ReconcileVideoPager(pager)
 }

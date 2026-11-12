@@ -488,3 +488,7 @@ VideoPlayerEntry在feature:video内拥有原remember状态/平台实例/追踪�
 ### 2026-11-13 详情布局与收起策略模块化
 
 详情根布局、metadata/tail/comments pager内容及InlinePlayerCollapseState进入feature:video；评论仍由app原槽提供，禁止feature间导入。VideoCollapseHost只桥接原页面回调，收起纯策略进入core/domain，PlayerCollapseMode进入core/model且删除旧枚举，不留双轨副本。原rememberSaveable/Saver、scroll阈值、220ms动画、暂停56dp恢复工具栏及事件时读取保持；tab底边仍须在graphicsLayer内通过getter读取。宽屏同轴外层只允许TeakScrollContainer的兄弟留白手势区，不能重新叠加祖先scrollable。
+
+### 2026-11-13 详情加载与视口模块化
+
+VideoDetailControllers/ScreenStateHolders、初次离线→内存→网络加载、作者/观看人数/字幕/收藏预取及全屏/pager效果进入feature:video。依赖由app的VideoDetailLoadAssembly提供原实例；下载保持provider延迟取值，设置按原事件读点读取，remember键及175ms元信息超时不改。VideoDetailPlayerViewport实际布局在模块，app只装配原播放器资源/动作；播放器底边仍通过SideEffect发布到同一页面状态，tab在graphicsLayer读取。禁止建立同package同文件名的跨模块JVM文件类。

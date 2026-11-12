@@ -671,3 +671,10 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - `/tmp/bdfun-detail-layout-module.log`首轮40s通过checkLayering、独立feature:video/app debug及6项VideoCollapsePolicyTest，0失败/错误/跳过。985生产文件/10558 PSI节点/0违规。必要纯逻辑测试覆盖滚动方向/0.75阈值/边界、暂停tab与模式、56dp工具栏、自动暂停/恢复所有权；未重跑全套或追加镜像UI测试。
 - `/tmp/bdfun-detail-layout-runtime.log`首轮通过：当前debug真实PLAYING→暂停→原评论tab/真实评论头→滑动收起至“立即播放”→点击恢复本包PLAYING→回简介原标题，crash空。已查看collapsed/restored两张截图，原tab仍紧接视频底边。finally逐字恢复settings/playback_progress及各.bak字节或不存在状态、原WM和系统方向并force-stop。没有点赞/关注/发送等交互；正常播放历史上报沿用原实现。
 - 此例覆盖迁移的评论几何/收起桥接和恢复播放，不声明全部模式、传感器旋转、PiP返回或完整UI验收通过。宽屏滚动既有定向证据仍有效，全仓复查未再出现同类祖先scrollable。最终源码/release与交付继续。
+
+### 2026-11-13 详情加载、状态创建与视口装配
+
+- 首条构建命令未传ANDROID_HOME，45s在任务依赖解析报SDK location not found，未作为源码失败或成功证据。补固定JDK21/SDK后`/tmp/bdfun-detail-effects-configured.log`26s通过checkLayering及独立feature:video/app debug；991生产文件/10572 PSI节点/0违规。本批仅机械迁移，没有新业务规则，不追加镜像单测或重跑既有全套。
+- 初次加载效果经依赖/可见性正规化后逐字一致，播放器viewport Modifier逐字一致；app/home/video同package同文件名清点无JVM facade碰撞。remember键、下载provider调用次序、设置读点、Effect键及组合中的原调用顺序保持。
+- `/tmp/bdfun-detail-effects-runtime.log`当前APK首轮通过：本包真实PLAYING 20,772ms→暂停/竖屏→评论头/滚动至56dp恢复工具栏→点击恢复本包PLAYING→简介原标题，crash空。查看`/tmp/bdfun-lifecycle-detail-effects-restored.png`，原视频表面、tab/作者/正文位置可见；这不是同数据像素全量对照。finally逐字恢复settings/playback_progress及各.bak字节/不存在状态，恢复WM与系统方向，force-stop。没有点赞/关注/发送等交互。
+- 未重复旋转/进度用例；PiP返回、服务重建、剩余平台接线与最终main/release/交付继续。

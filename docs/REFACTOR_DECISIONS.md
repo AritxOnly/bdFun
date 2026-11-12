@@ -531,3 +531,7 @@ BindPlayerFrameResources只创建空VideoFrameLoader，从未调用frame；retri
 P5-03继续迁移实际VideoDetailLayout/ContentPager及收起Compose状态；app只装配原评论入口、资源、导航和页面回调。metadata工厂仍在原lazy项调用，tail工厂时机保持，评论topInset/thread宽度公式不变。纯滚动/自动暂停决策归core/domain，枚举归core/model，原文件删除；没有更改模式值、阈值、动画或存储格式。VideoCollapseHost不复制页面状态。
 
 复查全仓scrollable命中仅TeakScrollContainer的并列留白区域；centeredListWidth仅宽度限制。设置等通用外壳、搜索、条款共用该容器，固定高度合集/面板及详情收起nested scroll职责不同，保留原行为。
+
+### 2026-11-13 详情加载效果与播放器视口
+
+P5-03将页面控制器分组、remember状态创建、初次加载和元信息预取迁入实际视频模块。下载/进度/工厂/设置仍由app提供原实例，不在feature创建基础设施。原离线优先、内存缓存恢复、网络成功写缓存、resume条件、作者关系token、175ms延时与每条LaunchedEffect键保持。全屏发布采用原页面回调；pager吸附算法不改。实际播放器Box/Modifier迁入VideoDetailPlayerViewport，布局修饰器逐字一致，app保留原播放器装配内容且无额外布局节点。

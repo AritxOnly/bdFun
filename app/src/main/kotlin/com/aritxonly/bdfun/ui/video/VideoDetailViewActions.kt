@@ -6,13 +6,6 @@ import com.aritxonly.bdfun.data.VideoItem
 import com.aritxonly.bdfun.data.VideoPage
 import kotlinx.coroutines.launch
 
-internal data class VideoDetailControllers(
-    val detail: com.aritxonly.bdfun.feature.video.application.VideoDetailStateHolder,
-    val interaction: com.aritxonly.bdfun.feature.video.application.VideoInteractionStateHolder,
-    val selection: com.aritxonly.bdfun.feature.video.application.VideoPlaybackSelectionStateHolder,
-    val readCache: com.aritxonly.bdfun.feature.video.application.VideoReadCacheScope,
-)
-
 /** 页面动作只接线提示、系统入口和已有应用层控制器，不持有业务状态副本。 */
 internal class VideoDetailViewActions(
     private val context: android.content.Context, private val scope: kotlinx.coroutines.CoroutineScope,
