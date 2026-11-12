@@ -30,7 +30,7 @@ internal fun CommentComposerBody(
     val imeBottom = WindowInsets.ime.getBottom(density)
     val imeDp = with(density) { imeBottom.toDp().value }
     val navDp = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding().value
-    val raiseDp = if (com.aritxonly.bdfun.AppGraph.settings.bottomBarRaise) {
+    val raiseDp = if (com.aritxonly.bdfun.feature.settings.presentation.LocalSettingsBindings.current.bottomBarRaise) {
         TeakChromeDefaults.RaisedBottomBarExtra.value
     } else {
         0f

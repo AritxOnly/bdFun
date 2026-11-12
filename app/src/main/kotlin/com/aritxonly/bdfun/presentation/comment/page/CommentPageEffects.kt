@@ -1,7 +1,6 @@
 package com.aritxonly.bdfun.ui
 
 import androidx.compose.runtime.*
-import com.aritxonly.bdfun.AppGraph
 import kotlinx.coroutines.*
 
 @Composable
@@ -52,7 +51,7 @@ private fun CommentSenderEffect(runtime: CommentPageRuntime) {
         val sender: suspend (String, String?) -> Boolean = sender@ { text, pictures ->
             val result = runtime.actions.post(text, page.replyTarget.root, page.replyTarget.parent, pictures)
             if (result == null) false else {
-                AppGraph.sentHistory.record("comment", text, request.bvid, request.title)
+                page.dependencies.sentHistory.record("comment", text, request.bvid, request.title)
                 page.replyTarget.clear()
                 runtime.list.reload()
                 currentCoroutineContext().ensureActive()

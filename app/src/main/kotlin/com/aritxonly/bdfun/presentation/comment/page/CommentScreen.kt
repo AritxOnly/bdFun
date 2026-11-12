@@ -2,7 +2,6 @@ package com.aritxonly.bdfun.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.*
-import com.aritxonly.bdfun.AppGraph
 import com.aritxonly.bdfun.core.common.messageOr
 import com.aritxonly.teak.common.chrome.TrackTeakPageScroll
 import kotlinx.coroutines.launch
@@ -19,7 +18,7 @@ internal fun CommentScreen(
         if (layout.trackBackProgress) TrackTeakPageScroll(runtime.listState)
         if (!layout.bare) BackHandler(onBack = onBack)
         CommentPageList(runtime, layout, header)
-        CommentMenu(runtime.menu, AppGraph.session.value?.mid ?: 0L)
+        CommentMenu(runtime.menu, LocalVideoPageState.current.dependencies.comments.session.value?.mid ?: 0L)
         CommentPageThread(runtime, layout)
         CommentImageDialog()
     }

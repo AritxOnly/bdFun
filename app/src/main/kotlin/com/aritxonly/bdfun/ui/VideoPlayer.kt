@@ -6,7 +6,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.aritxonly.bdfun.AppGraph
 
 // 高倍速放最上面。
 internal val SPEEDS = listOf(2f, 1.5f, 1.25f, 1f, 0.75f, 0.5f)
@@ -24,17 +23,18 @@ internal fun VideoPlayer(
     media: VideoMediaInput, presentation: VideoPlayerPresentation,
     actions: VideoPlayerActions, modifier: Modifier = Modifier,
 ) {
+    val dependencies = LocalVideoPageState.current.dependencies
     val settings = LocalVideoPageState.current.settings
     val context = LocalContext.current
     val ui = remember {
         VideoPlayerUiStateHolder(settings.defaultPlaybackSpeed, settings.autoPlayNext, presentation.fullscreen)
     }
     val playback = remember {
-        AppGraph.playbackController(context, runCatching { settings.decoderMode }.getOrDefault(0))
+        dependencies.createPlayback(context, runCatching { settings.decoderMode }.getOrDefault(0))
     }
     val observed = rememberPlayerObservedState(playback)
     BindPlayerInitialEffects(playback, media, ui)
-    val tracking = remember { AppGraph.playbackTrackingStateHolder() }
+    val tracking = remember { dependencies.controllers.tracking() }
     val sponsor = rememberPlayerSponsor(media.bvid, tracking, observed)
     BindPlayerPresentationSetup(media, presentation, ui)
     val latencyMs = rememberPlayerBluetoothLatency()

@@ -5,7 +5,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
-import com.aritxonly.bdfun.AppGraph
 import com.aritxonly.bdfun.core.domain.CommentQuery
 import com.aritxonly.bdfun.core.model.comment.CommentItem
 import com.aritxonly.bdfun.feature.comment.application.CommentListStateHolder
@@ -55,12 +54,13 @@ internal fun rememberCommentPageRuntime(request: CommentScreenRequest): CommentP
     val ui = remember { CommentPagePresentationStateHolder() }
     val page = LocalVideoPageState.current
     val parent = rememberCoroutineScope()
-    val owner = AppGraph.session.value?.mid
-    val generation by AppGraph.commentLikeGeneration.collectAsState()
+    val dependencies = LocalVideoPageState.current.dependencies.comments
+    val owner = dependencies.session.identity
+    val generation by dependencies.likeGeneration.collectAsState()
     val context = LocalContext.current
-    val list = remember(owner, generation, page, request.commentOid, request.commentType) { AppGraph.commentListStateHolder(request.query()) }
-    val actions = remember(owner, generation, page, request.commentOid, request.commentType) { AppGraph.commentActionsStateHolder(request.query()) }
-    val replies = remember(owner, generation, page, request.commentOid, request.commentType) { AppGraph.commentListStateHolder(request.query()) }
+    val list = remember(owner, generation, page, request.commentOid, request.commentType) { dependencies.controllers.list(request.query()) }
+    val actions = remember(owner, generation, page, request.commentOid, request.commentType) { dependencies.controllers.actions(request.query()) }
+    val replies = remember(owner, generation, page, request.commentOid, request.commentType) { dependencies.controllers.list(request.query()) }
     val scope = remember(list, actions, replies) {
         CoroutineScope(parent.coroutineContext + SupervisorJob(parent.coroutineContext[Job]))
     }

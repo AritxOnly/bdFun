@@ -10,13 +10,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 
-import com.aritxonly.bdfun.AppGraph
 @Composable
 internal fun rememberVideoActivityEntry(
     snapshot: com.aritxonly.bdfun.data.VideoItem?, requestedBvid: String?, requestedAid: Long,
     host: VideoActivityHostActions,
 ): com.aritxonly.bdfun.data.VideoItem? {
-    val entry = remember { AppGraph.videoEntryStateHolder(snapshot) }
+    val dependencies = LocalVideoPageState.current.dependencies
+    val entry = remember { dependencies.controllers.entry(snapshot) }
     val state by entry.state.collectAsState()
     if (state.video == null) {
         LaunchedEffect(Unit) {
@@ -33,8 +33,8 @@ internal fun BindVideoActivityQueue(
 ) {
     val page = LocalVideoPageState.current
     LaunchedEffect(video.bvid) {
-        if (!com.aritxonly.bdfun.data.VideoPlayQueue.contains(video.bvid)) {
-            com.aritxonly.bdfun.data.VideoPlayQueue.clear()
+        if (!page.dependencies.queue.contains(video.bvid)) {
+            page.dependencies.queue.clear()
         }
     }
     var consumedAutoNext by ui.consumedAutoNext
@@ -42,7 +42,7 @@ internal fun BindVideoActivityQueue(
         val tick = page.autoNextRequest
         if (tick == consumedAutoNext) return@LaunchedEffect
         consumedAutoNext = tick
-        val next = com.aritxonly.bdfun.data.VideoPlayQueue.next() ?: return@LaunchedEffect
+        val next = page.dependencies.queue.next() ?: return@LaunchedEffect
         host.openVideo(next)
         host.finish()
     }

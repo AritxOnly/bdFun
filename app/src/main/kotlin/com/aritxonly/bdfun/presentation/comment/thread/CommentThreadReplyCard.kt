@@ -8,7 +8,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import com.aritxonly.bdfun.AppGraph
 import com.aritxonly.bdfun.core.model.comment.CommentItem
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.runtime.getValue
@@ -18,6 +17,7 @@ internal fun CommentThreadReplyCard(
     reply: CommentItem, index: Int, lastIndex: Int, end: Boolean,
     transient: CommentThreadPresentationStateHolder, callbacks: ThreadSheetCallbacks,
 ) {
+    val likes = LocalVideoPageState.current.dependencies.comments.likes
     val colors = MiuixTheme.colorScheme
     val isFirst = index == 0
     val isLast = index == lastIndex && end
@@ -44,8 +44,8 @@ internal fun CommentThreadReplyCard(
     ) {
         CommentRow(
             item = reply.copy(
-                liked = AppGraph.commentLikes.isLiked(reply),
-                like = AppGraph.commentLikes.likeCount(reply),
+                liked = likes.isLiked(reply),
+                like = likes.likeCount(reply),
             ),
             disliked = transient.dislikedIds[reply.rpid] == true,
             actions = CommentRowActions(

@@ -52,7 +52,7 @@ internal fun BindPlayerContinuation(
                 )
             }
             (fsLoopMode == 2 || fsAutoPlayNext) &&
-                com.aritxonly.bdfun.data.VideoPlayQueue.hasNext() -> {
+                VideoPageBus.dependencies.queue.hasNext() -> {
                 playback.acknowledgeEnd()
                 VideoPageBus.requestAutoNext()
             }

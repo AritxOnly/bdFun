@@ -15,6 +15,7 @@ internal fun BindPlayerSource(
     presentation: VideoPlayerPresentation,
     ui: VideoPlayerUiStateHolder,
 ) {
+    val log = LocalVideoPageState.current.dependencies.log
     val settings = LocalVideoPageState.current.settings
     val context = LocalContext.current
     val bvid = media.bvid
@@ -34,7 +35,7 @@ internal fun BindPlayerSource(
                 ?: info?.fallbackUrl
             else -> quality?.videoUrl ?: info?.fallbackUrl
         } ?: run {
-            com.aritxonly.bdfun.data.LogCollector.record(
+            log(
                 "PLAYER",
                 "no-source bvid=$bvid q=${quality?.id} hasInfo=${info != null} " +
                     "qualities=${info?.qualities?.size ?: 0} " +
@@ -50,7 +51,7 @@ internal fun BindPlayerSource(
             usingOriginal -> info?.rawAudioUrl?.takeIf { it.isNotBlank() } ?: info?.audioUrl
             else -> info?.audioUrl
         }
-        com.aritxonly.bdfun.data.LogCollector.record(
+        log(
             "PLAYER",
             "source bvid=$bvid q=${quality?.id} auto=$autoQuality " +
                 "usingOriginal=$usingOriginal usingFallback=$usingFallback " +

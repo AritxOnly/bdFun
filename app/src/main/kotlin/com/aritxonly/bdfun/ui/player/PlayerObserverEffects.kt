@@ -9,7 +9,6 @@ import androidx.compose.ui.platform.LocalContext
 import com.aritxonly.bdfun.core.application.PlaybackController
 import com.aritxonly.bdfun.core.application.PlaybackPhase
 import com.aritxonly.bdfun.core.application.PlaybackFailure
-import com.aritxonly.bdfun.data.PlaybackProgressStore
 
 @Composable
 internal fun BindPlayerObserver(
@@ -18,6 +17,7 @@ internal fun BindPlayerObserver(
     actions: VideoPlayerActions,
     ui: VideoPlayerUiStateHolder,
 ) {
+    val dependencies = LocalVideoPageState.current.dependencies
     val settings = LocalVideoPageState.current.settings
     val context = LocalContext.current
     val PlayerUiState = LocalVideoPageState.current.playerUi
@@ -34,7 +34,7 @@ internal fun BindPlayerObserver(
         val listener = object : PlaybackController.Listener {
             override fun onRenderedFirstFrame() {
                 firstFrame = true
-                com.aritxonly.bdfun.data.LogCollector.record(
+                dependencies.log(
                     "PLAYER",
                     "first-frame bvid=$bvid q=${latestQuality?.id}",
                 )
@@ -46,7 +46,7 @@ internal fun BindPlayerObserver(
 
             override fun onPhaseChanged(state: PlaybackPhase) {
                 if (state == PlaybackPhase.Buffering || state == PlaybackPhase.Ready) {
-                    com.aritxonly.bdfun.data.LogCollector.record(
+                    dependencies.log(
                         "PLAYER",
                         "state=${if (state == PlaybackPhase.Buffering) "buffering" else "ready"} " +
                             "bvid=$bvid q=${latestQuality?.id}",
@@ -62,25 +62,25 @@ internal fun BindPlayerObserver(
             }
 
             override fun onError(error: PlaybackFailure) {
-                handlePlayerError(context, error, latestQuality, latestInfo, ui)
+                handlePlayerError(context, error, latestQuality, latestInfo, ui, dependencies.log)
             }
         }
         playback.addListener(listener)
         onDispose {
             if (settings.resumePlayback) {
                 runCatching {
-                    PlaybackProgressStore.save(latestBvid, playback.refresh().positionMs, playback.refresh().durationMs)
+                    dependencies.progress.save(latestBvid, playback.refresh().positionMs, playback.refresh().durationMs)
                 }
             }
             playback.removeListener(listener)
             val handOff = settings.showDiscAfterVideo && !settings.stopOnVideoPageExit &&
-                BackgroundPlayback.shouldHandOff() &&
+                dependencies.background.shouldHandOff() &&
                 playback.refresh().phase != PlaybackPhase.Idle
             if (handOff) {
                 // 页面正常关闭，但播放器继续活着：系统一镜到底退出动画照常播。
-                BackgroundPlayback.adopt(playback, context)
+                dependencies.background.adopt(playback, context)
             } else {
-                BackgroundPlayback.cancelHandOff()
+                dependencies.background.cancelHandOff()
                 playback.release()
             }
         }
@@ -94,10 +94,11 @@ private fun handlePlayerError(
     latestQuality: com.aritxonly.bdfun.data.Quality?,
     latestInfo: com.aritxonly.bdfun.data.PlayInfo?,
     ui: VideoPlayerUiStateHolder,
+    log: (String, String) -> Unit,
 ) {
     var usingOriginal by ui.usingOriginal
     var usingFallback by ui.usingFallback
-    com.aritxonly.bdfun.data.LogCollector.record(
+    log(
         "PLAYER",
         "error code=${error.code} q=${latestQuality?.id} " +
             "usingOriginal=$usingOriginal usingFallback=$usingFallback " +

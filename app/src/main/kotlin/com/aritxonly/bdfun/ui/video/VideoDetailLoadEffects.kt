@@ -3,7 +3,6 @@ package com.aritxonly.bdfun.ui
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import com.aritxonly.bdfun.AppGraph
 import com.aritxonly.bdfun.data.VideoDetail
 import com.aritxonly.bdfun.data.VideoItem
 import kotlinx.coroutines.delay
@@ -13,6 +12,7 @@ import com.aritxonly.bdfun.feature.video.application.VideoCacheEntry
 internal fun LoadInitialVideo(
     video: VideoItem, defaultQuality: Int, controllers: VideoDetailControllers, ui: VideoDetailUiStateHolder,
 ) {
+    val dependencies = LocalVideoPageState.current.dependencies
     val settings = LocalVideoPageState.current.settings
     val readCache = controllers.readCache
     val detailController = controllers.detail
@@ -20,15 +20,15 @@ internal fun LoadInitialVideo(
     LaunchedEffect(video.bvid) {
         ui.metaReady.value = false
         // 离线缓存优先：直接从本地视频轨 + 音轨起播，不再请求播放地址。
-        val offline = AppGraph.videoCache.findPlayable(video.bvid, video.cid)
+        val offline = dependencies.downloads.findPlayable(video.bvid, video.cid)
         if (offline != null) {
-            val offlinePlay = AppGraph.videoCache.playInfo(offline)
-            com.aritxonly.bdfun.data.LogCollector.record(
+            val offlinePlay = dependencies.downloads.playInfo(offline)
+            dependencies.log(
                 "VIDEO",
                 "source=offline bvid=${video.bvid} qualities=${offlinePlay.qualities.size} " +
                     "audio=${offlinePlay.audioUrl != null}",
             )
-            detailController.restore(AppGraph.videoCache.detail(offline), offlinePlay, emptyList(), emptyList())
+            detailController.restore(dependencies.downloads.detail(offline), offlinePlay, emptyList(), emptyList())
             selectionController.restoreCid(offline.cid)
             return@LaunchedEffect
         }
@@ -39,7 +39,7 @@ internal fun LoadInitialVideo(
         // 从相关推荐点进去再返回：直接用缓存，不再重新请求
         val cached = readCache.video(video.bvid)
         if (cached != null) {
-            com.aritxonly.bdfun.data.LogCollector.record(
+            dependencies.log(
                 "VIDEO",
                 "source=memory-cache bvid=${video.bvid} " +
                     "qualities=${cached.playInfo?.qualities?.size} " +
@@ -60,7 +60,7 @@ internal fun LoadInitialVideo(
             onReady = { position ->
                 selectionController.offerCloudResume(position)
                 val ready = detailController.state.value
-                com.aritxonly.bdfun.data.LogCollector.record(
+                dependencies.log(
                     "VIDEO",
                     "source=network bvid=${video.bvid} hasInfo=${ready.playInfo != null} " +
                         "qualities=${ready.playInfo?.qualities?.size} audio=${ready.playInfo?.audioUrl != null} " +

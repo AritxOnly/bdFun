@@ -10,7 +10,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
-import com.aritxonly.bdfun.AppGraph
 import com.aritxonly.bdfun.core.domain.CommentQuery
 import com.aritxonly.bdfun.core.model.comment.CommentItem
 import com.aritxonly.bdfun.feature.comment.application.CommentThreadStateHolder
@@ -25,6 +24,7 @@ internal class CommentThreadRuntime(
     val focusRequester: FocusRequester,
     private val focusManager: FocusManager,
     private val keyboard: SoftwareKeyboardController?,
+    private val dependencies: VideoPageDependencies,
 ) {
     val actions get() = controller.actions
     fun exitReply() {
@@ -39,11 +39,11 @@ internal class CommentThreadRuntime(
         val text = transient.draft.trim()
         if (text.isEmpty() || sending) return
         scope.launch {
-            val result = controller.send(text, target.rpid, AppGraph.session.value, System::currentTimeMillis)
+            val result = controller.send(text, target.rpid, dependencies.comments.session.value, System::currentTimeMillis)
             currentCoroutineContext().ensureActive()
             if (!controller.isActive) return@launch
             if (result != null) {
-                AppGraph.sentHistory.record("comment", text, input.bvid, input.videoTitle)
+                dependencies.sentHistory.record("comment", text, input.bvid, input.videoTitle)
                 transient.draft = ""
                 transient.replyTarget = null
                 keyboard?.hide()
@@ -66,12 +66,13 @@ internal class CommentThreadRuntime(
 
 @Composable
 internal fun rememberCommentThreadRuntime(input: CommentThreadInput): CommentThreadRuntime {
-    val owner = AppGraph.session.value?.mid
-    val generation by AppGraph.commentLikeGeneration.collectAsState()
+    val dependencies = LocalVideoPageState.current.dependencies.comments
+    val owner = dependencies.session.identity
+    val generation by dependencies.likeGeneration.collectAsState()
     val page = LocalVideoPageState.current
     val parent = rememberCoroutineScope()
     val actions = remember(owner, generation, page, input.commentOid, input.commentType, input.comment.rpid) {
-        AppGraph.commentActionsStateHolder(CommentQuery(input.commentOid, input.commentType, 0, input.comment.rpid))
+        dependencies.controllers.actions(CommentQuery(input.commentOid, input.commentType, 0, input.comment.rpid))
     }
     val controller = remember(actions) { CommentThreadStateHolder(actions, input.comment.rpid) }
     val scope = remember(controller) { CoroutineScope(parent.coroutineContext + SupervisorJob(parent.coroutineContext[Job])) }
@@ -80,5 +81,5 @@ internal fun rememberCommentThreadRuntime(input: CommentThreadInput): CommentThr
         CommentThreadPresentationStateHolder()
     }
     return CommentThreadRuntime(controller, transient, scope, LocalContext.current, rememberLazyListState(),
-        remember { FocusRequester() }, LocalFocusManager.current, LocalSoftwareKeyboardController.current)
+        remember { FocusRequester() }, LocalFocusManager.current, LocalSoftwareKeyboardController.current, page.dependencies)
 }

@@ -71,6 +71,7 @@ private fun BindPlayerBackgroundBridge(
     actions: VideoPlayerActions,
     ui: VideoPlayerUiStateHolder,
 ) {
+    val background = LocalVideoPageState.current.dependencies.background
     val settings = LocalVideoPageState.current.settings
     val context = LocalContext.current
     val fullscreenInfo = presentation.fullscreenInfo
@@ -81,14 +82,14 @@ private fun BindPlayerBackgroundBridge(
     var boosting by ui.boosting
     // 底栏唱片：把当前播放器接到进程级桥上。唱片在首页时直接调这里的动作。
     val bgToken = remember { Any() }
-    LaunchedEffect(fullscreen) { BackgroundPlayback.updateFullscreen(bgToken, fullscreen) }
-    DisposableEffect(bgToken) { onDispose { BackgroundPlayback.updateFullscreen(bgToken, false) } }
+    LaunchedEffect(fullscreen) { background.updateFullscreen(bgToken, fullscreen) }
+    DisposableEffect(bgToken) { onDispose { background.updateFullscreen(bgToken, false) } }
     val bgPages by rememberUpdatedState(fullscreenInfo.pages)
     val bgCurrentCid by rememberUpdatedState(fullscreenInfo.currentCid)
     val bgPageSelected by rememberUpdatedState(onPageSelected)
     val bgSpeed by rememberUpdatedState(speed)
     DisposableEffect(bgToken) {
-        BackgroundPlayback.attach(
+        background.attach(
             bgToken, playback,
             object : BackgroundPlaybackStateHolder.Actions {
                 override fun next() {
@@ -131,7 +132,7 @@ private fun BindPlayerBackgroundBridge(
                 }
             },
         )
-        onDispose { BackgroundPlayback.detach(bgToken) }
+        onDispose { background.detach(bgToken) }
     }
 
 }

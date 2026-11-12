@@ -134,7 +134,7 @@ private fun ReconcileVideoCollapse(
                 wasAutoPausedByCollapse = pauseState.paused,
             ) -> {
                 pauseState.paused = false
-                BackgroundPlayback.togglePlayPause()
+                VideoPageBus.dependencies.background.togglePlayPause()
             }
             !collapsedForAutoPause -> pauseState.paused = false
         }

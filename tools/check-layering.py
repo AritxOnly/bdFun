@@ -116,6 +116,12 @@ def violations(root):
     for path in video_sources:
         check(path, r'\bAppGraph\.settings\b|\bDanmakuSettings\.'
               r'|\bcom\.aritxonly\.bdfun\.ui\.DanmakuSettings\b', '视频展示回查全局设置')
+    explicit_page_sources = video_sources + list((root / APP_PACKAGE / 'presentation/comment').rglob('*.kt'))
+    video_root = root / APP_PACKAGE / 'ui/VideoPlayer.kt'
+    if video_root.exists(): explicit_page_sources.append(video_root)
+    for path in explicit_page_sources:
+        check(path, r'\bAppGraph\.|\bPlaybackProgressStore\b|\bVideoPlayQueue\b|\bBackgroundPlayback\.'
+              r'|\bcom\.aritxonly\.bdfun\.data\.LogCollector\b', '视频/评论展示须使用显式页面依赖')
     for path in (root / APP_PACKAGE).glob('*Activity.kt'):
         check(path, r'\bcom\.aritxonly\.bdfun\.(?:infra\.bili\.|data\.BiliApi\b)'
               r'|\bAppGraph\.api\b', 'Activity外壳直接访问网络实现')

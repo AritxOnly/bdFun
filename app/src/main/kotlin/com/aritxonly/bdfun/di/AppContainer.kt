@@ -145,8 +145,6 @@ internal class AppContainer(
     }, { it.view.close(); it.job.cancel() })
     val dynamicFeedState: DynamicFeedState get() = dynamicSlot.get().view
     private val commentImageRepository by lazy { com.aritxonly.bdfun.infra.bili.BiliCommentImageRepository(api) }
-    fun commentComposerStateHolder() =
-        com.aritxonly.bdfun.feature.comment.application.CommentComposerStateHolder(commentImageRepository)
     private val inlineVideoRepository by lazy {
         com.aritxonly.bdfun.infra.bili.BiliInlineVideoRepository(api::view) { detail, preferences ->
             api.playInfo(detail, preferences.quality, codecPreference = preferences.codecPreference,
@@ -227,6 +225,21 @@ internal class AppContainer(
         com.aritxonly.bdfun.feature.onboarding.application.OnboardingStateHolder(
             settings.repository.appearance, settings.repository.general, settings.state.map { Unit }, scope, step,
         )
+    val videoStateFactory by lazy {
+        com.aritxonly.bdfun.feature.video.application.VideoStateFactory(
+            videoEntryRepository, videoRepository, videoPlaybackRepository, videoMetadataRepository,
+            videoActionsRepository, playbackTrackingRepository, playbackTrackingRepository)
+    }
+    val videoPageDependencies by lazy {
+        com.aritxonly.bdfun.ui.VideoPageDependencies(videoStateFactory, playbackProgress,
+            { checkNotNull(videoCache) { "视频下载存储尚未初始化" } },
+            { checkNotNull(sentHistory) { "发送记录存储尚未初始化" } },
+            backgroundPlayback, playbackQueue, ::createPlaybackController, LogCollector::record,
+            com.aritxonly.bdfun.ui.CommentDependencies(
+                com.aritxonly.bdfun.feature.comment.application.CommentStateFactory(
+                    commentContentRepository, commentImageRepository, commentLikesStore),
+                session, commentLikes, commentLikesStore.generationState))
+    }
     fun close() { closed = true; homeSlot.close(); dynamicSlot.close(); videoReadCache.close(); settings.close(); presentationScope.cancel() }
     val sentHistory: SentHistoryStore? = context?.let { SentHistoryStore(it.applicationContext) }
 

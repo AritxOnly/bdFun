@@ -8,12 +8,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import com.aritxonly.bdfun.AppGraph
 import com.aritxonly.bdfun.core.model.comment.CommentItem
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun CommentThreadParentCard(comment: CommentItem, transient: CommentThreadPresentationStateHolder, callbacks: ThreadSheetCallbacks) {
+    val likes = LocalVideoPageState.current.dependencies.comments.likes
     val colors = MiuixTheme.colorScheme
     Box(
         modifier = Modifier
@@ -25,8 +25,8 @@ internal fun CommentThreadParentCard(comment: CommentItem, transient: CommentThr
             item = comment.copy(
                 replyCount = 0,
                 extras = comment.extras.copy(previewReplies = emptyList()),
-                liked = AppGraph.commentLikes.isLiked(comment),
-                like = AppGraph.commentLikes.likeCount(comment),
+                liked = likes.isLiked(comment),
+                like = likes.likeCount(comment),
             ),
             disliked = transient.dislikedIds[comment.rpid] == true,
             actions = CommentRowActions(

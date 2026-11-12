@@ -10,7 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.AppGraph
 import com.aritxonly.bdfun.core.model.comment.CommentItem
 import com.kyant.shapes.Capsule
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -23,7 +22,7 @@ internal fun androidx.compose.foundation.layout.RowScope.CommentRowMetadata(item
         color = colors.onBackgroundVariant,
         fontSize = 11.sp,
     )
-    if (item.ipLocation.isNotBlank() && AppGraph.settings.showIpLocation) {
+    if (item.ipLocation.isNotBlank() && com.aritxonly.bdfun.feature.settings.presentation.LocalSettingsBindings.current.showIpLocation) {
         Spacer(Modifier.width(6.dp))
         Text(
             text = item.ipLocation,

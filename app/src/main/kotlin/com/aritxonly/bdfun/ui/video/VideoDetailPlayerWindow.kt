@@ -23,7 +23,6 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import androidx.media3.ui.PlayerView
 
 @Composable
 internal fun androidx.compose.foundation.layout.BoxScope.VideoDetailPlayerWindow(

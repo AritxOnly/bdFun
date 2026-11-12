@@ -2,7 +2,6 @@ package com.aritxonly.bdfun
 
 import android.content.Context
 import com.aritxonly.bdfun.data.BiliApi
-import com.aritxonly.bdfun.data.PlaybackProgressStore
 import com.aritxonly.bdfun.data.SentHistoryStore
 import com.aritxonly.bdfun.data.SettingsStore
 import com.aritxonly.bdfun.data.UserProfile
@@ -31,8 +30,6 @@ object AppGraph {
     val dynamicFeedState get() = checkNotNull(container) { "AppGraph 尚未初始化" }.dynamicFeedState
     internal fun onboardingStateHolder(scope: kotlinx.coroutines.CoroutineScope, step: Int) =
         checkNotNull(container) { "AppGraph 尚未初始化" }.onboardingStateHolder(scope, step)
-    internal fun commentComposerStateHolder() =
-        checkNotNull(container) { "AppGraph 尚未初始化" }.commentComposerStateHolder()
     internal fun inlineVideoStateHolder(bvid: String) =
         checkNotNull(container) { "AppGraph 尚未初始化" }.inlineVideoStateHolder(bvid)
     internal fun inlinePlayback(context: Context, bvid: String, muted: Boolean) =
@@ -61,49 +58,14 @@ object AppGraph {
         checkNotNull(container) { "AppGraph 尚未初始化" }.videoLinkResolver)
     internal fun createQrLogin() = checkNotNull(container) { "AppGraph 尚未初始化" }.createQrLogin()
     internal val richTextDependencies get() = checkNotNull(container) { "AppGraph 尚未初始化" }.richTextDependencies
-    internal val playbackProgress get() = checkNotNull(container) { "AppGraph 尚未初始化" }.playbackProgress
-    internal val playbackQueue get() = checkNotNull(container) { "AppGraph 尚未初始化" }.playbackQueue
     internal val mediaControls get() = checkNotNull(container) { "AppGraph 尚未初始化" }.mediaControls
     internal val discDependencies get() = checkNotNull(container) { "AppGraph 尚未初始化" }.discDependencies
     internal val backgroundPlayback get() = checkNotNull(container) { "AppGraph 尚未初始化" }.backgroundPlayback
-    internal fun playbackTrackingStateHolder() = checkNotNull(container) { "AppGraph 尚未初始化" }.let {
-        com.aritxonly.bdfun.feature.video.application.PlaybackTrackingStateHolder(it.playbackTrackingRepository, it.playbackTrackingRepository)
-    }
-    internal fun playbackController(context: Context, decoderMode: Int): com.aritxonly.bdfun.feature.video.presentation.VideoPlaybackPlatform =
-        checkNotNull(container) { "AppGraph 尚未初始化" }.createPlaybackController(context, decoderMode)
     internal fun videoPageState(scope: kotlinx.coroutines.CoroutineScope) =
         checkNotNull(container) { "AppGraph 尚未初始化" }.let {
             com.aritxonly.bdfun.ui.VideoPagePresentationState(scope, it.playbackPauses,
-                it.videoReadCache.scope(), it.automaticVideoQuality, it.settings)
+                it.videoReadCache.scope(), it.automaticVideoQuality, it.settings, it.videoPageDependencies)
         }
-    internal val commentLikeGeneration get() = checkNotNull(container) { "AppGraph 尚未初始化" }.commentLikesStore.generationState
-    internal val commentLikes get() = checkNotNull(container) { "AppGraph 尚未初始化" }.commentLikes
-    internal fun commentActionsStateHolder(query: com.aritxonly.bdfun.core.domain.CommentQuery) =
-        com.aritxonly.bdfun.feature.comment.application.CommentActionsStateHolder(
-            checkNotNull(container) { "AppGraph 尚未初始化" }.commentContentRepository, query,
-            checkNotNull(container) { "AppGraph 尚未初始化" }.commentLikesStore,
-        )
-    internal fun commentListStateHolder(query: com.aritxonly.bdfun.core.domain.CommentQuery) =
-        com.aritxonly.bdfun.feature.comment.application.CommentListStateHolder(
-            checkNotNull(container) { "AppGraph 尚未初始化" }.commentContentRepository, query,
-        )
-    internal fun videoEntryStateHolder(snapshot: VideoItem? = null) =
-        com.aritxonly.bdfun.feature.video.application.VideoEntryStateHolder(
-            checkNotNull(container) { "AppGraph 尚未初始化" }.videoEntryRepository, snapshot,
-        )
-    internal fun videoMetadataStateHolder() =
-        com.aritxonly.bdfun.feature.video.application.VideoMetadataStateHolder(
-            checkNotNull(container) { "AppGraph 尚未初始化" }.videoMetadataRepository,
-        )
-    internal fun videoInteractionStateHolder() =
-        com.aritxonly.bdfun.feature.video.application.VideoInteractionStateHolder(
-            checkNotNull(container) { "AppGraph 尚未初始化" }.videoActionsRepository,
-        )
-    internal fun videoDetailStateHolder(related: List<VideoItem>) =
-        com.aritxonly.bdfun.feature.video.application.VideoDetailStateHolder(
-            checkNotNull(container) { "AppGraph 尚未初始化" }.videoRepository, related,
-            checkNotNull(container) { "AppGraph 尚未初始化" }.videoPlaybackRepository,
-        )
     val homeFeedState get() = checkNotNull(container) { "AppGraph 尚未初始化" }.homeFeedState
 
     /** 登录态：MainActivity 与 LoginActivity 共享，登录成功直接写这里。 */

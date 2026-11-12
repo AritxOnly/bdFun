@@ -14,13 +14,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import com.aritxonly.bdfun.AppGraph
 import com.aritxonly.bdfun.core.model.comment.CommentItem
 import androidx.compose.runtime.getValue
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun CommentPreviewRow(reply: CommentItem, actions: CommentPreviewActions) {
+    val likes = LocalVideoPageState.current.dependencies.comments.likes
     val ui = remember(reply.rpid) { CommentRowPresentationStateHolder() }
     Row(
         modifier = Modifier
@@ -38,10 +38,10 @@ internal fun CommentPreviewRow(reply: CommentItem, actions: CommentPreviewAction
     ) {
         // 同样只订阅这条折叠回复自己的值。
         val liked by remember(reply.rpid, reply.liked) {
-            derivedStateOf { AppGraph.commentLikes.likedMap[reply.rpid] ?: reply.liked }
+            derivedStateOf { likes.likedMap[reply.rpid] ?: reply.liked }
         }
         val likeCount by remember(reply.rpid, reply.like) {
-            derivedStateOf { AppGraph.commentLikes.countMap[reply.rpid] ?: reply.like }
+            derivedStateOf { likes.countMap[reply.rpid] ?: reply.like }
         }
         CommentPreviewText(reply, liked, likeCount, actions)
     }

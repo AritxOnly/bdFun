@@ -1,7 +1,6 @@
 package com.aritxonly.bdfun.ui
 
 import com.aritxonly.bdfun.core.domain.VideoStreamRequest
-import com.aritxonly.bdfun.AppGraph
 import com.aritxonly.bdfun.data.Quality
 import com.aritxonly.bdfun.data.VideoItem
 import com.aritxonly.bdfun.data.VideoPage
@@ -130,7 +129,7 @@ internal class VideoDetailViewActions(
     /** 缓存当前视频当前 P 的指定清晰度（视频轨 + 音轨）。 */
     fun cacheVideo(quality: Quality) {
         val d = detail ?: return
-        if (AppGraph.videoCache.findPlayable(activeBvid, currentCid) != null) {
+        if (VideoPageBus.dependencies.downloads.findPlayable(activeBvid, currentCid) != null) {
             videoContext.showToast("已缓存")
             return
         }
@@ -141,7 +140,7 @@ internal class VideoDetailViewActions(
         }
         val seconds = playInfo?.durationMs?.div(1000L)?.toInt()?.takeIf { it > 0 }
             ?: d.duration
-        val queued = AppGraph.videoCache.enqueue(
+        val queued = VideoPageBus.dependencies.downloads.enqueue(
             detail = d,
             quality = quality,
             cid = currentCid,
@@ -199,7 +198,7 @@ internal class VideoDetailViewActions(
         // 从相关推荐进来、返回是回到上一个视频页时，不交棒给后台：
         // 上一页会自己续播，交棒只会造成两路声音。
         if (settings.showDiscAfterVideo && !settings.stopOnVideoPageExit && !openedFromVideoPage) {
-            com.aritxonly.bdfun.ui.BackgroundPlayback.requestHandOff()
+            VideoPageBus.dependencies.background.requestHandOff()
         }
         onBack()
     }

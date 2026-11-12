@@ -2,14 +2,13 @@ package com.aritxonly.bdfun.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import com.aritxonly.bdfun.AppGraph
 import com.aritxonly.bdfun.core.model.comment.CommentItem
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
 internal fun CommentThreadMenuModerationRows(runtime: CommentThreadRuntime, menuTarget: CommentItem) {
-    val myMid = AppGraph.session.value?.mid ?: 0L
+    val myMid = LocalVideoPageState.current.dependencies.comments.session.value?.mid ?: 0L
             top.yukonga.miuix.kmp.glass.GlassPopupItem(
                 text = "举报",
                 contentColor = Color(0xFFE5484D),

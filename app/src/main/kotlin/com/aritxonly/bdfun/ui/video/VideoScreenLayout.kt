@@ -20,6 +20,7 @@ internal fun VideoScreenLayout(
     holders: VideoScreenStateHolders, content: VideoScreenContent,
     actions: VideoDetailViewActions, relatedEnter: Float, scope: CoroutineScope,
 ) {
+    val background = LocalVideoPageState.current.dependencies.background
     val pageUi = holders.ui
     val fullscreen by pageUi.fullscreen
     val playing by pageUi.playing
@@ -64,7 +65,7 @@ internal fun VideoScreenLayout(
 
         VideoCollapseOverlay(fullscreen, viewport.collapseProgress, playerBlockHeight, statusTop) {
             collapseState.restore()
-            if (!playing) BackgroundPlayback.togglePlayPause()
+            if (!playing) background.togglePlayPause()
         }
     }
 

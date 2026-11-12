@@ -10,7 +10,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.aritxonly.bdfun.core.application.PlaybackController
 import com.aritxonly.bdfun.core.application.PlaybackPhase
-import com.aritxonly.bdfun.data.PlaybackProgressStore
 import com.aritxonly.bdfun.feature.video.application.PlaybackTrackingStateHolder
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -22,6 +21,7 @@ internal fun BindPlayerProgressTracking(
     ui: VideoPlayerUiStateHolder,
     trackingController: PlaybackTrackingStateHolder,
 ) {
+    val dependencies = LocalVideoPageState.current.dependencies
     val settings = LocalVideoPageState.current.settings
     val VideoPageBus = LocalVideoPageState.current
     val state = playback.state.collectAsState()
@@ -47,7 +47,7 @@ internal fun BindPlayerProgressTracking(
             val now = System.currentTimeMillis()
             if (settings.resumePlayback && now - lastProgressSaveAt >= 10_000L) {
                 lastProgressSaveAt = now
-                PlaybackProgressStore.save(bvid, positionMs, durationMs)
+                dependencies.progress.save(bvid, positionMs, durationMs)
             }
             // 独立协程保持原 300ms 轮询节奏，节流与 busy 由纯状态容器处理。
             historyScope.launch { trackingController.reportIfDue(VideoPageBus.aid, VideoPageBus.cid, tick, now) }

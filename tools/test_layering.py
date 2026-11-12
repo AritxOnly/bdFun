@@ -97,6 +97,15 @@ val raw = """org.json.JSONObject"""
     def test_video_root_cannot_reach_global_settings(self):
         self.check_source('app/src/main/kotlin/com/aritxonly/bdfun/ui/VideoPlayer.kt', 'val speed = AppGraph.settings.defaultPlaybackSpeed')
 
+    def test_comment_page_cannot_lookup_process_dependencies(self):
+        self.check_source('app/src/main/kotlin/com/aritxonly/bdfun/presentation/comment/page/Test.kt',
+                          'val likes = AppGraph.commentLikes')
+
+    def test_video_cannot_reintroduce_legacy_dependency_bridges(self):
+        for source in ('PlaybackProgressStore.save(bvid, 1, 2)', 'BackgroundPlayback.adopt(player, context)',
+                       'com.aritxonly.bdfun.data.VideoPlayQueue.next()'):
+            self.check_source('app/src/main/kotlin/com/aritxonly/bdfun/ui/video/Test.kt', source)
+
     def test_diagnostic_exemption_does_not_allow_other_data(self):
         self.check_source('app/src/main/kotlin/com/aritxonly/bdfun/presentation/Test.kt', 'com.aritxonly.bdfun.data.LogCollector.record("x", "y")', False)
         self.check_source('app/src/main/kotlin/com/aritxonly/bdfun/presentation/Test.kt', 'com.aritxonly.bdfun.data.SettingsStore()', True)

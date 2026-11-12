@@ -6,7 +6,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
-import com.aritxonly.bdfun.AppGraph
 import com.aritxonly.bdfun.data.DanmakuItem
 import com.aritxonly.bdfun.data.Quality
 import com.aritxonly.bdfun.data.VideoDetail
@@ -35,7 +34,7 @@ internal fun RegisterVideoDanmakuSender(
                     ),
                 )
                 if (ok) {
-                    AppGraph.sentHistory.record(
+                    VideoPageBus.dependencies.sentHistory.record(
                         kind = "danmaku",
                         text = text,
                         bvid = d.bvid,
@@ -87,6 +86,7 @@ internal fun BindVideoFullscreenState(ui: VideoDetailUiStateHolder) {
 
 @Composable
 internal fun BindBackgroundVideoMetadata(video: VideoItem, detail: VideoDetail?, currentCid: Long, activeQuality: Quality?) {
+    val background = LocalVideoPageState.current.dependencies.background
     // 底栏唱片用：当前播放的视频、标题、封面、集数。切 P / 切合集时一起更新。
     LaunchedEffect(
         video.bvid,
@@ -113,13 +113,13 @@ internal fun BindBackgroundVideoMetadata(video: VideoItem, detail: VideoDetail?,
                 cid = currentCid,
             ),
         )
-        com.aritxonly.bdfun.ui.BackgroundPlayback.updateInfo(
+        background.updateInfo(
             video = item,
             title = item.title,
             author = item.ownerName,
             cover = item.cover,
         )
-        com.aritxonly.bdfun.ui.BackgroundPlayback.updateSession(
+        background.updateSession(
             video = item,
             detail = d,
             currentCid = currentCid,

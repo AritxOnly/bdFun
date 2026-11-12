@@ -15,6 +15,7 @@ import com.aritxonly.bdfun.feature.video.application.PlaybackTrackingStateHolder
 internal fun BindPlayerInitialEffects(
     playback: VideoPlaybackPlatform, media: VideoMediaInput, ui: VideoPlayerUiStateHolder,
 ) {
+    val log = LocalVideoPageState.current.dependencies.log
     val bvid = media.bvid
     val info = media.info
     val quality = media.quality
@@ -25,7 +26,7 @@ internal fun BindPlayerInitialEffects(
     LaunchedEffect(info, quality) {
         usingFallback = false
         usingOriginal = false
-        com.aritxonly.bdfun.data.LogCollector.record(
+        log(
             "PLAYER",
             "quality-change bvid=$bvid q=${quality?.id} hasInfo=${info != null} " +
                 "qualities=${info?.qualities?.size ?: 0}",

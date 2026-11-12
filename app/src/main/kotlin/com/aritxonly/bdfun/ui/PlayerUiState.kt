@@ -17,6 +17,7 @@ internal class VideoPagePresentationState(
     val readCache: com.aritxonly.bdfun.feature.video.application.VideoReadCacheScope,
     val automaticQuality: com.aritxonly.bdfun.core.domain.AutomaticVideoQualitySelector,
     val settings: com.aritxonly.bdfun.core.domain.SettingsRepository,
+    val dependencies: VideoPageDependencies,
     private val holder: VideoPageStateHolder = VideoPageStateHolder(),
 ) {
     private var snapshot by mutableStateOf(holder.state.value)
