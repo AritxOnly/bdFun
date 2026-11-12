@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.feature.video.application
 
+import com.aritxonly.bdfun.core.domain.shouldReportPlaybackHistory
+import com.aritxonly.bdfun.core.domain.activeSponsorSegmentAt
 import com.aritxonly.bdfun.core.common.Outcome
 import com.aritxonly.bdfun.core.domain.*
 import com.aritxonly.bdfun.core.application.PlaybackSnapshot
@@ -21,7 +23,7 @@ internal class PlaybackTrackingStateHolder(
     val state = mutableState.asStateFlow()
     private var segmentRevision = 0L
     fun activeSegment(snapshot: PlaybackTrackingState, bvid: String, positionMs: Long, dismissed: Set<String>): SponsorSegment? =
-        SponsorSegmentPolicy.activeAt(if (snapshot.bvid == bvid) snapshot.segments else emptyList(), positionMs, dismissed)
+        activeSponsorSegmentAt(if (snapshot.bvid == bvid) snapshot.segments else emptyList(), positionMs, dismissed)
 
     suspend fun loadSegments(bvid: String, enabled: Boolean) {
         val version = ++segmentRevision
@@ -35,7 +37,7 @@ internal class PlaybackTrackingStateHolder(
     }
     suspend fun reportIfDue(aid: Long, cid: Long, playback: PlaybackSnapshot, nowMs: Long) {
         val before = state.value
-        if (before.reporting || !PlaybackHistoryPolicy.shouldReport(playback.playing, playback.ended,
+        if (before.reporting || !shouldReportPlaybackHistory(playback.playing, playback.ended,
                 playback.positionMs, nowMs, before.lastReportedAtMs)) return
         mutableState.update { it.copy(reporting = true, lastReportedAtMs = nowMs) }
         try { history.reportHistory(aid, cid, playback.positionMs / 1000) }

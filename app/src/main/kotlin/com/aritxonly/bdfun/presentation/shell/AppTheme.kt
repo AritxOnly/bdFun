@@ -2,9 +2,6 @@ package com.aritxonly.bdfun
 
 
 import androidx.compose.foundation.background
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
@@ -12,22 +9,19 @@ import top.yukonga.miuix.kmp.theme.darkColorScheme as miuixDarkColorScheme
 import top.yukonga.miuix.kmp.theme.lightColorScheme as miuixLightColorScheme
 
 /** HyperOS 色板：B 站主色 + Miuix 表面层级。 */
-internal object ThemePalette {
-    private val AcPink = Color(0xFFFB7299)
-    private val AcPinkDeep = Color(0xFFE45C82)
-    /** Miuix 默认蓝（Hyper 蓝）。 */
-    private val HyperBlue = Color(0xFF3482FF)
-    private val HyperBlueDeep = Color(0xFF1D63D8)
+private val AcPink = Color(0xFFFB7299)
+private val AcPinkDeep = Color(0xFFE45C82)
+private val HyperBlue = Color(0xFF3482FF)
+private val HyperBlueDeep = Color(0xFF1D63D8)
 
-    /** 0 = AC 粉，1 = Hyper 蓝。 */
-    var style by mutableStateOf(0)
-
-    val brand: Color get() = if (style == 1) HyperBlue else AcPink
-    val brandDeep: Color get() = if (style == 1) HyperBlueDeep else AcPinkDeep
+/** 色板不再复制一份全局style；读取本容器的设置，Compose观察同一个来源。 */
+internal class AppThemePalette(private val currentStyle: () -> Int) {
+    val brand: Color get() = if (currentStyle() == 1) HyperBlue else AcPink
+    val brandDeep: Color get() = if (currentStyle() == 1) HyperBlueDeep else AcPinkDeep
 }
 
-internal val BrandPink: Color get() = ThemePalette.brand
-internal val BrandPinkDeep: Color get() = ThemePalette.brandDeep
+internal val BrandPink: Color get() = AppGraph.themePalette?.brand ?: AcPink
+internal val BrandPinkDeep: Color get() = AppGraph.themePalette?.brandDeep ?: AcPinkDeep
 
 internal fun hyperLightColors() = miuixLightColorScheme(
     primary = BrandPink,

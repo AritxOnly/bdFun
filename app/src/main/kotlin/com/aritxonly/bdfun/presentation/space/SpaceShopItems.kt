@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.navigateToVideo
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.ui.Modifier
@@ -28,7 +29,7 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.spaceShopItems(
                     video.pubdate,
                 ),
                 onClick = {
-                    TeakNavigator.openVideo(context, video)
+                    navigateToVideo(context, video)
                 },
             )
         }

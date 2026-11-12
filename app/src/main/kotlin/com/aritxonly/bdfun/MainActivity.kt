@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.navigation.createRouteIntent
+import com.aritxonly.bdfun.core.model.settings.AUTO_CDN_ID
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
@@ -40,7 +42,7 @@ class MainActivity : ComponentActivity() {
         incomingLinks = AppGraph.incomingVideoLinks()
         settings = AppGraph.settings
         // 自动 CDN 在冷启动先沿用上次结果，同时在后台重新测速；不阻塞首屏和播放。
-        if (settings.cdnService == com.aritxonly.bdfun.core.model.settings.SettingsDefaults.AUTO_CDN_ID) {
+        if (settings.cdnService == AUTO_CDN_ID) {
             lifecycleScope.launch(Dispatchers.IO) {
                 AppGraph.refreshAutomaticCdn()
             }
@@ -85,7 +87,7 @@ class MainActivity : ComponentActivity() {
     private fun openLink(request: com.aritxonly.bdfun.core.application.PendingVideoLink) {
         lifecycleScope.launch {
             val route = incomingLinks.resolve(request) ?: return@launch
-            startActivity(com.aritxonly.bdfun.navigation.RouteIntents.create(this@MainActivity, route))
+            startActivity(createRouteIntent(this@MainActivity, route))
         }
     }
 

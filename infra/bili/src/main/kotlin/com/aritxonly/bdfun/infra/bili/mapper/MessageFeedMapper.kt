@@ -1,16 +1,12 @@
 package com.aritxonly.bdfun.infra.bili.mapper
 
 import com.aritxonly.bdfun.core.model.message.MessagePresentation
-
 import com.aritxonly.bdfun.core.model.message.MessageNotice
-
 import com.aritxonly.bdfun.core.model.message.MessageNavigation
-
 import com.aritxonly.bdfun.core.model.message.MessageActor
-
 import com.aritxonly.bdfun.core.model.message.MessageItem
 import org.json.JSONObject
-import com.aritxonly.bdfun.infra.bili.BiliParameters.avatar
+import com.aritxonly.bdfun.infra.bili.biliAvatar as avatar
 
 /** 仅包装旧消息响应；字段和回退表达式按原解析顺序保留，不进行网络请求。 */
 internal class MessageFeedItemDto(val type: Int, val item: JSONObject) {

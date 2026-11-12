@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.navigateToPrivateChat
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -47,7 +48,7 @@ internal fun MessageSessionList(
                 itemsIndexed(visibleSessions, key = { _, session -> session.id }) { index, session ->
                     MessageRowSurface(index == 0, index == visibleSessions.lastIndex) {
                         SessionRow(session, onClick = {
-                            if (session.talkerId > 0L) com.aritxonly.bdfun.TeakNavigator.openPrivateChat(context, session)
+                            if (session.talkerId > 0L) navigateToPrivateChat(context, session)
                         }, onLongClick = { menu.selected = session; menu.confirmDelete = false })
                     }
                 }

@@ -1,14 +1,13 @@
 package com.aritxonly.bdfun.infra.bili.mapper
 
 import com.aritxonly.bdfun.core.model.video.VideoItemExtras
-
 import org.json.JSONObject
 import com.aritxonly.bdfun.core.model.feed.*
 import com.aritxonly.bdfun.core.model.video.*
-import com.aritxonly.bdfun.infra.bili.BiliParameters.image
-import com.aritxonly.bdfun.infra.bili.BiliParameters.avatar
-import com.aritxonly.bdfun.infra.bili.BiliParameters.parseCountText
-import com.aritxonly.bdfun.infra.bili.BiliParameters.parseDurationText
+import com.aritxonly.bdfun.infra.bili.biliImage as image
+import com.aritxonly.bdfun.infra.bili.biliAvatar as avatar
+import com.aritxonly.bdfun.infra.bili.parseBiliCountText as parseCountText
+import com.aritxonly.bdfun.infra.bili.parseBiliDurationText as parseDurationText
 import com.aritxonly.bdfun.infra.bili.cancellableCatching
 
 internal fun parseDynamicVideo(archive: JSONObject?, ugcSeason: JSONObject?, author: JSONObject): VideoItem? {

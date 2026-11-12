@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.navigation.readRouteIntent
 import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -51,7 +52,7 @@ class DynamicDetailActivity : ComponentActivity() {
             ),
         )
         syncStatusBarIcons()
-        val dynamic = (com.aritxonly.bdfun.navigation.RouteIntents.read(intent) as? com.aritxonly.bdfun.core.navigation.Route.Dynamic)?.snapshot
+        val dynamic = (readRouteIntent(intent) as? com.aritxonly.bdfun.core.navigation.Route.Dynamic)?.snapshot
         if (dynamic == null) {
             finish()
             return

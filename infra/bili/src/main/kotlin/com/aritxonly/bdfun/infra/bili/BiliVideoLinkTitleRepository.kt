@@ -1,6 +1,6 @@
 package com.aritxonly.bdfun.infra.bili
 
-import com.aritxonly.bdfun.core.domain.VideoLinkPolicy
+import com.aritxonly.bdfun.core.domain.videoTitleTarget
 import com.aritxonly.bdfun.core.domain.VideoLinkTitleRepository
 import com.aritxonly.bdfun.core.domain.VideoTitleTarget
 import com.aritxonly.bdfun.core.model.video.ResolvedVideoLink
@@ -13,7 +13,7 @@ class BiliVideoLinkTitleRepository(
     private val resolveShort: (String) -> String? = { resolveVideoLink(it) },
 ) : VideoLinkTitleRepository {
     override suspend fun resolve(token: String) = withContext(Dispatchers.IO) { biliOutcome {
-        val bvid = when (val target = VideoLinkPolicy.titleTarget(token)) {
+        val bvid = when (val target = videoTitleTarget(token)) {
             is VideoTitleTarget.Bvid -> target.value
             is VideoTitleTarget.Aid -> resolveAid(target.value)
             is VideoTitleTarget.Short -> resolveShort(target.value)

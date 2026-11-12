@@ -1,8 +1,8 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.navigation.readRouteIntent
 import com.aritxonly.bdfun.ui.ActivityPageOptions
 import com.aritxonly.bdfun.ui.ActivityPageSlots
-
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.ComponentActivity
@@ -38,7 +38,7 @@ class SpaceActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         AppGraph.ensure(applicationContext)
-        val mid = (com.aritxonly.bdfun.navigation.RouteIntents.read(intent) as? com.aritxonly.bdfun.core.navigation.Route.Space)?.mid
+        val mid = (readRouteIntent(intent) as? com.aritxonly.bdfun.core.navigation.Route.Space)?.mid
         if (mid == null || mid <= 0) {
             finish()
             return

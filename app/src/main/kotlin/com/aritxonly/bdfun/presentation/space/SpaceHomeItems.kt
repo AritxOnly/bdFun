@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.navigateToVideo
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -56,7 +57,7 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.spaceHomeItems(
                             VideoGridCard(
                                 video = video,
                                 onClick = {
-                                    TeakNavigator.openVideo(context, video)
+                                    navigateToVideo(context, video)
                                 },
                                 modifier = Modifier.weight(1f),
                                 showOwner = false,

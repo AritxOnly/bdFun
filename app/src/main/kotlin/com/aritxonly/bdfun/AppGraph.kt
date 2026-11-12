@@ -14,6 +14,8 @@ import com.aritxonly.bdfun.data.VideoItem
 object AppGraph {
     private var container: com.aritxonly.bdfun.di.AppContainer? = null
 
+    internal val themePalette get() = container?.themePalette
+
     internal val liveReads get() = checkNotNull(container) { "AppGraph 尚未初始化" }.liveReads
     internal fun liveDanmakuConnection(scope: kotlinx.coroutines.CoroutineScope) =
         checkNotNull(container) { "AppGraph 尚未初始化" }.liveDanmakuConnection(scope)

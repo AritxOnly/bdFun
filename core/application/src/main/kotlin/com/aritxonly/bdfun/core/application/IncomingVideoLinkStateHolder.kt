@@ -1,6 +1,6 @@
 package com.aritxonly.bdfun.core.application
 
-import com.aritxonly.bdfun.core.domain.VideoLinkPolicy
+import com.aritxonly.bdfun.core.domain.recognizesVideoLink
 import com.aritxonly.bdfun.core.domain.VideoLinkResolution
 import com.aritxonly.bdfun.core.domain.VideoLinkResolver
 import com.aritxonly.bdfun.core.navigation.Route
@@ -26,7 +26,7 @@ class IncomingVideoLinkStateHolder(private val resolver: VideoLinkResolver) {
     fun begin(text: String): PendingVideoLink? {
         val current = state.value
         if (closed || text.isBlank() || text == current.lastHandledLink) return null
-        if (!VideoLinkPolicy.recognizes(text)) return null
+        if (!recognizesVideoLink(text)) return null
         mutable.value = current.copy(lastHandledLink = text)
         return PendingVideoLink(text, owner)
     }
@@ -34,7 +34,7 @@ class IncomingVideoLinkStateHolder(private val resolver: VideoLinkResolver) {
         val current = state.value
         if (closed || text.isBlank() || text == current.lastClipboard) return null
         mutable.value = current.copy(lastClipboard = text)
-        return if (VideoLinkPolicy.recognizes(text)) begin(text) else null
+        return if (recognizesVideoLink(text)) begin(text) else null
     }
     suspend fun resolve(request: PendingVideoLink): Route.Video? {
         if (closed || request.owner !== owner || request.started) return null

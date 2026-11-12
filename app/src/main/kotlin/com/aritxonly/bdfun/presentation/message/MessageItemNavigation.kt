@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.navigateToVideoAtComment
+import com.aritxonly.bdfun.navigateToDynamic
 import com.aritxonly.bdfun.core.common.Outcome
 import com.aritxonly.bdfun.core.common.messageOr
 import com.aritxonly.bdfun.core.model.message.MessageItem
@@ -28,7 +30,7 @@ internal fun openMessageItem(
                     is Outcome.Success -> result.value ?: error("动态已删除或暂不可用")
                     is Outcome.Failure -> error(result.error.messageOr("动态加载失败"))
                 }
-                com.aritxonly.bdfun.TeakNavigator.openDynamic(context, dynamic)
+                navigateToDynamic(context, dynamic)
             } catch (e: kotlinx.coroutines.CancellationException) { throw e }
             catch (e: Exception) { context.showToast(e.message ?: "动态加载失败") }
         } else context.showToast("这条消息未提供可打开的动态链接")
@@ -39,7 +41,7 @@ internal fun openMessageItem(
         return
     }
     target as MessageOpenTarget.Video
-    com.aritxonly.bdfun.TeakNavigator.openVideoAtComment(
+    navigateToVideoAtComment(
         context = context,
         aid = item.aid,
         bvid = item.bvid,

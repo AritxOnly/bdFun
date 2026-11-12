@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.navigation.readRouteIntent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -11,7 +12,7 @@ class PrivateChatActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         AppGraph.ensure(applicationContext)
-        val route = com.aritxonly.bdfun.navigation.RouteIntents.read(intent) as? com.aritxonly.bdfun.core.navigation.Route.PrivateChat
+        val route = readRouteIntent(intent) as? com.aritxonly.bdfun.core.navigation.Route.PrivateChat
         val talkerId = route?.talkerId ?: intent?.getLongExtra("talker_id", 0L) ?: 0L
         val sessionType = route?.sessionType ?: intent?.getIntExtra("session_type", 1) ?: 1
         val name = (route?.name ?: intent?.getStringExtra("name")).orEmpty().ifBlank { "私信" }

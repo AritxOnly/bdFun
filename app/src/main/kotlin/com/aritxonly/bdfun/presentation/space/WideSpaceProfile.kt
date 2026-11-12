@@ -1,7 +1,7 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.navigation.createRouteIntent
 import com.aritxonly.bdfun.ui.rememberImageRequest
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -57,7 +57,7 @@ internal fun WideSpaceProfile(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 FollowCapsule(isSelf = isSelf, followed = followed, busy = busy, modifier = Modifier.weight(1f), onClick = onFollow)
                 if (!isSelf) MessageCircleButton {
-                    context.startActivity(com.aritxonly.bdfun.navigation.RouteIntents.create(context,
+                    context.startActivity(createRouteIntent(context,
                         com.aritxonly.bdfun.core.navigation.Route.PrivateChat(mid, name = profile?.name.orEmpty(),
                             avatar = profile?.face.orEmpty())))
                 }

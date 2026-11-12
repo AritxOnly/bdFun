@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.core.application.isBiliVideoTextToken
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
@@ -7,8 +8,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withLink
-
-import com.aritxonly.bdfun.core.application.VideoLinkText
 import com.aritxonly.bdfun.core.application.collectRichLinks
 import com.aritxonly.bdfun.core.model.video.ResolvedVideoLink
 
@@ -32,7 +31,7 @@ internal fun linkifyText(
         for (link in sorted) {
             if (link.start < index) continue
             if (link.start > index) append(text.substring(index, link.start))
-            val isVideo = link.video || VideoLinkText.isBiliToken(link.linkUrl.orEmpty())
+            val isVideo = link.video || isBiliVideoTextToken(link.linkUrl.orEmpty())
             val label = if (isVideo) biliDisplayText(link.linkUrl.orEmpty(), titles) else link.linkUrl.orEmpty()
             withLink(
                 LinkAnnotation.Clickable(

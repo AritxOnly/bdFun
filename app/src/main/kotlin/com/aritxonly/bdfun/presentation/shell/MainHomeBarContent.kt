@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.navigateToMessages
+import com.aritxonly.bdfun.navigateToLogin
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.aritxonly.bdfun.feature.settings.presentation.SettingsBindings
@@ -57,9 +59,9 @@ internal fun MainHomeBarContent(settings: SettingsBindings, shell: MainShellStat
             ui.searchQuery = ""
             keyboard?.show()
         },
-            onOpenMessages = { TeakNavigator.openMessages(context) },
+            onOpenMessages = { navigateToMessages(context) },
             onOpenProfile = {
-            if (session == null) TeakNavigator.openLogin(context) else appScope.launch { tabPagerState.animateScrollToPage(2) }
+            if (session == null) navigateToLogin(context) else appScope.launch { tabPagerState.animateScrollToPage(2) }
         },
         ),
         modifier = Modifier,

@@ -1,18 +1,15 @@
 package com.aritxonly.bdfun.infra.bili.mapper
 
 import com.aritxonly.bdfun.core.model.user.UserProfileStats
-
 import com.aritxonly.bdfun.core.model.user.UserProfileExperience
-
 import com.aritxonly.bdfun.core.model.user.UserProfileDecoration
-
 import com.aritxonly.bdfun.core.model.user.SpaceInfo
 import com.aritxonly.bdfun.core.model.user.UserProfile
 import com.aritxonly.bdfun.core.model.video.VideoItem
 import com.aritxonly.bdfun.core.domain.orderedSpaceBanners
 import com.aritxonly.bdfun.core.domain.spaceBannerAlignment
-import com.aritxonly.bdfun.infra.bili.BiliParameters.avatar
-import com.aritxonly.bdfun.infra.bili.BiliParameters.image
+import com.aritxonly.bdfun.infra.bili.biliAvatar as avatar
+import com.aritxonly.bdfun.infra.bili.biliImage as image
 import org.json.JSONObject
 
 /** 五份成功/可选响应的传输边界；不包含请求、签名或页面状态。 */

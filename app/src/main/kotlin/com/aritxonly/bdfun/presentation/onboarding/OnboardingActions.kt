@@ -12,7 +12,6 @@ internal class OnboardingActions(private val controller: OnboardingStateHolder, 
     fun setColorStyle(value: Int) {
         if (!controller.isActive) return
         controller.setColorStyle(value)
-        com.aritxonly.bdfun.ThemePalette.style = value
     }
     fun setInterfaceStyle(value: Int) {
         if (!controller.isActive) return

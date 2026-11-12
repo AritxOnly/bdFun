@@ -1,11 +1,9 @@
 package com.aritxonly.bdfun.core.domain
 
+import com.aritxonly.bdfun.core.domain.videoPlaybackPages
 import com.aritxonly.bdfun.core.model.video.VideoDetailOwner
-
 import com.aritxonly.bdfun.core.model.video.VideoDetailInfo
-
 import com.aritxonly.bdfun.core.model.video.VideoDetailCounts
-
 import com.aritxonly.bdfun.core.model.video.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -44,7 +42,7 @@ class VideoPagePolicyTest {
     )
     private fun episode(cid: Long) = VideoEpisode("BV$cid", cid, cid, "集$cid", "", 30)
     @Test fun multiPartKeepsOriginalPartsAndDeduplicatesCollectionByCid() {
-        val pages = VideoPagePolicy.pages(detail.copy(
+        val pages = videoPlaybackPages(detail.copy(
             info = detail.info.copy(
                 pages = listOf(first, second),
                 episodes = listOf(episode(2), episode(3)),
@@ -54,7 +52,7 @@ class VideoPagePolicyTest {
         assertEquals(second, pages[1])
     }
     @Test fun collectionTakesPriorityForSinglePartVideo() {
-        val pages = VideoPagePolicy.pages(detail.copy(
+        val pages = videoPlaybackPages(detail.copy(
             info = detail.info.copy(
                 episodes = listOf(episode(1), episode(3)),
             ),
@@ -63,7 +61,7 @@ class VideoPagePolicyTest {
         assertEquals(listOf(1, 2), pages.map { it.page })
     }
     @Test fun singleCollectionEntryDoesNotReplaceOriginalPart() {
-        assertEquals(listOf(first), VideoPagePolicy.pages(detail.copy(
+        assertEquals(listOf(first), videoPlaybackPages(detail.copy(
             info = detail.info.copy(
                 episodes = listOf(episode(9)),
             ),

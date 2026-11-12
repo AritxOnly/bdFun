@@ -1,5 +1,15 @@
 package com.aritxonly.bdfun.infra.bili.live
 
+import com.aritxonly.bdfun.infra.bili.live.encodeLivePacket
+import com.aritxonly.bdfun.infra.bili.live.decodeLivePackets
+import com.aritxonly.bdfun.infra.bili.live.LiveProtocolPacket
+import com.aritxonly.bdfun.infra.bili.live.LIVE_PROTOCOL_PROTO_VER_HEARTBEAT
+import com.aritxonly.bdfun.infra.bili.live.LIVE_PROTOCOL_PROTO_VER_BROTLI
+import com.aritxonly.bdfun.infra.bili.live.LIVE_PROTOCOL_OP_MESSAGE
+import com.aritxonly.bdfun.infra.bili.live.LIVE_PROTOCOL_OP_HEARTBEAT_REPLY
+import com.aritxonly.bdfun.infra.bili.live.LIVE_PROTOCOL_OP_HEARTBEAT
+import com.aritxonly.bdfun.infra.bili.live.LIVE_PROTOCOL_OP_AUTH_REPLY
+import com.aritxonly.bdfun.infra.bili.live.LIVE_PROTOCOL_OP_AUTH
 import android.os.SystemClock
 import android.util.Log
 import kotlinx.coroutines.CancellationException
@@ -25,7 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.min
 import kotlin.math.pow
 
-internal val LIVE_DANMAKU_AUTH_PROTOCOL_VERSION = DanmakuProtocol.PROTO_VER_BROTLI
+internal val LIVE_DANMAKU_AUTH_PROTOCOL_VERSION = LIVE_PROTOCOL_PROTO_VER_BROTLI
 
 /** Bilibili live danmaku socket with authentication, heartbeats and bounded message decoding. */
 class LiveDanmakuClient(
@@ -60,7 +70,7 @@ class LiveDanmakuClient(
     private var currentAuthBody = ""
     private val incomingFrames = Channel<IncomingFrame>(24, BufferOverflow.DROP_OLDEST)
     private var decodeJob: Job? = null
-    private val _messageFlow = MutableSharedFlow<DanmakuProtocol.Packet>(
+    private val _messageFlow = MutableSharedFlow<LiveProtocolPacket>(
         replay = 0,
         extraBufferCapacity = 200,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
@@ -130,9 +140,9 @@ class LiveDanmakuClient(
                 _isConnected.set(true)
                 connectionHealth = markLiveDanmakuConnected(connectionHealth, clockMs())
                 Log.d(TAG, "WebSocket opened: $currentHostUrl")
-                sendPacket(connection, DanmakuProtocol.Packet(
-                    version = DanmakuProtocol.PROTO_VER_HEARTBEAT,
-                    operation = DanmakuProtocol.OP_AUTH,
+                sendPacket(connection, LiveProtocolPacket(
+                    version = LIVE_PROTOCOL_PROTO_VER_HEARTBEAT,
+                    operation = LIVE_PROTOCOL_OP_AUTH,
                     body = currentAuthBody.toByteArray(Charsets.UTF_8)
                 ))
                 if (activeConnection === connection) startHealthCheck(connection)
@@ -206,9 +216,9 @@ class LiveDanmakuClient(
             while (isActive) {
                 synchronized(connectionLock) {
                     if (activeConnection !== connection || !connection.authenticated) return@launch
-                    sendPacket(connection, DanmakuProtocol.Packet(
-                        version = DanmakuProtocol.PROTO_VER_HEARTBEAT,
-                        operation = DanmakuProtocol.OP_HEARTBEAT,
+                    sendPacket(connection, LiveProtocolPacket(
+                        version = LIVE_PROTOCOL_PROTO_VER_HEARTBEAT,
+                        operation = LIVE_PROTOCOL_OP_HEARTBEAT,
                         body = "[object Object]".toByteArray(Charsets.UTF_8)
                     ))
                 }
@@ -256,9 +266,9 @@ class LiveDanmakuClient(
         }
     }
 
-    private fun sendPacket(connection: Connection, packet: DanmakuProtocol.Packet) {
+    private fun sendPacket(connection: Connection, packet: LiveProtocolPacket) {
         if (activeConnection !== connection) return
-        if (connection.socket?.send(DanmakuProtocol.encode(packet).toByteString()) != true) {
+        if (connection.socket?.send(encodeLivePacket(packet).toByteString()) != true) {
             closeCurrentConnection()
             scheduleReconnect()
         }
@@ -270,7 +280,7 @@ class LiveDanmakuClient(
             for (frame in incomingFrames) {
                 if (!synchronized(connectionLock) { activeConnection === frame.connection }) continue
                 try {
-                    val packets = DanmakuProtocol.decode(frame.data)
+                    val packets = decodeLivePackets(frame.data)
                     synchronized(connectionLock) {
                         for (packet in packets) {
                             if (activeConnection !== frame.connection) break
@@ -286,14 +296,14 @@ class LiveDanmakuClient(
         }
     }
 
-    private fun handlePacket(connection: Connection, packet: DanmakuProtocol.Packet) {
+    private fun handlePacket(connection: Connection, packet: LiveProtocolPacket) {
         when (packet.operation) {
-            DanmakuProtocol.OP_HEARTBEAT_REPLY -> {
+            LIVE_PROTOCOL_OP_HEARTBEAT_REPLY -> {
                 if (packet.body.size >= 4) {
                     connectionHealth = markLiveDanmakuHeartbeatReply(connectionHealth, clockMs())
                 }
             }
-            DanmakuProtocol.OP_AUTH_REPLY -> {
+            LIVE_PROTOCOL_OP_AUTH_REPLY -> {
                 val authCode = runCatching {
                     JSONObject(String(packet.body, Charsets.UTF_8)).getInt("code")
                 }.getOrNull() ?: return // Damaged auth data is not an explicit server rejection.
@@ -311,7 +321,7 @@ class LiveDanmakuClient(
                     closeCurrentConnection(4001, "Auth Failed")
                 }
             }
-            DanmakuProtocol.OP_MESSAGE -> {
+            LIVE_PROTOCOL_OP_MESSAGE -> {
                 if (!connection.authenticated) return
                 connectionHealth = markLiveDanmakuBusinessMessage(connectionHealth, clockMs())
                 _messageFlow.tryEmit(packet)

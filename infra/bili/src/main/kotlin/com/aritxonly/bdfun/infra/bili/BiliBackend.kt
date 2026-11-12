@@ -1,5 +1,19 @@
 package com.aritxonly.bdfun.infra.bili
 
+import com.aritxonly.bdfun.infra.bili.parseBiliDurationText
+import com.aritxonly.bdfun.infra.bili.parseBiliCountText
+import com.aritxonly.bdfun.infra.bili.cleanBiliHtml
+import com.aritxonly.bdfun.infra.bili.biliQualityLabel
+import com.aritxonly.bdfun.infra.bili.biliImage
+import com.aritxonly.bdfun.infra.bili.biliAvatar
+import com.aritxonly.bdfun.infra.bili.biliAidToBvid
+import com.aritxonly.bdfun.infra.bili.BILI_VC
+import com.aritxonly.bdfun.infra.bili.BILI_UA
+import com.aritxonly.bdfun.infra.bili.BILI_PASSPORT
+import com.aritxonly.bdfun.infra.bili.BILI_APP_UA
+import com.aritxonly.bdfun.infra.bili.BILI_APP_API
+import com.aritxonly.bdfun.infra.bili.BILI_APP
+import com.aritxonly.bdfun.infra.bili.BILI_API
 import android.content.Context
 import com.aritxonly.bdfun.core.domain.DynamicFeedSource
 import com.aritxonly.bdfun.core.model.video.*
@@ -128,19 +142,19 @@ open class BiliBackend(context: Context, debug: Boolean, log: (String, String) -
     suspend fun deleteSystemMessage(id: String) = api.deleteSystemMessage(id)
     suspend fun cdnSampleUrl() = api.cdnSampleUrl()
     companion object {
-        const val API = BiliParameters.API
-        const val APP_API = BiliParameters.APP_API
-        const val APP_UA = BiliParameters.APP_UA
-        const val APP = BiliParameters.APP
-        const val PASSPORT = BiliParameters.PASSPORT
-        const val VC = BiliParameters.VC
-        const val UA = BiliParameters.UA
-        fun image(url: String, width: Int = 0) = BiliParameters.image(url, width)
-        fun avatar(url: String, size: Int) = BiliParameters.avatar(url, size)
-        fun cleanHtml(text: String) = BiliParameters.cleanHtml(text)
-        fun aidToBvid(aid: Long) = BiliParameters.aidToBvid(aid)
-        fun parseCountText(text: String) = BiliParameters.parseCountText(text)
-        fun parseDurationText(text: String) = BiliParameters.parseDurationText(text)
-        fun qualityLabel(id: Int) = BiliParameters.qualityLabel(id)
+        const val API = BILI_API
+        const val APP_API = BILI_APP_API
+        const val APP_UA = BILI_APP_UA
+        const val APP = BILI_APP
+        const val PASSPORT = BILI_PASSPORT
+        const val VC = BILI_VC
+        const val UA = BILI_UA
+        fun image(url: String, width: Int = 0) = biliImage(url, width)
+        fun avatar(url: String, size: Int) = biliAvatar(url, size)
+        fun cleanHtml(text: String) = cleanBiliHtml(text)
+        fun aidToBvid(aid: Long) = biliAidToBvid(aid)
+        fun parseCountText(text: String) = parseBiliCountText(text)
+        fun parseDurationText(text: String) = parseBiliDurationText(text)
+        fun qualityLabel(id: Int) = biliQualityLabel(id)
     }
 }

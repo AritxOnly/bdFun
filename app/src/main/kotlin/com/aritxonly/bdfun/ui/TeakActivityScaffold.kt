@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.navigateToVideo
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -100,7 +101,7 @@ internal fun TeakActivityScaffold(
                             },
                         size = discPlacement.size,
                     ) { video ->
-                        com.aritxonly.bdfun.TeakNavigator.openVideo(discContext, video)
+                        navigateToVideo(discContext, video)
                     }
                 }
             },

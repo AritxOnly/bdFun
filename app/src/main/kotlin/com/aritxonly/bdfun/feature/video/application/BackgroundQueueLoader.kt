@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.feature.video.application
 
+import com.aritxonly.bdfun.core.domain.videoPlaybackPages
 import com.aritxonly.bdfun.core.common.Outcome
 import com.aritxonly.bdfun.core.domain.*
 import com.aritxonly.bdfun.core.model.video.*
@@ -18,7 +19,7 @@ internal class BackgroundQueueLoader(
         detail: VideoDetail, cid: Long, delta: Int, quality: Int, codec: String, cdn: String,
     ): BackgroundTrack? {
         val version = ++revision
-        val pages = VideoPagePolicy.pages(detail)
+        val pages = videoPlaybackPages(detail)
         val index = pages.indexOfFirst { it.cid == cid }
         if (index < 0) return null
         val target = pages.getOrNull(index + delta) ?: return null

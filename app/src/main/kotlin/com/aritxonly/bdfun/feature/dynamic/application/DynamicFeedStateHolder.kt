@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.feature.dynamic.application
 
+import com.aritxonly.bdfun.core.domain.dynamicFeedTypes
 import com.aritxonly.bdfun.core.common.*
 import com.aritxonly.bdfun.core.domain.*
 import com.aritxonly.bdfun.core.model.feed.*
@@ -107,7 +108,7 @@ internal class DynamicFeedStateHolder(private val repository: DynamicRepository)
     }
 
     suspend fun switchTo(next: String, loggedIn: Boolean) {
-        if (closed || next !in DynamicFeedContract.types) return
+        if (closed || next !in dynamicFeedTypes) return
         val mid = if (next == "up") lastMid else null
         if (type == next && filterMid == mid) return
         select(next, mid, loggedIn)

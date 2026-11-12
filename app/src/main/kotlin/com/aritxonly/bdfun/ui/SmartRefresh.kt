@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.core.domain.targetPlaybackRefreshRate
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -53,7 +54,7 @@ private class WindowRefreshStateHolder {
 
     fun apply(enabled: Boolean, playing: Boolean, fullscreen: Boolean) {
         val window = windowRef?.get() ?: return
-        val target = com.aritxonly.bdfun.core.domain.RefreshRatePolicy.target(
+        val target = targetPlaybackRefreshRate(
             enabled, SystemClock.uptimeMillis() - lastTouchAt, playing, fullscreen,
         )
         if (target == applied) return

@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.navigateToVideoByBvid
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -19,7 +20,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.TeakNavigator
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -48,7 +48,7 @@ internal fun CollapsibleDescription(
             linkColor = linkColor,
             titles = biliTitles,
             onOpenVideo = { bvid ->
-                com.aritxonly.bdfun.TeakNavigator.openVideoByBvid(context, bvid)
+                navigateToVideoByBvid(context, bvid)
             },
             onOpen = { uriHandler.openUri(it) },
         )
@@ -83,7 +83,7 @@ internal fun CollapsibleDescription(
                     text = tail,
                     linkColor = linkColor,
                     titles = biliTitles,
-                    onOpenVideo = { bvid -> TeakNavigator.openVideoByBvid(context, bvid) },
+                    onOpenVideo = { bvid -> navigateToVideoByBvid(context, bvid) },
                     onOpen = { uriHandler.openUri(it) },
                 )
             }

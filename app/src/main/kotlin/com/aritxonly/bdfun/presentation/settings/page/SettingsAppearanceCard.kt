@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.core.model.settings.scrollTopPageEntries
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -9,7 +10,6 @@ import com.aritxonly.teak.common.settings.TeakSettingsActionRow
 import com.aritxonly.teak.common.settings.TeakSettingsCard
 import com.aritxonly.teak.common.settings.TeakSettingsDropdownRow
 import com.aritxonly.teak.common.settings.TeakSettingsSwitchRow
-import com.aritxonly.bdfun.core.model.settings.ScrollTopPages
 
 @Composable
 internal fun SettingsAppearanceCard(runtime: SettingsPageRuntime) {
@@ -48,7 +48,6 @@ private fun SettingsThemeRows(runtime: SettingsPageRuntime, ui: SettingsAppearan
             scope.launch {
                 delay(260)
                 settings.colorStyle = index
-                com.aritxonly.bdfun.ThemePalette.style = index
             }
         },
     )
@@ -84,7 +83,7 @@ private fun SettingsDisplayRows(runtime: SettingsPageRuntime, ui: SettingsAppear
             onSelected = { settings.scrollTopSide = it },
         )
         // 每个页面单独开关；默认全部打开。
-        ScrollTopPages.entries.forEach { (key, label) ->
+        scrollTopPageEntries.forEach { (key, label) ->
             TeakSettingsSwitchRow(
                 title = label,
                 checked = settings.isScrollTopPageEnabled(key),

@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.di
 
+import com.aritxonly.bdfun.navigateToVideoByBvid
 import android.content.Context
 import com.aritxonly.bdfun.feature.dynamic.application.DynamicFeedStateHolder
 import com.aritxonly.bdfun.feature.dynamic.presentation.DynamicFeedState
@@ -16,7 +17,7 @@ import com.aritxonly.bdfun.infra.bili.BiliCommentRepository
 import com.aritxonly.bdfun.infra.bili.BiliFeedRepository
 import com.aritxonly.bdfun.infra.bili.BiliVideoRepository
 import com.aritxonly.bdfun.BuildConfig
-import com.aritxonly.bdfun.ThemePalette
+import com.aritxonly.bdfun.AppThemePalette
 import com.aritxonly.bdfun.data.*
 import com.aritxonly.teak.common.settings.TeakDebugLog
 
@@ -26,6 +27,7 @@ internal class AppContainer(
     val settings: SettingsStore,
     context: Context?,
 ) {
+    val themePalette = AppThemePalette { settings.colorStyle }
     private var closed = false
     private val presentationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     val videoCache = context?.let { app ->
@@ -49,7 +51,7 @@ internal class AppContainer(
         com.aritxonly.bdfun.playback.AndroidLivePlaybackRuntime(
             com.aritxonly.bdfun.infra.playback.Media3LivePlayback(context.applicationContext, com.aritxonly.bdfun.R.layout.teak_player_view))
     fun liveRoomState(id: Long, scope: CoroutineScope, connection: LiveDanmakuConnection, playback: LivePlayback) =
-        com.aritxonly.bdfun.feature.live.application.LiveRoomStateHolder(id, com.aritxonly.bdfun.data.LiveMock.room,
+        com.aritxonly.bdfun.feature.live.application.LiveRoomStateHolder(id, liveFallbackRoom(),
             liveReads, connection, playback, scope,
             { if (loginStatus.isLoggedIn()) session.value?.mid ?: 0L else 0L }, log = { LogCollector.record("LIVE", it) })
     val accountRepository: AccountRepository = BiliAccountRepository(api::nav, api::qrGenerate, api::qrPoll, api::logout)
@@ -106,7 +108,7 @@ internal class AppContainer(
     val richTextDependencies by lazy {
         com.aritxonly.bdfun.ui.RichTextDependencies(emotes, linkTitles,
             { com.aritxonly.bdfun.core.application.EmojiPanelStateHolder(emoteStore) },
-            { context, bvid -> com.aritxonly.bdfun.TeakNavigator.openVideoByBvid(context, bvid) })
+            { context, bvid -> navigateToVideoByBvid(context, bvid) })
     }
     val commentLikesStore = com.aritxonly.bdfun.core.application.CommentLikeStore()
     val commentLikes = com.aritxonly.bdfun.presentation.CommentLikePresentationState(commentLikesStore, presentationScope)
@@ -232,7 +234,6 @@ internal class AppContainer(
                 }
             }
         }
-        ThemePalette.style = settings.colorStyle
         TeakDebugLog.enabled = BuildConfig.DEBUG
         TeakDebugLog.sink = if (BuildConfig.DEBUG) { tag, message ->
             LogCollector.record(tag, message)

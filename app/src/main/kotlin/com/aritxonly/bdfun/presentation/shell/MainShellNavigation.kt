@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.navigateToVideo
 import androidx.compose.runtime.Composable
 import com.aritxonly.teak.common.navigation.TeakFloatingTabItem
 import com.aritxonly.bdfun.feature.settings.presentation.SettingsBindings
@@ -41,7 +42,7 @@ internal fun androidx.compose.foundation.layout.BoxScope.MainShellNavigation(set
             ui.searchQuery = ""
             ui.searchSubmitted = null
         },
-        onOpenVideo = { TeakNavigator.openVideo(context, it) },
+        onOpenVideo = { navigateToVideo(context, it) },
     )
 
 }

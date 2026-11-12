@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.core.application
 
+import com.aritxonly.bdfun.core.application.reducePlaybackSnapshot
 import kotlinx.coroutines.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -62,11 +63,11 @@ class PlaybackSessionStateHolderTest {
         assertTrue(session.state.value.fullscreen)
     }
     @Test fun acknowledgedEndIsNotReplayedByPolling() {
-        val ended = PlaybackSnapshotReducer.update(PlaybackSnapshot(phase = PlaybackPhase.Ready),
+        val ended = reducePlaybackSnapshot(PlaybackSnapshot(phase = PlaybackPhase.Ready),
             PlaybackPhase.Ended, false, true, 1000, 1000, 1000, 1f)
         assertTrue(ended.ended)
         val acknowledged = ended.copy(ended = false)
-        val tick = PlaybackSnapshotReducer.update(acknowledged, PlaybackPhase.Ended, false, true, 1000, 1000, 1000, 1f)
+        val tick = reducePlaybackSnapshot(acknowledged, PlaybackPhase.Ended, false, true, 1000, 1000, 1000, 1f)
         assertFalse(tick.ended)
     }
 }

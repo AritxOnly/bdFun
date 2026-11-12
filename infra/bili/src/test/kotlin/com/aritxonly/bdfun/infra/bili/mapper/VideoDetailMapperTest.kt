@@ -1,5 +1,9 @@
 package com.aritxonly.bdfun.infra.bili.mapper
 
+import com.aritxonly.bdfun.infra.bili.mapper.readVideoDetail
+import com.aritxonly.bdfun.infra.bili.mapper.readFeedVideo
+import com.aritxonly.bdfun.infra.bili.mapper.mapVideoDetail
+import com.aritxonly.bdfun.infra.bili.mapper.mapFeedVideo
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -7,8 +11,8 @@ import org.junit.Test
 class VideoDetailMapperTest {
     private fun sample(name: String): JSONObject = javaClass.classLoader!!
         .getResourceAsStream("json/$name")!!.bufferedReader().use { JSONObject(it.readText()) }
-    private fun detail(name: String) = VideoDetailMapper.map(
-        VideoDetailMapper.read(sample(name).getJSONObject("data")), { it },
+    private fun detail(name: String) = mapVideoDetail(
+        readVideoDetail(sample(name).getJSONObject("data")), { it },
     )
 
     @Test fun collectionVideoRetainsIdentityAndEpisodes() {
@@ -49,7 +53,7 @@ class VideoDetailMapperTest {
     }
 
     @Test fun missingOptionalFieldsKeepLegacyDefaults() {
-        val video = VideoDetailMapper.map(VideoDetailMapper.read(JSONObject()), { it })
+        val video = mapVideoDetail(readVideoDetail(JSONObject()), { it })
         assertEquals("", video.bvid)
         assertEquals(0L, video.ownerMid)
         assertEquals(0L, video.reply)
@@ -60,20 +64,20 @@ class VideoDetailMapperTest {
     }
 
     @Test fun titleDecoderRemainsAnExplicitBoundary() {
-        val dto = VideoDetailMapper.read(sample("video-detail-2.json").getJSONObject("data"))
-        val video = VideoDetailMapper.map(dto) { "decoded:$it" }
+        val dto = readVideoDetail(sample("video-detail-2.json").getJSONObject("data"))
+        val video = mapVideoDetail(dto) { "decoded:$it" }
         assertEquals("decoded:${dto.title}", video.title)
     }
 
     @Test fun feedVideoUsesRealRelatedItemAndRejectsMissingBvid() {
         val first = sample("related.json").getJSONArray("data").getJSONObject(0)
-        val dto = FeedVideoMapper.read(first)!!
-        val video = FeedVideoMapper.map(dto) { it }
+        val dto = readFeedVideo(first)!!
+        val video = mapFeedVideo(dto) { it }
         assertEquals("BV18cxv6SEe7", video.bvid)
         assertEquals(first.getLong("aid"), video.aid)
         assertEquals(first.getJSONObject("owner").getLong("mid"), video.ownerMid)
         assertEquals(first.getJSONObject("stat").getLong("view"), video.play)
         assertTrue(video.cover.endsWith("@480w_270h_1c.webp"))
-        assertNull(FeedVideoMapper.read(JSONObject()))
+        assertNull(readFeedVideo(JSONObject()))
     }
 }

@@ -1,5 +1,8 @@
 package com.aritxonly.bdfun.infra.bili
 
+import com.aritxonly.bdfun.infra.bili.isRetryableHttpStatus
+import com.aritxonly.bdfun.infra.bili.httpRetryDelayMs
+import com.aritxonly.bdfun.infra.bili.httpRequestAttempts
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -30,7 +33,7 @@ class BiliHttpClient(
     ): JSONObject = withContext(Dispatchers.IO) {
         // 只对 GET 做自动重试：POST 可能是投币/点赞，重复发送会有副作用。
         // 最多两次：一次正常、一次重试；避免网络完全断开时转圈太久。
-        val attempts = HttpRetryPolicy.attempts(method)
+        val attempts = httpRequestAttempts(method)
         var lastError: Exception? = null
         for (attempt in 0 until attempts) {
             try {
@@ -51,7 +54,7 @@ class BiliHttpClient(
             } catch (e: Exception) {
                 lastError = BiliException(-1, "网络连接失败，请检查网络后重试")
             }
-            if (attempt < attempts - 1) delay(HttpRetryPolicy.delayMs(attempt))
+            if (attempt < attempts - 1) delay(httpRetryDelayMs(attempt))
         }
         val error = lastError ?: BiliException(-1, "网络连接失败，请检查网络后重试")
         log(
@@ -89,7 +92,7 @@ class BiliHttpClient(
         request: Request,
         tolerateEmptyBody: Boolean,
     ): JSONObject = client.newCall(request).awaitResponse().use { response ->
-        if (HttpRetryPolicy.retryableStatus(response.code)) {
+        if (isRetryableHttpStatus(response.code)) {
             throw RetryableHttpException(response.code)
         }
         if (response.code >= 400) {

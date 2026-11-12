@@ -1,5 +1,9 @@
 package com.aritxonly.bdfun.core.application
 
+import com.aritxonly.bdfun.core.application.videoTextUrls
+import com.aritxonly.bdfun.core.application.videoTextTokens
+import com.aritxonly.bdfun.core.application.trimVideoTextToken
+
 internal val EmoteToken = Regex("\\[([^\\]]{1,12})]")
 
 data class RichTextHit(
@@ -23,17 +27,17 @@ fun analyzeRichText(text: String, emotes: Map<String, String>, mentions: Map<Str
     if (mentionRegex != null && mentionClick) addRichMentions(hits, text, mentionRegex, mentions)
     return RichTextAnalysis(hits.sortedBy { it.start }, emotes.isNotEmpty() && EmoteToken.containsMatchIn(text),
         mentionClick && mentionRegex?.containsMatchIn(text) == true,
-        VideoLinkText.urls.containsMatchIn(text) || VideoLinkText.tokens(text).isNotEmpty(), mentionList)
+        videoTextUrls.containsMatchIn(text) || videoTextTokens(text).isNotEmpty(), mentionList)
 }
 
 fun collectRichLinks(text: String): List<RichTextHit> {
     val hits = mutableListOf<RichTextHit>()
-    for (match in VideoLinkText.urls.findAll(text)) {
-        val url = VideoLinkText.trim(match.value)
+    for (match in videoTextUrls.findAll(text)) {
+        val url = trimVideoTextToken(match.value)
         if (url.length <= "https://".length) continue
         hits += RichTextHit(match.range.first, match.range.first + url.length, linkUrl = url)
     }
-    for (token in VideoLinkText.tokens(text)) {
+    for (token in videoTextTokens(text)) {
         val start = text.indexOf(token)
         if (start < 0) continue
         val end = start + token.length

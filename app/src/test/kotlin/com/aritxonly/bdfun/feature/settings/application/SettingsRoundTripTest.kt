@@ -1,7 +1,7 @@
 package com.aritxonly.bdfun.feature.settings.application
 
+import com.aritxonly.bdfun.core.model.settings.allScrollTopPages
 import com.aritxonly.bdfun.core.domain.SettingsRepository
-import com.aritxonly.bdfun.core.model.settings.ScrollTopPages
 import kotlinx.coroutines.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -31,7 +31,7 @@ class SettingsRoundTripTest(private val case: SettingCase<*>) {
             SettingCase("shadowsEnabled", true, false, { it.shadowsEnabled }, { s, v -> s.shadowsEnabled = v }),
             SettingCase("scrollTopEnabled", true, false, { it.scrollTopEnabled }, { s, v -> s.scrollTopEnabled = v }),
             SettingCase("scrollTopSide", 1, 0, { it.scrollTopSide }, { s, v -> s.scrollTopSide = v }),
-            SettingCase("scrollTopPages", ScrollTopPages.all, setOf("home"), { it.scrollTopPages }, { s, v -> s.scrollTopPages = v }),
+            SettingCase("scrollTopPages", allScrollTopPages, setOf("home"), { it.scrollTopPages }, { s, v -> s.scrollTopPages = v }),
             SettingCase("blurEnabled", true, false, { it.blurEnabled }, { s, v -> s.blurEnabled = v }),
             SettingCase("danmakuScale", 1f, 1.2f, { it.danmakuScale }, { s, v -> s.danmakuScale = v }),
             SettingCase("danmakuSpeed", 1f, 1.2f, { it.danmakuSpeed }, { s, v -> s.danmakuSpeed = v }),

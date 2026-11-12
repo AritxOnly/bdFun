@@ -1,5 +1,11 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.navigateToOnboarding
+import com.aritxonly.bdfun.navigateToLiveRoom
+import com.aritxonly.bdfun.navigateToHelp
+import com.aritxonly.bdfun.navigateToDonation
+import com.aritxonly.bdfun.navigateToCredits
+import com.aritxonly.bdfun.navigateToChangelog
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.ComponentActivity
@@ -25,14 +31,14 @@ internal fun SettingsScreenRoute(activity: ComponentActivity) {
 private fun openSettingsDestination(context: ComponentActivity, destination: SettingsDestination) {
     when (destination) {
         SettingsDestination.Discussion -> openSettingsTelegramGroup(context)
-        SettingsDestination.Changelog -> TeakNavigator.openChangelog(context)
-        SettingsDestination.Help -> TeakNavigator.openHelp(context)
-        SettingsDestination.Onboarding -> TeakNavigator.openOnboarding(context)
-        SettingsDestination.Donation -> TeakNavigator.openDonation(context)
-        SettingsDestination.Credits -> TeakNavigator.openCredits(context)
+        SettingsDestination.Changelog -> navigateToChangelog(context)
+        SettingsDestination.Help -> navigateToHelp(context)
+        SettingsDestination.Onboarding -> navigateToOnboarding(context)
+        SettingsDestination.Donation -> navigateToDonation(context)
+        SettingsDestination.Credits -> navigateToCredits(context)
         SettingsDestination.Project -> openSettingsWebLink(context, "https://github.com/QxTeak/bdFun")
         SettingsDestination.Logs -> openLogs(context)
-        SettingsDestination.LivePreview -> TeakNavigator.openLiveRoom(context)
+        SettingsDestination.LivePreview -> navigateToLiveRoom(context)
     }
 }
 

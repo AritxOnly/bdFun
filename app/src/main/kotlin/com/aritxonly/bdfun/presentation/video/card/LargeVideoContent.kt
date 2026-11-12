@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.navigateToSpace
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,7 +18,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.TeakNavigator
 import com.aritxonly.bdfun.core.model.video.VideoItem
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -52,7 +52,7 @@ internal fun LargeVideoContent(video: VideoItem) {
                     modifier = Modifier
                         .weight(1f)
                         .clickable(interactionSource = null, indication = null) {
-                            com.aritxonly.bdfun.TeakNavigator.openSpace(context, video.ownerMid)
+                            navigateToSpace(context, video.ownerMid)
                         },
                 )
             }

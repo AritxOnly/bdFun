@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.infra.playback
 
+import com.aritxonly.bdfun.core.application.reducePlaybackSnapshot
 import android.content.Context
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -50,7 +51,7 @@ class Media3PlaybackController(context: Context, decoderMode: Int) : PlaybackCon
             Player.STATE_ENDED -> PlaybackPhase.Ended
             else -> PlaybackPhase.Idle
         }
-        mutableState.value = PlaybackSnapshotReducer.update(mutableState.value,
+        mutableState.value = reducePlaybackSnapshot(mutableState.value,
             phase, player.isPlaying, player.playWhenReady, player.currentPosition,
             player.bufferedPosition, player.duration, player.playbackParameters.speed,
         )

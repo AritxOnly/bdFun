@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.navigateToMessageFeed
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Messages
 import top.yukonga.miuix.kmp.icon.extended.Contacts
@@ -48,7 +49,7 @@ internal fun MessageShortcutGroup(unread: Map<String, Int>, events: MessageScree
                     ) { androidx.compose.material3.Icon(MiuixIcons.Contacts, null, Modifier.size(ShortcutGlyphSize), tint = MessageBlue) }
                     MessageShortcut(label = "系统通知", modifier = Modifier.weight(1f),
                         unread = unread["sys_msg"] ?: 0,
-                        onClick = { com.aritxonly.bdfun.TeakNavigator.openMessageFeed(context, "system") }) {
+                        onClick = { navigateToMessageFeed(context, "system") }) {
                         androidx.compose.material3.Icon(MiuixIcons.Messages, null, Modifier.size(ShortcutGlyphSize), tint = colors.primary)
                     }
                 }

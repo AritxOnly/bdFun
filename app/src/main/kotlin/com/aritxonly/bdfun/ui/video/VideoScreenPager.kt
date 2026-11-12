@@ -1,6 +1,7 @@
 package com.aritxonly.bdfun.ui
 
-
+import com.aritxonly.bdfun.navigateToVideo
+import com.aritxonly.bdfun.navigateToSpace
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.runtime.Composable
@@ -9,7 +10,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.aritxonly.bdfun.TeakNavigator
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -65,7 +65,7 @@ private fun VideoScreenMetadata(
             actions::toggleFavorite, actions::shareVideo, actions::tripleAction,
             onOpenSpace = {
                 VideoPageBus.pauseAll()
-                TeakNavigator.openSpace(videoContext, detail?.ownerMid ?: video.ownerMid)
+                navigateToSpace(videoContext, detail?.ownerMid ?: video.ownerMid)
             }),
     )
 }
@@ -83,7 +83,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.videoScreenTail(
         textColor, surfaceColor, actions::switchPage,
         onRelated = { relatedItem ->
             VideoPageBus.pauseAll()
-            TeakNavigator.openVideo(context, relatedItem, fromVideoPage = true)
+            navigateToVideo(context, relatedItem, fromVideoPage = true)
         })
 }
 

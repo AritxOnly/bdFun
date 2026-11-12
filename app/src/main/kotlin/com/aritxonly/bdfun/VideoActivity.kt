@@ -1,6 +1,7 @@
 package com.aritxonly.bdfun
 
-
+import com.aritxonly.bdfun.navigation.readRouteIntent
+import com.aritxonly.bdfun.navigateToVideo
 import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.provider.Settings
@@ -279,7 +280,7 @@ class VideoActivity : ComponentActivity() {
         }
         val isLoggedIn = AppGraph.loginStatus::isLoggedIn
         val settings = AppGraph.settings
-        val route = com.aritxonly.bdfun.navigation.RouteIntents.read(intent) as? com.aritxonly.bdfun.core.navigation.Route.Video
+        val route = readRouteIntent(intent) as? com.aritxonly.bdfun.core.navigation.Route.Video
         val requestedBvid = route?.bvid?.takeIf { it.isNotBlank() } ?: intent?.getStringExtra("bvid")
         val requestedAid = route?.aid ?: intent?.getLongExtra("aid", 0L) ?: 0L
         setContent {
@@ -293,7 +294,7 @@ class VideoActivity : ComponentActivity() {
                     applyStatusBarStyle = ::applyStatusBarStyle,
                     resyncSystemBars = { syncVideoSystemBars() },
                     syncSystemBars = { syncVideoSystemBars(it) },
-                    openVideo = { TeakNavigator.openVideo(this@VideoActivity, it) },
+                    openVideo = { navigateToVideo(this@VideoActivity, it) },
                     openedFromVideoPage = { intent?.getBooleanExtra("fromVideoPage", false) == true },
                     hasWindow = { window != null },
                 ))

@@ -1,7 +1,6 @@
 package com.aritxonly.bdfun.feature.settings.application
 
 import com.aritxonly.bdfun.core.domain.*
-import com.aritxonly.bdfun.core.model.settings.ScrollTopPages
 
 internal class DanmakuSettingsStateHolder(
     prefs: SettingsPreferences,

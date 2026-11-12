@@ -1,7 +1,8 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.navigateToVideo
+import com.aritxonly.bdfun.navigateToSpace
 import com.aritxonly.teak.common.chrome.LocalTeakPageScrollState
-
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -44,8 +45,8 @@ internal fun MainSearchLayer(settings: SettingsBindings, shell: MainShellState) 
                         ui.searchSubmitted = word
                         keyboard?.hide()
                     },
-                    onOpenVideo = { TeakNavigator.openVideo(context, it) },
-                    onOpenUser = { TeakNavigator.openSpace(context, it.mid) },
+                    onOpenVideo = { navigateToVideo(context, it) },
+                    onOpenUser = { navigateToSpace(context, it.mid) },
                     modifier = Modifier.fillMaxSize(),
                 )
             }

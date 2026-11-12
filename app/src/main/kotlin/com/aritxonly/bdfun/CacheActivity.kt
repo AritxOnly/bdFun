@@ -1,7 +1,7 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.navigateToVideo
 import com.aritxonly.bdfun.ui.ActivityPageOptions
-
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -24,7 +24,7 @@ class CacheActivity : ComponentActivity() {
                     title = "离线缓存",
                 ),
             ) {
-                CacheScreen(AppGraph.videoCache) { TeakNavigator.openVideo(this@CacheActivity, it) }
+                CacheScreen(AppGraph.videoCache) { navigateToVideo(this@CacheActivity, it) }
             }
         }
     }

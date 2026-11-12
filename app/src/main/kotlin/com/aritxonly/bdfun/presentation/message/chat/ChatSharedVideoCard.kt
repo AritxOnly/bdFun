@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.navigateToVideo
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -17,7 +18,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aritxonly.bdfun.core.model.video.VideoItem
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-
 import com.aritxonly.bdfun.core.model.message.SharedVideoInfo
 
 @Composable
@@ -30,7 +30,7 @@ internal fun ChatSharedVideoCard(info: SharedVideoInfo) {
             .clip(RoundedCornerShape(14.dp))
             .background(colors.surface)
             .clickable(interactionSource = null, indication = null) {
-                TeakNavigator.openVideo(
+                navigateToVideo(
                     context,
                     VideoItem(
                         bvid = info.bvid,

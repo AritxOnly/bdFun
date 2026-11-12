@@ -1,5 +1,11 @@
 package com.aritxonly.bdfun.core.domain
 
+import com.aritxonly.bdfun.core.domain.videoTitleTarget
+import com.aritxonly.bdfun.core.domain.videoLinkTokens
+import com.aritxonly.bdfun.core.domain.shortVideoUrl
+import com.aritxonly.bdfun.core.domain.recognizesVideoLink
+import com.aritxonly.bdfun.core.domain.isVideoLinkToken
+import com.aritxonly.bdfun.core.domain.directVideoBvid
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -8,28 +14,28 @@ class VideoLinkPolicyTest {
     @Test fun tokensKeepOrderDistinctnessAndTrimTheOriginalPunctuation() {
         val url = "https://www.bilibili.com/video/$bv?p=2"
         assertEquals(listOf(bv, "av123", url, "https://b23.tv/Ab12"),
-            VideoLinkPolicy.tokens("$bv $bv av123 $url）。 https://b23.tv/Ab12，"))
+            videoLinkTokens("$bv $bv av123 $url）。 https://b23.tv/Ab12，"))
     }
     @Test fun bareIdsKeepAsciiBoundaryAndMinimumAidLength() {
-        assertTrue(VideoLinkPolicy.tokens("x$bv 1$bv av12 xav123").isEmpty())
-        assertEquals(listOf(bv, "av123"), VideoLinkPolicy.tokens("_$bv（av123）"))
-        assertTrue(VideoLinkPolicy.isToken("https://b23.tv/Ab12"))
-        assertFalse(VideoLinkPolicy.isToken("https://b23.tv/Ab12?x=1"))
+        assertTrue(videoLinkTokens("x$bv 1$bv av12 xav123").isEmpty())
+        assertEquals(listOf(bv, "av123"), videoLinkTokens("_$bv（av123）"))
+        assertTrue(isVideoLinkToken("https://b23.tv/Ab12"))
+        assertFalse(isVideoLinkToken("https://b23.tv/Ab12?x=1"))
     }
     @Test fun titleTargetsPreserveTheDifferentBareAndUrlRules() {
-        assertEquals(VideoTitleTarget.Bvid(bv), VideoLinkPolicy.titleTarget("bv" + bv.substring(2)))
-        assertEquals(VideoTitleTarget.Bvid("bv" + bv.substring(2)), VideoLinkPolicy.titleTarget("https://www.bilibili.com/video/bv" + bv.substring(2)))
-        assertEquals(VideoTitleTarget.Aid(123), VideoLinkPolicy.titleTarget("AV123"))
-        assertEquals(VideoTitleTarget.Unsupported, VideoLinkPolicy.titleTarget("https://www.bilibili.com/video/av123"))
-        assertEquals(VideoTitleTarget.Unsupported, VideoLinkPolicy.titleTarget("HTTPS://B23.TV/ABC"))
-        assertEquals(VideoTitleTarget.Unsupported, VideoLinkPolicy.titleTarget("av999999999999999999999999"))
+        assertEquals(VideoTitleTarget.Bvid(bv), videoTitleTarget("bv" + bv.substring(2)))
+        assertEquals(VideoTitleTarget.Bvid("bv" + bv.substring(2)), videoTitleTarget("https://www.bilibili.com/video/bv" + bv.substring(2)))
+        assertEquals(VideoTitleTarget.Aid(123), videoTitleTarget("AV123"))
+        assertEquals(VideoTitleTarget.Unsupported, videoTitleTarget("https://www.bilibili.com/video/av123"))
+        assertEquals(VideoTitleTarget.Unsupported, videoTitleTarget("HTTPS://B23.TV/ABC"))
+        assertEquals(VideoTitleTarget.Unsupported, videoTitleTarget("av999999999999999999999999"))
     }
     @Test fun activityRecognitionDoesNotPretendToSupportBareAidResolution() {
-        assertTrue(VideoLinkPolicy.recognizes("x$bv"))
-        assertFalse(VideoLinkPolicy.recognizes("av123"))
-        assertTrue(VideoLinkPolicy.recognizes("https://www.bilibili.com/video/av123"))
-        assertNull(VideoLinkPolicy.directBvid("av123"))
-        assertEquals(bv, VideoLinkPolicy.directBvid("before bv" + bv.substring(2) + " after"))
-        assertEquals("HTTPS://B23.TV/Ab1", VideoLinkPolicy.shortUrl("url HTTPS://B23.TV/Ab1!"))
+        assertTrue(recognizesVideoLink("x$bv"))
+        assertFalse(recognizesVideoLink("av123"))
+        assertTrue(recognizesVideoLink("https://www.bilibili.com/video/av123"))
+        assertNull(directVideoBvid("av123"))
+        assertEquals(bv, directVideoBvid("before bv" + bv.substring(2) + " after"))
+        assertEquals("HTTPS://B23.TV/Ab1", shortVideoUrl("url HTTPS://B23.TV/Ab1!"))
     }
 }

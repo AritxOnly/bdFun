@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.navigateToSpace
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
@@ -37,7 +38,7 @@ internal fun ForwardedDynamicAuthor(item: DynamicItem) {
                 .background(colors.surfaceContainerHighest)
                 .clickable(interactionSource = null, indication = null) {
                     if (item.mid > 0L) {
-                        com.aritxonly.bdfun.TeakNavigator.openSpace(context, item.mid)
+                        navigateToSpace(context, item.mid)
                     }
                 },
         )
@@ -54,7 +55,7 @@ internal fun ForwardedDynamicAuthor(item: DynamicItem) {
                 indication = null,
             ) {
                 if (item.mid > 0L) {
-                    com.aritxonly.bdfun.TeakNavigator.openSpace(context, item.mid)
+                    navigateToSpace(context, item.mid)
                 }
             },
         )

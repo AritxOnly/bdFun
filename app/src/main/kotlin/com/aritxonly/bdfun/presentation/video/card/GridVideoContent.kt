@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.navigateToSpace
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,7 +23,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.TeakNavigator
 import com.aritxonly.bdfun.core.model.video.VideoItem
 import com.kyant.shapes.Capsule
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -58,7 +58,7 @@ internal fun GridVideoContent(video: VideoItem, showOwner: Boolean) {
                         modifier = Modifier
                             .clip(Capsule())
                             .clickable(interactionSource = null, indication = null) {
-                                TeakNavigator.openSpace(
+                                navigateToSpace(
                                     context,
                                     video.ownerMid,
                                 )

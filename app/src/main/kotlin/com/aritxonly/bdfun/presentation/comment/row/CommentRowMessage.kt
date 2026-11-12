@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.navigateToSpace
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
@@ -35,7 +36,7 @@ internal fun CommentRowMessage(item: CommentItem) {
         ),
         onMentionClick = { mid ->
             if (mid > 0L) {
-                com.aritxonly.bdfun.TeakNavigator.openSpace(context, mid)
+                navigateToSpace(context, mid)
             }
         },
     )

@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.navigateToVideo
+import com.aritxonly.bdfun.navigateToDynamic
 import android.content.Context
 import androidx.compose.runtime.*
 import com.aritxonly.bdfun.core.model.feed.DynamicItem
@@ -29,6 +31,6 @@ internal class DynamicDetailActions(
         val next = controller.beginLike() ?: return
         scope.launch { controller.commitLike(next)?.let { context.showToast(it) } }
     }
-    fun openVideo(video: VideoItem) { TeakNavigator.openVideo(context, video) }
-    fun openForwarded(item: DynamicItem) { TeakNavigator.openDynamic(context, item) }
+    fun openVideo(video: VideoItem) { navigateToVideo(context, video) }
+    fun openForwarded(item: DynamicItem) { navigateToDynamic(context, item) }
 }

@@ -539,3 +539,11 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - 剩余九组编译检查发现新动态作者类型与现有portal作者同名，已命名为DynamicItemAuthor；另补齐通知、楼中楼预览、视频缓存同步及测试样本的copy。编译错误不算验证通过，未绕过类型检查。
 - 最终`/tmp/bdfun-record-final-targeted.log`成功1m3s：严格PSI检查0违规，953个生产文件/10421节点；domain VideoPagePolicy3、core/application VideoPageStateHolder4、storage RouteJsonCodec7、bili mapper27、app相关状态/目标/缓存/装配106，共147项既有定向测试，0失败/错误。不是全量917项重跑；测试构造/copy随API更新，断言预期值未减弱。debug构建通过。
 - 严格checkKotlinSizes接入checkLayering，17项工具规则不变；不把report退出0或历史扫描结果当成最终验收。全局对象与作用域、模块化和最终交付仍继续。
+
+## 2026-11-13 · 全局对象收口至7
+
+- 同口径28→7，保留清单与生命周期见GLOBAL_OBJECT_AUDIT.md。十二个core规则/常量对象先改纯函数，之后完成infra参数/mapper/协议、路由动作、直播默认值与主题拥有关系；未移动到排除目录或用companion规避。
+- core规则相关定向测试与严格守卫通过；首次app编译发现两个旧object类型别名已无目标，删除无用别名。随后只补跑PlaybackSessionStateHolderTest与DynamicFeedStateTest及debug，`/tmp/bdfun-pure-core-final.log`成功2m17s，没有重复之前已通过规则套件。
+- 最终`/tmp/bdfun-global-final3.log`成功1m：checkLayering（含严格尺寸）、HttpRetryPolicyTest3、LiveProtocolTest2、AppThemePaletteTest2与debug均过，0失败/错误/跳过。新开发仅协议固定字节/压缩损坏兄弟包2项、主题独立来源/真实Snapshot观察2项；未重新跑147个数据分组或历史全套。协议样本明确是main格式结构用例，不冒充线上弹幕。
+- 编译中定位并修正BiliBackend薄转发与新换算函数同名造成的递归接线（明确调用biliAidToBvid），及`..PROTO_VER_BROTLI`范围上界符号、导入别名遮蔽；未用显式返回类型掩盖递归。错误构建不计通过。
+- 原导航Intent键/路由JSON、HTTP路径/参数/常量、回退房间字段/文字、主题ARGB与UI树保持。删掉无调用的随机LiveMock样本；native播放器/弹幕渲染生产实现没有逻辑变更。APK最终原生链路回归留到模块收尾后合并执行，避免每个命名空间搬迁都重复装机。

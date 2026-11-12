@@ -1,6 +1,15 @@
 package com.aritxonly.bdfun
 
-
+import com.aritxonly.bdfun.navigateToWatchLater
+import com.aritxonly.bdfun.navigateToVideo
+import com.aritxonly.bdfun.navigateToSpace
+import com.aritxonly.bdfun.navigateToSettings
+import com.aritxonly.bdfun.navigateToMySent
+import com.aritxonly.bdfun.navigateToLogin
+import com.aritxonly.bdfun.navigateToLibrary
+import com.aritxonly.bdfun.navigateToHistory
+import com.aritxonly.bdfun.navigateToDynamic
+import com.aritxonly.bdfun.navigateToCache
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.runtime.Composable
@@ -35,16 +44,16 @@ internal fun MainTabPager(
             when (page) {
                 0 -> HomeScreenRoute(
                     state = homeFeed,
-                    onOpenVideo = { TeakNavigator.openVideo(context, it) },
+                    onOpenVideo = { navigateToVideo(context, it) },
                     cardStyle = settings.homeCardStyle,
                 )
 
                 1 -> DynamicScreen(
                     state = dynamicFeed,
                     loggedIn = session != null,
-                    onNeedLogin = { TeakNavigator.openLogin(context) },
-                    onOpenVideo = { TeakNavigator.openVideo(context, it) },
-                    onOpenDynamic = { TeakNavigator.openDynamic(context, it) },
+                    onNeedLogin = { navigateToLogin(context) },
+                    onOpenVideo = { navigateToVideo(context, it) },
+                    onOpenDynamic = { navigateToDynamic(context, it) },
                     refreshTick = dynamicRefreshTick,
                 )
 
@@ -60,11 +69,11 @@ private fun MainMineTab(session: UserProfile?, settings: SettingsBindings) {
     MineScreen(
         com.aritxonly.bdfun.ui.MineScreenRequest(session, settings.sentHistoryEntry, AppGraph.session.identity.revision),
         com.aritxonly.bdfun.ui.MineNavigation(
-            { TeakNavigator.openLogin(context) }, { TeakNavigator.openSettings(context) },
-            { TeakNavigator.openLibrary(context) }, { TeakNavigator.openHistory(context) },
-            { TeakNavigator.openWatchLater(context) }, { TeakNavigator.openCache(context) },
-            { TeakNavigator.openMySent(context) }, { TeakNavigator.openSpace(context, it) },
-            { mid, fans -> RelationActivity.open(context, mid, fans) }, { TeakNavigator.openVideo(context, it) },
+            { navigateToLogin(context) }, { navigateToSettings(context) },
+            { navigateToLibrary(context) }, { navigateToHistory(context) },
+            { navigateToWatchLater(context) }, { navigateToCache(context) },
+            { navigateToMySent(context) }, { navigateToSpace(context, it) },
+            { mid, fans -> RelationActivity.open(context, mid, fans) }, { navigateToVideo(context, it) },
         ),
         AppGraph.mineDependencies,
     )

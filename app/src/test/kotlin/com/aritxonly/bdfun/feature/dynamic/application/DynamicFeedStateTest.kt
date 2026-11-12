@@ -1,11 +1,9 @@
 package com.aritxonly.bdfun.feature.dynamic.application
 
+import com.aritxonly.bdfun.core.domain.dynamicFeedParams
 import com.aritxonly.bdfun.core.model.feed.DynamicItemAuthor
-
 import com.aritxonly.bdfun.core.model.feed.DynamicCounts
-
 import com.aritxonly.bdfun.core.model.feed.DynamicAuthor
-
 import com.aritxonly.bdfun.core.domain.*
 import com.aritxonly.bdfun.core.model.feed.*
 import com.aritxonly.bdfun.core.common.*
@@ -64,14 +62,14 @@ class DynamicFeedStateTest {
     }
 
     @Test fun upRequestUsesHostMidAndNoCategoryOrFixedPage() {
-        val params = DynamicFeedContract.feedParams("up", "next", 42)
+        val params = dynamicFeedParams("up", "next", 42)
         assertEquals("42", params["host_mid"])
         assertEquals("next", params["offset"])
         assertFalse(params.containsKey("type"))
         assertFalse(params.containsKey("page"))
         assertTrue(params.getValue("features").contains("opusBigCover"))
         for (type in listOf("all", "video", "pgc", "article")) {
-            assertEquals(type, DynamicFeedContract.feedParams(type, "", null)["type"])
+            assertEquals(type, dynamicFeedParams(type, "", null)["type"])
         }
     }
 

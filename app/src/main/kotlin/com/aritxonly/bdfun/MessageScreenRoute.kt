@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.navigateToMessageFeed
+import com.aritxonly.bdfun.navigateToLogin
 import android.content.Context
 import androidx.compose.runtime.Composable
 import com.aritxonly.bdfun.ui.MessageScreen
@@ -8,10 +10,10 @@ import com.aritxonly.bdfun.ui.MessageScreen
 internal fun MessageScreenRoute(context: Context) {
     MessageScreen(
         loggedIn = AppGraph.session.value != null,
-        onNeedLogin = { TeakNavigator.openLogin(context) },
+        onNeedLogin = { navigateToLogin(context) },
         onBack = { (context as? android.app.Activity)?.finish() },
-        onOpenReplies = { TeakNavigator.openMessageFeed(context, "reply") },
-        onOpenLikes = { TeakNavigator.openMessageFeed(context, "like") },
-        onOpenFans = { TeakNavigator.openMessageFeed(context, "fans") },
+        onOpenReplies = { navigateToMessageFeed(context, "reply") },
+        onOpenLikes = { navigateToMessageFeed(context, "like") },
+        onOpenFans = { navigateToMessageFeed(context, "fans") },
     )
 }

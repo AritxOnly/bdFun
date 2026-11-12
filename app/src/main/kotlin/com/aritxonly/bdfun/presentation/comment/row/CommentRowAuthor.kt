@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.navigateToSpace
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
@@ -33,7 +34,7 @@ internal fun CommentRowAuthor(item: CommentItem) {
                 indication = null,
             ) {
                 if (item.mid > 0L) {
-                    com.aritxonly.bdfun.TeakNavigator.openSpace(context, item.mid)
+                    navigateToSpace(context, item.mid)
                 }
             },
         )

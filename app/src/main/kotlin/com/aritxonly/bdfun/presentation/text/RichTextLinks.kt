@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.core.application.isBiliVideoTextToken
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.AnnotatedString
@@ -14,7 +15,7 @@ internal fun AnnotatedString.Builder.appendRichLink(runtime: RichTextRenderConte
     val linkColor = runtime.linkColor
     val biliTitles = runtime.biliTitles
     val url = hit.linkUrl.orEmpty()
-    val isVideo = VideoLinkText.isBiliToken(url)
+    val isVideo = isBiliVideoTextToken(url)
     val label = if (isVideo) biliDisplayText(url, biliTitles) else url
     withLink(
         androidx.compose.ui.text.LinkAnnotation.Clickable(

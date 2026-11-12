@@ -1,7 +1,7 @@
 package com.aritxonly.bdfun.feature.settings.application
 
+import com.aritxonly.bdfun.core.model.settings.AUTO_CDN_ID
 import com.aritxonly.bdfun.core.domain.SettingsPreferences
-import com.aritxonly.bdfun.core.model.settings.SettingsDefaults
 
 internal fun migrateSettings0(prefs: SettingsPreferences) {
         // 3.6 起首页 Web 推荐默认关闭；老版本把默认值 true 写进了偏好，升级时一次性改回 false。
@@ -51,7 +51,7 @@ internal fun migrateSettings0(prefs: SettingsPreferences) {
         // preview-3.9.5：重新提供「自动」选项；新安装默认自动，已有手动选择保持不变。
         if (!prefs.getBoolean("cdn_auto_v2", false)) {
             if (!prefs.contains("cdn_service")) {
-                prefs.edit().putString("cdn_service", SettingsDefaults.AUTO_CDN_ID).apply()
+                prefs.edit().putString("cdn_service", AUTO_CDN_ID).apply()
             }
             prefs.edit().putBoolean("cdn_auto_v2", true).apply()
         }

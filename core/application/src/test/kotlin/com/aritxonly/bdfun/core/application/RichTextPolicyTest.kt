@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.core.application
 
+import com.aritxonly.bdfun.core.application.videoTextClickBvid
+import com.aritxonly.bdfun.core.application.displayVideoTextToken
 import com.aritxonly.bdfun.core.model.video.ResolvedVideoLink
 import org.junit.Assert.*
 import org.junit.Test
@@ -53,11 +55,11 @@ class RichTextPolicyTest {
         assertTrue(short.hasUrl); assertTrue(short.hits.isEmpty()); assertFalse(short.plainText(false))
     }
     @Test fun titleAndClickFallbacksKeepRawTextUntilMetadataArrives() {
-        assertEquals(bv, VideoLinkText.display(bv, emptyMap()))
-        assertEquals(bv, VideoLinkText.clickBvid("bv" + bv.substring(2), emptyMap()))
-        assertNull(VideoLinkText.clickBvid("av123", emptyMap()))
-        assertNull(VideoLinkText.clickBvid("https://b23.tv/a", emptyMap()))
+        assertEquals(bv, displayVideoTextToken(bv, emptyMap()))
+        assertEquals(bv, videoTextClickBvid("bv" + bv.substring(2), emptyMap()))
+        assertNull(videoTextClickBvid("av123", emptyMap()))
+        assertNull(videoTextClickBvid("https://b23.tv/a", emptyMap()))
         val resolved = mapOf("av123" to ResolvedVideoLink(bv, "标题"))
-        assertEquals("标题", VideoLinkText.display("av123", resolved)); assertEquals(bv, VideoLinkText.clickBvid("av123", resolved))
+        assertEquals("标题", displayVideoTextToken("av123", resolved)); assertEquals(bv, videoTextClickBvid("av123", resolved))
     }
 }

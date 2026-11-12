@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.navigation.createRouteIntent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -82,7 +83,7 @@ internal fun SpaceProfileNameActions(
             MessageCircleButton(
                 onClick = {
                     context.startActivity(
-                        com.aritxonly.bdfun.navigation.RouteIntents.create(context,
+                        createRouteIntent(context,
                             com.aritxonly.bdfun.core.navigation.Route.PrivateChat(mid, name = profile?.name.orEmpty(),
                                 avatar = profile?.face.orEmpty())),
                     )

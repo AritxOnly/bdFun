@@ -43,7 +43,7 @@ P5 虽在原计划中标为可选，本次全量目标继续保留，不静默�
 | P4-02 其余三个 Bus 收敛 | 实现已接入，待完整验收 | 滚顶/页面 chrome/刷新等作用域状态 | 清选择/回顶部/消息刷新跨页面装机 |
 | P4-03 `AppGraph.pendingXxx` → 路由参数 | 实现未完全验收 | Route 契约/显式 Intent；pending 参数已迁 | 主入口已输出Route.Video并删除BiliLink；继续所有入口和缺参数错误验收 |
 | P4-04 `BackgroundPlayback` 单例 → `PlaybackController` | 实现已接入，局部验证 | infra/playback 控制器/服务/会话；系统媒体键原生验证 | 服务销毁重建/旋转/PiP/耳机/进度组合；展示 Media3 类型已改端口，旧装配/兼容入口仍待审计 |
-| P4-05 全局 `object` 审计 | 未完成 | 同口径 app/core/infra 现28个具名object，见 GLOBAL_OBJECT_AUDIT.md（包含纯工具/debug） | 逐一审计，按同一口径降至 <8；不可仅缩小统计口径 |
+| P4-05 全局 `object` 审计 | 当前实现通过 | 同口径现7个具名object，含纯资源目录/debug；每项生命周期见GLOBAL_OBJECT_AUDIT.md | 后续接线保持门槛；作用域与最终验收独立检查 |
 | P4-06 `AppContainer` 引入作用域 | 未完成 | AppContainer 已集中创建依赖与部分页面工厂 | 首页/动态资源槽按UID+revision失效；Compose保留identity；个人/媒体库晚回调与重建key已补revision。空间已改每Activity ViewModel与账号revision，关闭/取消竞态和Store隔离测试通过；消息/进程缓存/其他Activity统一获取继续审计；不能代表所有控制器/获取方式均完成 |
 | P5-01 抽 `:infra:bili` | 模块已建立，待依赖验收 | infra/bili 实际 Gradle 模块，不依赖 app | P1 完整验收与最终依赖图 |
 | P5-02 抽 `:feature:home` | 模块已建立，待完整验收 | 实际feature:home独立assembleDebug、16项原测试；页面/状态移入；Gradle生产图无环/禁止反向依赖 | P4-05前置仍未过；共享卡片过渡注入，完整首页main UI/交互验收 |
@@ -71,3 +71,5 @@ P5 虽在原计划中标为可选，本次全量目标继续保留，不静默�
 2026-11-12用户已恢复全量目标，撤销此前阶段暂停。宽屏滚动按明确授权统一为自有TeakScrollContainer；只开发/执行本批必要测试，剩余工作继续推进。消息/日志长函数拆分已完成，目前尺寸剩余12个长构造器。
 
 2026-11-12字段分组收尾：原12个长构造器全部清零，严格Kotlin PSI检查及对应既有定向测试/debug通过；不改变UI布局与JSON持久化格式。全局对象/作用域、实际feature:video、CI及最终验收/交付仍待完成，目标继续active。
+
+2026-11-13：全局对象同口径28→7，纯函数/常量迁移与主题同源观察验证通过；P4-05数量及生命周期清单达标。P4-06、视频模块、CI与最终交付继续。

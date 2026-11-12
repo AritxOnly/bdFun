@@ -1,13 +1,14 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.core.application.videoTextTokens
+import com.aritxonly.bdfun.core.application.displayVideoTextToken
 import androidx.compose.runtime.*
 import com.aritxonly.bdfun.core.application.LinkTitlesStateHolder
-import com.aritxonly.bdfun.core.application.VideoLinkText
 import com.aritxonly.bdfun.core.model.video.ResolvedVideoLink
 
 @Composable
 internal fun rememberBiliLinkTitles(text: String): Map<String, ResolvedVideoLink> {
-    val tokens = remember(text) { VideoLinkText.tokens(text) }
+    val tokens = remember(text) { videoTextTokens(text) }
     if (tokens.isEmpty()) return emptyMap()
     val store = LocalRichTextDependencies.current.titles
     val generation by store.generation.collectAsState()
@@ -18,4 +19,4 @@ internal fun rememberBiliLinkTitles(text: String): Map<String, ResolvedVideoLink
     return state
 }
 
-internal fun biliDisplayText(token: String, resolved: Map<String, ResolvedVideoLink>) = VideoLinkText.display(token, resolved)
+internal fun biliDisplayText(token: String, resolved: Map<String, ResolvedVideoLink>) = displayVideoTextToken(token, resolved)

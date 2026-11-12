@@ -1,7 +1,7 @@
 package com.aritxonly.bdfun.feature.settings.application
 
+import com.aritxonly.bdfun.core.model.settings.allScrollTopPages
 import com.aritxonly.bdfun.core.domain.*
-import com.aritxonly.bdfun.core.model.settings.ScrollTopPages
 
 internal class AppearanceSettingsStateHolder(
     prefs: SettingsPreferences,
@@ -33,7 +33,7 @@ internal class AppearanceSettingsStateHolder(
     /** 在哪些页面显示回到顶部按钮；没存过时默认全部页面。 */
 
     private val scrollTopPagesState = stateCell("scrollTopPagesState",
-        prefs.getStringSet("scroll_top_pages", null) ?: ScrollTopPages.all,
+        prefs.getStringSet("scroll_top_pages", null) ?: allScrollTopPages,
     )
 
     private val blurState = stateCell("blurState", prefs.getBoolean("blur", true))
@@ -188,7 +188,7 @@ internal class AppearanceSettingsStateHolder(
     override fun isScrollTopPageEnabled(page: String): Boolean = page in scrollTopPagesState.value
 
     override fun setScrollTopPageEnabled(page: String, enabled: Boolean) {
-        if (page !in ScrollTopPages.all) return
+        if (page !in allScrollTopPages) return
         scrollTopPages = if (enabled) scrollTopPages + page else scrollTopPages - page
     }
 

@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.navigateToSpace
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
@@ -28,7 +29,7 @@ internal fun CommentRowAvatar(item: CommentItem) {
             .background(colors.surfaceContainerHigh)
             .clickable(interactionSource = null, indication = null) {
                 if (item.mid > 0L) {
-                    com.aritxonly.bdfun.TeakNavigator.openSpace(context, item.mid)
+                    navigateToSpace(context, item.mid)
                 }
             },
     )

@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.navigateToVideo
+import com.aritxonly.bdfun.navigateToDynamic
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -37,10 +39,10 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.spaceDynamicItems(
             DynamicCard(
                 item = item,
                 actions = com.aritxonly.bdfun.ui.DynamicCardActions(
-                    onOpen = { TeakNavigator.openDynamic(context, item) },
-                    onOpenVideo = { TeakNavigator.openVideo(context, it) },
+                    onOpen = { navigateToDynamic(context, item) },
+                    onOpenVideo = { navigateToVideo(context, it) },
                     onLike = {},
-                    onComment = { TeakNavigator.openDynamic(context, item) },
+                    onComment = { navigateToDynamic(context, item) },
                     onRepost = {}
                 ),
                 presentation = com.aritxonly.bdfun.ui.DynamicCardPresentation(liked = false),
