@@ -38,6 +38,12 @@ data class LiveChatMessage(
     val nameColor: Long? = null,
     /** 超级留言的金额文字，例如「￥30」。 */
     val amountText: String? = null,
+    /** 整条消息就是一张表情图时的图片地址。 */
+    val emoteUrl: String? = null,
+    /** 文内表情：token（如「[妙]」）→ 图片地址。 */
+    val emotes: Map<String, String> = emptyMap(),
+    /** 文内表情尺寸：token → 高（dp）。 */
+    val emoteHeights: Map<String, Int> = emptyMap(),
 )
 
 enum class LiveChatKind {

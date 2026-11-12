@@ -63,6 +63,7 @@ fun DanmakuSettingsContent(
     onInteract: () -> Unit,
     danmakuItems: List<DanmakuItem> = emptyList(),
     modifier: Modifier = Modifier,
+    liveMode: Boolean = false,
 ) {
     var showKeywordInput by remember { mutableStateOf(false) }
     var showDmList by remember { mutableStateOf(false) }
@@ -128,19 +129,21 @@ fun DanmakuSettingsContent(
         DmGroup(title = "画面防挡") {
             DmTypeFilters()
             Spacer(Modifier.height(6.dp))
-            DmSwitchRow(
-                title = "重复弹幕隐藏",
-                description = "大量内容相同的弹幕会被隐藏",
-                checked = DanmakuSettings.dedupe,
-                onInteract = onInteract,
-            ) { DanmakuSettings.dedupe = it }
+            if (!liveMode) {
+                DmSwitchRow(
+                    title = "重复弹幕隐藏",
+                    description = "大量内容相同的弹幕会被隐藏",
+                    checked = DanmakuSettings.dedupe,
+                    onInteract = onInteract,
+                ) { DanmakuSettings.dedupe = it }
 
-            DmSwitchRow(
-                title = "底部字幕区域防挡",
-                description = "底部弹幕会被隐藏",
-                checked = DanmakuSettings.subtitleGuard,
-                onInteract = onInteract,
-            ) { DanmakuSettings.subtitleGuard = it }
+                DmSwitchRow(
+                    title = "底部字幕区域防挡",
+                    description = "底部弹幕会被隐藏",
+                    checked = DanmakuSettings.subtitleGuard,
+                    onInteract = onInteract,
+                ) { DanmakuSettings.subtitleGuard = it }
+            }
         }
 
         Spacer(Modifier.height(8.dp))
@@ -224,31 +227,33 @@ fun DanmakuSettingsContent(
                 }
             }
 
-            DmActionRow(
-                title = "当前弹幕列表",
-                trailing = "${danmakuItems.size}",
-                onClick = {
-                    onInteract()
-                    showDmList = !showDmList
-                },
-            )
-            if (showDmList) {
-                Column(modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
-                    danmakuItems.take(60).forEach { item ->
-                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-                            Text(
-                                text = formatPlayTime(item.timeMs),
-                                color = Color.White.copy(alpha = 0.35f),
-                                fontSize = 10.sp,
-                                modifier = Modifier.width(48.dp),
-                            )
-                            Text(
-                                text = item.text,
-                                color = Color.White.copy(alpha = 0.8f),
-                                fontSize = 11.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+            if (!liveMode) {
+                DmActionRow(
+                    title = "当前弹幕列表",
+                    trailing = "${danmakuItems.size}",
+                    onClick = {
+                        onInteract()
+                        showDmList = !showDmList
+                    },
+                )
+                if (showDmList) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
+                        danmakuItems.take(60).forEach { item ->
+                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                                Text(
+                                    text = formatPlayTime(item.timeMs),
+                                    color = Color.White.copy(alpha = 0.35f),
+                                    fontSize = 10.sp,
+                                    modifier = Modifier.width(48.dp),
+                                )
+                                Text(
+                                    text = item.text,
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                     }
                 }

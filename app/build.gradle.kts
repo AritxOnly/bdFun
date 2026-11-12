@@ -129,5 +129,6 @@ dependencies {
 
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
+    implementation("org.brotli:dec:0.1.2")
     implementation(libs.zxing.core)
 }
