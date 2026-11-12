@@ -193,6 +193,34 @@ internal fun LivePlayerChrome(
                         ),
                 )
 
+                if (!landscape) {
+                    // 竖屏顶部只叠标题；返回和主播信息在播放器上方的页面顶栏里
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .background(
+                                Brush.verticalGradient(
+                                    0f to Color.Black.copy(alpha = 0.55f),
+                                    0.55f to Color.Black.copy(alpha = 0.22f),
+                                    1f to Color.Transparent,
+                                ),
+                            ),
+                    )
+                    Text(
+                        text = title,
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(start = 14.dp, end = 14.dp, top = 10.dp),
+                    )
+                }
+
                 if (landscape) {
                     // 横屏没有页面顶栏，把返回和标题叠在播放器上，和视频全屏一致
                     Box(
