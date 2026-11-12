@@ -698,3 +698,12 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - `/tmp/bdfun-background-transfer-runtime.log`首轮已确认本包BdFunBackgroundPlayback PLAYING和真实foreground服务，但随后旧mResumedActivity字段匹配为空而失败；finally逐字恢复设置/进度并force-stop，不当整条通过。核对实际ResumedActivity/topResumedActivity格式后仅修驱动。
 - `/tmp/bdfun-background-transfer-corrected-runtime.log`当前APK通过：页面PLAYING 20,790ms→正常Back结束VideoActivity→原后台服务isForeground=true、同包BdFunBackgroundPlayback PLAYING 22,817ms→系统媒体pause PAUSED 26,676ms→play PLAYING 26,996ms→stop后本包会话和服务均消失→crash空。实际活动/服务/会话输出保存在/tmp/bdfun-background-transfer-{activities,services,sessions}.txt；已查看main截图，返回原首页。最后逐字恢复settings/playback_progress及各.bak字节/不存在状态并force-stop。没有点赞/关注/发送等交互。
 - 本批验证了真实正常退出交接、后台媒体控制及停止释放，未将其作为后台服务被系统销毁重建、PiP展开返回或全部旋转组合验收。最终main、必要完整回归、release和交付继续。
+
+### 2026-11-13 main刷新与播放流映射
+
+- git fetch origin main完成，HEAD..origin/main为空，最新main仍为已合入4c4e03bf767d457d49a82b5226b2215ebd7872ce，没有遗漏新直播变更。这里只证明此次刷新时点，不假定远端永不更新。
+- 采集公开无Cookie playurl真实响应code0，47,681字节，6个视频表示/3个音频表示；样本出处与变体标记见json/README。`/tmp/bdfun-play-info-mapper.log`首轮28s通过checkLayering、6项PlayInfoMapperTest和app debug，1009生产文件/10639 PSI节点/0违规。测试覆盖真实字段/全部实际档位、codec与CDN/raw映射顺序、空字段/时长回退、snake_case/fps/backup、首durl/accept顺序、先选择后跳过blank URL。未改已有断言或重复全套。
+- `/tmp/bdfun-play-info-mapper-runtime.log`当前APK首轮通过真实请求起播本包PLAYING 20,406ms→系统PAUSED 22,476ms→正常Back后本包会话消失→crash空。finally逐字恢复settings/playback_progress及各.bak原字节/不存在状态并force-stop。没有点赞/关注/发送等交互；本批不重复上批后台/全屏用例。
+- 请求签名/错误/重试代码未改；视频流DTO边界完成并不证明其余所有API的JSON映射已收齐，剩余职责审计、完整必要回归、最终release与交付继续。
+
+- 远端CI本次查询：e05e0bb的[43314797028](https://github.com/AritxOnly/bdFun/actions/runs/43314797028)已成功；91d19eb的43316343313被并发新运行取消，84a76c2的43317746491仍in_progress。未将取消/在途结果记为通过，也不宣称它覆盖当前未推送的播放流变更。

@@ -197,85 +197,10 @@ internal fun BiliApiContext.netInfo(): String {
         "proxy=$proxy"
 }
 
-/** 播放地址接口返回内容的形状，写进应用日志，方便定位“有 data 但没有地址”。 */
-
-internal fun BiliApiContext.describePlayData(data: JSONObject): String {
-    val dash = data.optJSONObject("dash")
-    val video = dash?.optJSONArray("video")
-    val audio = dash?.optJSONArray("audio")
-    val durl = data.optJSONArray("durl")
-    val firstRep = video?.optJSONObject(0)
-    val firstRaw = firstRep?.let { it.s("baseUrl").ifBlank { it.s("base_url") } }.orEmpty()
-    val first = firstRaw.substringBefore('?')
-    val repKeys = firstRep?.keys()?.asSequence()?.take(12)?.joinToString(",").orEmpty()
-    val dataKeys = data.keys().asSequence().take(16).joinToString(",")
-    return "dataKeys=$dataKeys dash=${dash != null} video=${video?.length() ?: 0} " +
-        "audio=${audio?.length() ?: 0} durl=${durl?.length() ?: 0} " +
-        "firstBaseLen=${firstRaw.length} repKeys=$repKeys first=${first.take(80)}"
-}
-
 internal fun BiliApiContext.parsePlayInfo(
-    data: JSONObject,
-    preferred: Int,
-    detail: VideoDetail,
-    durationSec: Int = detail.duration,
-    codecPreference: String = "auto",
-    cdnService: String = "base",
+    data: JSONObject, preferred: Int, detail: VideoDetail, durationSec: Int = detail.duration,
+    codecPreference: String = "auto", cdnService: String = "base",
 ): PlayInfo {
     val cdn = cdnServiceById(cdnService)
-    val dash = data.optJSONObject("dash")
-    val audio = chooseAudio(dash?.optJSONArray("audio"), cdn)
-    val qualities = mutableListOf<Quality>()
-    dash?.optJSONArray("video")?.objects()?.groupBy { it.optInt("id", 0) }?.forEach { (id, reps) ->
-        val rep = choosePlaybackVideo(
-            reps, codecPreference, { it.s("codecs") }, { it.l("bandwidth") },
-        ) ?: return@forEach
-        val baseUrl = rep.s("baseUrl").ifBlank { rep.s("base_url") }
-        if (baseUrl.isBlank()) return@forEach
-        val backups = jsonStrings(
-            rep.optJSONArray("backupUrl") ?: rep.optJSONArray("backup_url"),
-        )
-        qualities += Quality(
-            id = id,
-            label = qualityLabel(id),
-            width = rep.optInt("width", 0),
-            height = rep.optInt("height", 0),
-            frameRate = rep.s("frameRate").ifBlank { rep.s("fps") },
-            codec = rep.s("codecs"),
-            videoUrl = cdn.rewrite(baseUrl, backups),
-            rawVideoUrl = baseUrl,
-        )
-    }
-    val fallback = data.optJSONArray("durl")?.optJSONObject(0)?.s("url").orEmpty()
-    val accept = data.optJSONArray("accept_quality")?.let { array ->
-        (0 until array.length()).map { array.optInt(it, 0) }
-    }.orEmpty()
-    return PlayInfo(
-        qualities = qualities.sortedByDescending { it.id },
-        audioUrl = audio?.first,
-        rawAudioUrl = audio?.second,
-        fallbackUrl = fallback.takeIf { it.isNotBlank() }?.let { cdn.rewrite(it) },
-        rawFallbackUrl = fallback.takeIf { it.isNotBlank() },
-        durationMs = data.l("timelength").takeIf { it > 0 } ?: (durationSec * 1000L),
-        acceptQuality = accept,
-    )
+    return mapPlayInfo(readPlayInfo(data), durationSec, codecPreference) { url, backups -> cdn.rewrite(url, backups) }
 }
-
-internal fun BiliApiContext.chooseAudio(array: JSONArray?, cdn: CdnService): Pair<String, String>? {
-    val audios = array.objects()
-    if (audios.isEmpty()) return null
-    val selected = choosePlaybackAudio(audios, { it.optInt("id", 0) }, { it.l("bandwidth") })
-    return selected?.let { audio ->
-        val url = audio.s("baseUrl").ifBlank { audio.s("base_url") }
-        cdn.rewrite(
-            url,
-            jsonStrings(audio.optJSONArray("backupUrl") ?: audio.optJSONArray("backup_url")),
-        ) to url
-    }
-}
-
-/** 自动选编码时的兼容性优先级，数字越小越优先。 */
-
-internal fun BiliApiContext.codecPriority(codec: String): Int = playbackCodecPriority(codec)
-internal fun BiliApiContext.codecMatches(codec: String, preference: String): Boolean =
-    playbackCodecMatches(codec, preference)

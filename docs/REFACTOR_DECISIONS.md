@@ -553,3 +553,11 @@ P5-03将页面瞬时状态、原生host中立契约及入口/队列/窗口回调
 P4-04/P5-03将原播放器持有/token/交接、500ms轮询、服务启动/停止及异步释放线程迁入infra/playback的AndroidBackgroundPlayback；app BackgroundPlaybackStateHolder只保留原Compose快照收集。protected snapshot/sync是投影接缝：app继续在每次原sync调用同步更新observable，原processScope的UNDISPATCHED收集不变，避免简单改异步Flow导致原即时UI读取变化。没有引入第二份播放业务状态。
 
 原服务类/动作、设置getter、UA和DEBUG诊断由app装配，不再直接引用AppGraph/BiliApi/BuildConfig/feature。20个持有/控制/生命周期函数体经端口正规化后逐字一致。跨前后台使用的BackgroundQueueLoader与4项原测试移到core/application，除包名外逐字一致；infra不反向依赖视频feature，不改播放来源或失败策略。
+
+### 2026-11-13 播放流DTO/mapper补齐
+
+P1-04/P1-10审计发现playInfo仍在API分片读取字段并组装模型；新增PlayInfoDto/PlaybackRepresentationDto，由mapper读取字段后调用既有choosePlaybackAudio/Video，再映射PlayInfo/Quality。API保留原签名转发及原时机cdnServiceById解析，改写回调仍使用原CdnService.rewrite。没有按preferred过滤清晰度（原实现即不使用它）；group顺序、先选后跳过blank URL、音频优先、备用地址参数、双URL、timelength/duration和accept顺序保持。
+
+原诊断形状读取与jsonStrings只去掉context接收者，体逐字一致；确认无消费者的codecPriority/codecMatches旧转发随旧解析体删除，策略实现保留core/domain。HTTP错误信封/请求编码仍属传输层；其他业务API的字段映射继续审计，不将本条表述为全库JSON职责已完成。
+
+2026-11-13无Cookie公开playurl响应47,681字节作为固定样本（6视频表示、3音频表示）；accept_quality的64并未返回对应视频流，测试保留这种实际差异。未伪造真实字段或登录响应，URLs只作离线字符串，不在测试访问。

@@ -9,3 +9,5 @@
 
 这些公开接口响应不含登录 Cookie 或 access_key。测试使用固定样本离线执行；没有凭空补字段。
 新增 org.json:json 20250517 仅用于 JVM 测试，替代 Android 的不可执行 JSON stub；未增加生产依赖。相比引入 Robolectric，独立 JSON 实现足以验证这里的纯映射。
+
+2026-11-13新增 `playurl-anonymous.json`：无Cookie/无access_key GET `/x/player/playurl?bvid=BV1orW46aEba&cid=43443290870&qn=127&fnval=4048&fnver=0&fourk=1`，使用公开浏览器UA/Referer。原始响应code=0，6个视频表示（id32/16各三种编码）、3个音频表示，timelength=98452；accept_quality包含64不代表响应实际提供64。原样保留匿名响应，播放URL签名自然过期，测试从不访问URL。测试中的空字段、snake_case、durl与非法accept元素属于显式构造的边界变体，不冒充额外真实响应。

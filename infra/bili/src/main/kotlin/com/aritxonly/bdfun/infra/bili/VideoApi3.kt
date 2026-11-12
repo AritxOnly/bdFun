@@ -63,13 +63,6 @@ import com.aritxonly.bdfun.infra.bili.parseBiliCountText as parseCountText
 import com.aritxonly.bdfun.infra.bili.parseBiliDurationText as parseDurationText
 import com.aritxonly.bdfun.infra.bili.biliQualityLabel as qualityLabel
 
-internal fun BiliApiContext.jsonStrings(array: JSONArray?): List<String> {
-    if (array == null) return emptyList()
-    return (0 until array.length()).mapNotNull { index ->
-        array.optString(index).takeIf { it.isNotBlank() }
-    }
-}
-
 /** 给 CDN 设置测速用一个固定公开视频流。 */
 
 internal suspend fun BiliApiContext.cdnSampleUrl(): String? = withContext(Dispatchers.IO) {
