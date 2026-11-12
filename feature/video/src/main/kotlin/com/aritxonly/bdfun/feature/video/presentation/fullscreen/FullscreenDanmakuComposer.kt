@@ -40,7 +40,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.data.DanmakuItem
+import com.aritxonly.bdfun.core.model.video.DanmakuItem
 import com.kyant.shapes.Capsule
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.getValue
@@ -49,12 +49,12 @@ import androidx.compose.runtime.DisposableEffect
 import com.aritxonly.bdfun.feature.video.application.FullscreenDanmakuComposerStateHolder
 
 @Composable
-internal fun FullscreenDanmakuInput(
+fun FullscreenDanmakuInput(
     onDismiss: () -> Unit,
     items: List<DanmakuItem> = emptyList(),
     modifier: Modifier = Modifier,
+    sender: () -> (suspend (String, Int, Int, Int) -> Boolean)?,
 ) {
-    val VideoPageBus = LocalVideoPageState.current
 
     val ui = remember { FullscreenDanmakuComposerStateHolder() }
     DisposableEffect(ui) { onDispose { ui.close() } }
@@ -71,7 +71,7 @@ internal fun FullscreenDanmakuInput(
     }
 
     fun submit() {
-        ui.submit(VideoPageBus.danmakuSender, scope, onDismiss) {
+        ui.submit(sender(), scope, onDismiss) {
             focusManager.clearFocus()
             keyboard?.hide()
             onDismiss()

@@ -42,7 +42,7 @@ internal fun FullscreenPanelHost(
     onClose: () -> Unit,
     visible: Boolean = true,
     accentColor: Color,
-    danmakuContent: @Composable (FullscreenPlayerInfo, () -> Unit) -> Unit,
+    danmakuSettings: @Composable (List<com.aritxonly.bdfun.core.model.video.DanmakuItem>) -> Unit,
 ) {
 
     val ui = remember { FullscreenPanelHostStateHolder(panel) }
@@ -87,7 +87,7 @@ internal fun FullscreenPanelHost(
             when (shown) {
                 FullscreenPanel.Favorite -> FavoritePanel(info, actions, onClose, accentColor)
                 FullscreenPanel.More -> MorePanel(info, playback, actions, onClose, accentColor)
-                FullscreenPanel.Danmaku -> danmakuContent(info, onClose)
+                FullscreenPanel.Danmaku -> DanmakuPanel(info, onClose, danmakuSettings)
                 FullscreenPanel.Episodes -> EpisodesPanel(info, actions, onClose, accentColor)
                 FullscreenPanel.Speed -> SpeedPanel(playback, actions, onClose, accentColor)
                 FullscreenPanel.Quality -> QualityPanel(info, playback, actions, onClose, accentColor)

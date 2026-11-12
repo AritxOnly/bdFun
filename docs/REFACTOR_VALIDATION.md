@@ -598,3 +598,11 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - `/tmp/bdfun-fullscreen-module-runtime.log`最终通过：核对debug包PLAYING→按实际2424x1080分栏控制条进入全屏→再次单击显示控件→打开倍速面板全部6个原选项→关闭面板/返回详情tab→crash空。没有选择倍速、改设置或账号写操作，结束force-stop。截图`/tmp/bdfun-module-speed.png`已查看。
 - 驱动失败记录不能算产品通过：首次150ms小于现有260ms单击判定；之后截图证明已进入全屏，但原实现会主动收起控件；补齐再次单击后，点击前截图又耗尽原4秒收起时间。已按原交互调整驱动并移除点击前截图，未修改生产时序、控件行为或断言，最终上述整条用例通过。没有再次运行此前的竖屏前提脚本。
 - 上一批12441f2的[远端CI 43275116367](https://github.com/AritxOnly/bdFun/actions/runs/43275116367)已成功；本批新源码由后续push另行触发CI，不复用旧结果。旧5c61d91 release不覆盖本批，完整生命周期、剩余展示和最终release/交付继续。
+
+### 2026-11-13 音频/弹幕剩余展示
+
+- `/tmp/bdfun-fullscreen-remaining.log`：独立feature/app及严格架构通过，37s。随后测试筛选曾使用不存在的StateHolderTest类名，Gradle明确No tests found，未当通过；找到实际app/FullscreenDanmakuComposerStateTest后原样迁移并正确筛选。
+- `/tmp/bdfun-fullscreen-remaining-verified.log`：checkLayering、独立模块/app debug、8项既有FullscreenDanmakuComposerStateTest全部通过（0失败/错误），22s。CI定向列表加入同一8项测试；没有新增镜像测试。最新961文件/10438 PSI节点/0违规。
+- 静态对照：Composer除core模型import/可见性/最新sender getter外全部一致；Audio全部数值、颜色、字号、尺寸、跳转量和文案字面量序列一致，图片/设置读取仅替换为显式接缝。
+- `/tmp/bdfun-audio-composer-runtime.log`最终通过：当前debug包PLAYING→真实全屏→更多/听视频→原封面、标题、-10s/+10s和退出控制→退出音频→弹幕输入→draft_refactor_probe文本及全部原样式项→crash空，结束force-stop。没有点击发送或更改设置。首次输入后颜色行被IME裁切；增加收起键盘步骤后完整样式断言通过，没有改产品布局或降低断言。截图`/tmp/bdfun-module-audio.png`、`/tmp/bdfun-module-composer.png`已查看。
+- 上一批9cb8185的[CI 43280861557](https://github.com/AritxOnly/bdFun/actions/runs/43280861557)已成功，不替代本批新源码的后续CI与最终release。其余视频详情/平台接线及完整生命周期/最终交付继续。

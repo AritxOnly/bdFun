@@ -8,7 +8,7 @@ import com.aritxonly.bdfun.BrandPink
 
 internal class FullscreenChromeAssembly(val appearance: FullscreenAppearance, val slots: FullscreenChromeSlots)
 
-/** 原app资源、图片请求及尚在迁移的内容只在组装壳接线，不进入视频模块。 */
+/** 原app资源、图片请求与共用设置展示只在组装壳接线，不进入视频模块。 */
 @Composable
 internal fun rememberFullscreenChromeAssembly(): FullscreenChromeAssembly {
     val settings = LocalVideoPageState.current.settings
@@ -23,12 +23,13 @@ internal fun rememberFullscreenChromeAssembly(): FullscreenChromeAssembly {
                 AsyncImage(model = rememberImageRequest(face), contentDescription = null,
                     contentScale = ContentScale.Crop, modifier = modifier)
             },
-            audio = { info, playback, actions, modifier ->
-                FullscreenAudioMode(info = info, playback = playback,
-                    onBack = { actions.onAudioOnlyChanged(false) }, onPlayPause = actions.onPlayPause,
-                    onSeek = actions.onSeek, onSeekRelative = actions.onSeekRelative, modifier = modifier)
+            cover = { cover, modifier ->
+                AsyncImage(model = rememberImageRequest(cover), contentDescription = null,
+                    contentScale = ContentScale.Crop, modifier = modifier)
             },
-            danmaku = { info, close -> DanmakuPanel(info, close) },
+            danmakuSettings = { items ->
+                DanmakuSettingsContent(fullscreen = true, onInteract = {}, danmakuItems = items)
+            },
         )
     }
     return FullscreenChromeAssembly(FullscreenAppearance(BrandPink, icons,

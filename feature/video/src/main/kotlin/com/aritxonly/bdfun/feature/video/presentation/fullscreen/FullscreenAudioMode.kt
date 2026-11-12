@@ -35,8 +35,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import com.aritxonly.bdfun.BrandPink
 import com.kyant.shapes.Capsule
 
 @Composable
@@ -48,14 +46,16 @@ internal fun FullscreenAudioMode(
     onSeek: (Long) -> Unit,
     onSeekRelative: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    appearance: FullscreenAppearance,
+    slots: FullscreenChromeSlots,
 ) {
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val actions = FullscreenAudioActions(onBack, onPlayPause, onSeek, onSeekRelative)
-        FullscreenAudioBackground(info.cover)
-        FullscreenAudioBody(info, playback, actions)
+        FullscreenAudioBackground(info.cover, slots.cover)
+        FullscreenAudioBody(info, playback, actions, appearance, slots)
         FullscreenAudioTopBar(info.title, onBack)
-        FullscreenAudioStatus()
+        FullscreenAudioStatus(appearance.showTime)
     }
 }
 
@@ -65,14 +65,12 @@ private class FullscreenAudioActions(
 )
 
 @Composable
-private fun FullscreenAudioBackground(cover: String) {
+private fun FullscreenAudioBackground(cover: String, image: @Composable (String, Modifier) -> Unit) {
     // 不透明底：进听视频后下方 PlayerView 的视频帧不会透出来
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF08090D)))
-    AsyncImage(
-        model = rememberImageRequest(cover),
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        modifier = Modifier
+    image(
+        cover,
+        Modifier
             .fillMaxSize()
             .blur(46.dp)
             .graphicsLayer { alpha = 0.55f },
@@ -90,36 +88,34 @@ private fun FullscreenAudioBackground(cover: String) {
 }
 
 @Composable
-private fun FullscreenAudioBody(info: FullscreenPlayerInfo, playback: FullscreenPlaybackState, actions: FullscreenAudioActions) {
+private fun FullscreenAudioBody(info: FullscreenPlayerInfo, playback: FullscreenPlaybackState, actions: FullscreenAudioActions, appearance: FullscreenAppearance, slots: FullscreenChromeSlots) {
     Row(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 76.dp, vertical = 40.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AsyncImage(
-            model = rememberImageRequest(info.cover),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
+        slots.cover(
+            info.cover,
+            Modifier
                 .size(310.dp)
                 .clip(RoundedCornerShape(26.dp))
                 .background(Color.White.copy(alpha = 0.08f)),
         )
         Spacer(Modifier.width(70.dp))
         Column(modifier = Modifier.weight(1f)) {
-            FullscreenAudioMetadata(info)
+            FullscreenAudioMetadata(info, appearance.accentColor)
             FullscreenAudioTimeline(playback, actions.onSeek)
-            FullscreenAudioTransport(playback, actions)
+            FullscreenAudioTransport(playback, actions, appearance.icons.play)
         }
     }
 }
 
 @Composable
-private fun FullscreenAudioMetadata(info: FullscreenPlayerInfo) {
+private fun FullscreenAudioMetadata(info: FullscreenPlayerInfo, accentColor: Color) {
     Text(
         text = "听视频",
-        color = BrandPink,
+        color = accentColor,
         fontSize = 12.sp,
         fontWeight = FontWeight.Medium,
     )
@@ -173,7 +169,7 @@ private fun FullscreenAudioTimeline(playback: FullscreenPlaybackState, onSeek: (
 }
 
 @Composable
-private fun FullscreenAudioTransport(playback: FullscreenPlaybackState, actions: FullscreenAudioActions) {
+private fun FullscreenAudioTransport(playback: FullscreenPlaybackState, actions: FullscreenAudioActions, playIcon: Int) {
     Spacer(Modifier.height(24.dp))
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -199,7 +195,7 @@ private fun FullscreenAudioTransport(playback: FullscreenPlaybackState, actions:
                 .clickable(interactionSource = null, indication = null, onClick = actions.onPlayPause),
             contentAlignment = Alignment.Center,
         ) {
-            if (playback.playing) PauseGlyph(Color.Black) else PlayGlyph(com.aritxonly.bdfun.ui.TeakIcon.PlayerPlay, Color.Black, 26.dp)
+            if (playback.playing) PauseGlyph(Color.Black) else PlayGlyph(playIcon, Color.Black, 26.dp)
         }
         Box(
             modifier = Modifier
@@ -261,9 +257,8 @@ private fun BoxScope.FullscreenAudioTopBar(title: String, onBack: () -> Unit) {
 }
 
 @Composable
-private fun BoxScope.FullscreenAudioStatus() {
-    val settings = LocalVideoPageState.current.settings
-    if (settings.showFullscreenTime) {
+private fun BoxScope.FullscreenAudioStatus(showTime: Boolean) {
+    if (showTime) {
         FullscreenStatusLine(
             modifier = Modifier
                 .align(Alignment.TopCenter)

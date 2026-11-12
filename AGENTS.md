@@ -448,3 +448,7 @@ SpaceApi的space只负责原五个并发请求、原await顺序和条件获赞�
 视频/播放器与评论展示从当前VideoPagePresentationState.dependencies取得控制器工厂、进度/下载/发送记录端口、播放队列、后台桥及诊断回调，不再回查AppGraph或旧PlaybackProgressStore/VideoPlayQueue入口。VideoStateFactory位于实际feature:video/application，CommentStateFactory位于feature/comment/application；每次创建独立控制器。原TeakUI渲染函数体保持。字幕/状态行/画质标签/全屏进度条及电视指示器已原样迁入feature:video/presentation/fullscreen，后续迁移不得恢复app/infra反向依赖。
 
 跨视频/直播复用的资源播放图标、暂停Canvas和PixelIcon属于TeakUI纯展示，不通过feature:video供另一个feature调用；资源ID仍由app显式传入。全屏业务面板/控制器仍属于feature:video。
+
+### 2026-11-13 全屏音频/输入迁移检查点
+
+app/ui/player/fullscreen原三份剩余展示已迁入feature:video。听视频直接使用显式外观/封面请求；弹幕输入接收发送器getter，必须在点击submit时读取最新注册回调，不能改成composition时捕获sender值。DanmakuSettingsContent是设置/视频/直播共用设置展示，继续由app槽组装，禁止feature:video反向依赖settings feature。旧pointerInputSlider全仓无调用已删除；实际弹幕滑块私有androidPointerSlider保持原样。

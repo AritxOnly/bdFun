@@ -53,7 +53,10 @@ fun FullscreenPlayerChrome(
 ) {
 
     if (playback.audioOnly) {
-        slots.audio(info, playback, actions, modifier)
+        FullscreenAudioMode(info = info, playback = playback,
+            onBack = { actions.onAudioOnlyChanged(false) }, onPlayPause = actions.onPlayPause,
+            onSeek = actions.onSeek, onSeekRelative = actions.onSeekRelative,
+            modifier = modifier, appearance = appearance, slots = slots)
         return
     }
 
@@ -86,7 +89,7 @@ fun FullscreenPlayerChrome(
                 onClose = { onPanelChanged(FullscreenPanel.None) },
                 visible = panel != FullscreenPanel.None,
                 accentColor = appearance.accentColor,
-                danmakuContent = slots.danmaku,
+                danmakuSettings = slots.danmakuSettings,
             )
         }
     }

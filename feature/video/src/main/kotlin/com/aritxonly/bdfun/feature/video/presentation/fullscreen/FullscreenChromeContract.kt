@@ -14,9 +14,9 @@ data class FullscreenAppearance(
     val showActions: Boolean, val showViewerCount: Boolean, val showTime: Boolean,
 )
 
-/** 共用图片请求和仍在迁移的组合由app提供，布局与点击归视频模块。 */
+/** 图片请求和跨设置/视频/直播共用的设置内容由app组装，视频布局与点击归本模块。 */
 class FullscreenChromeSlots(
     val avatar: @Composable (String, Modifier) -> Unit,
-    val audio: @Composable (FullscreenPlayerInfo, FullscreenPlaybackState, FullscreenActions, Modifier) -> Unit,
-    val danmaku: @Composable (FullscreenPlayerInfo, () -> Unit) -> Unit,
+    val cover: @Composable (String, Modifier) -> Unit,
+    val danmakuSettings: @Composable (List<com.aritxonly.bdfun.core.model.video.DanmakuItem>) -> Unit,
 )

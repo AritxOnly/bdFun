@@ -18,6 +18,7 @@ import com.aritxonly.bdfun.data.DanmakuItem
 internal fun BoxScope.PlayerDanmakuInputOverlay(
     fullscreen: Boolean, danmaku: List<DanmakuItem>, ui: VideoPlayerUiStateHolder,
 ) {
+    val page = LocalVideoPageState.current
     var fsInputOpen by ui.fsInputOpen
     // 全屏弹幕输入：点输入框后从底部弹出，和竖屏共用同一套发送器
     if (fullscreen && fsInputOpen) {
@@ -40,6 +41,7 @@ internal fun BoxScope.PlayerDanmakuInputOverlay(
         FullscreenDanmakuInput(
             onDismiss = { fsInputOpen = false },
             items = danmaku,
+            sender = { page.danmakuSender },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth(),

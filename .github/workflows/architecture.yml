@@ -37,4 +37,5 @@ jobs:
           --tests '*VideoReadCacheTest'
           --tests '*VideoInteractionStateHolderTest'
           --tests '*VideoPlayerAssemblyTest'
+          --tests '*FullscreenDanmakuComposerStateTest'
           --no-parallel --max-workers=2

@@ -468,3 +468,10 @@ Brotli 0.1.2沿用main选择，集中版本表并仅由infra:bili声明，用于
 - 4个scrub回调归入原FullscreenScrubActions，根入口维持≤12参数。原264ms显隐、遮罩断点、尺寸/间距/字体/文字/条件、选中状态与业务回调不改；主机瞬态状态按现有规范放入StateHolder。
 - 面板主机改用TeakUI已有rememberManualProgress；已逐字核对它与旧app函数的动画体一致（含LaunchedEffect键、8ms delay和起止处理），不新增第二套动画实现。
 - PixelIcon/PlayGlyph/PauseGlyph被视频和直播共同使用，放入TeakUI纯展示；不得让直播通过视频feature取得图标。PlayerSettingGlyphs及其它视频专用绘制归视频模块。所有新帮助函数按实际跨模块调用保留internal，未增加新依赖或新UI模块。
+
+## 2026-11-13 · 全屏音频、输入与弹幕设置外壳
+
+- FullscreenAudioMode/FullscreenDanmakuComposer/FullscreenDanmakuPanel迁入实际视频模块，app原fullscreen目录清空；音频外观、原播放图标、时钟开关显式传入，封面槽继续使用原rememberImageRequest和Coil节点。没有把图片策略复制到模块或改模糊/遮罩/裁切参数。
+- 输入发送器采用getter，在submit点击时读取最新页面注册回调；输入、字体、模式、颜色、80ms聚焦、键盘和成功/失败后收起规则保持。原8项纯状态测试逐字迁移到视频模块，不复制测试或更改断言。
+- DanmakuPanel保留原两层Column和唯一viewport滚动，设置正文通过app槽提供，传原info.danmakuItems/fullscreen=true/onInteract空回调；该正文还被设置和直播使用，不能为了视频模块迁移制造feature间依赖。
+- 原计划下沉pointerInputSlider，经全仓引用核对发现它实际无调用，真实滑块用私有androidPointerSlider；因此直接删除旧死函数，没有增加新的TeakUI手势API，也没有替换真实滑块。
