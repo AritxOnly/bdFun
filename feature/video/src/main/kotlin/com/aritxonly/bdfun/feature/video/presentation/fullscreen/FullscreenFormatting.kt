@@ -17,25 +17,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.data.SubtitleCue
+import com.aritxonly.bdfun.core.model.video.SubtitleCue
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-internal fun hasNextPage(info: FullscreenPlayerInfo): Boolean {
+fun hasNextPage(info: FullscreenPlayerInfo): Boolean {
     if (info.pages.size <= 1) return false
     val index = info.pages.indexOfFirst { it.cid == info.currentCid }
     return index >= 0 && index + 1 < info.pages.size
 }
 
-internal fun viewerText(info: FullscreenPlayerInfo): String {
+fun viewerText(info: FullscreenPlayerInfo): String {
     val text = info.onlineText.ifBlank {
         if (info.onlineCount > 0) compactCount(info.onlineCount) else ""
     }
     return if (text.isBlank()) "" else "${text}人正在看"
 }
 
-internal fun compactCount(value: Long): String {
+fun compactCount(value: Long): String {
     if (value < 10_000) return value.toString()
     if (value >= 100_000_000) return trimCount(value / 100_000_000.0) + "亿"
     return trimCount(value / 10_000.0) + "万"
@@ -46,17 +46,17 @@ internal fun trimCount(value: Double): String {
     return if (one.endsWith(".0")) one.dropLast(2) else one
 }
 
-internal fun trimSpeed(value: Float): String {
+fun trimSpeed(value: Float): String {
     val one = "%.2f".format(Locale.CHINA, value)
     return one.trimEnd('0').trimEnd('.')
 }
 
-internal fun clockText(): String =
+fun clockText(): String =
     SimpleDateFormat("HH:mm", Locale.CHINA).format(Date())
 
 /** 字幕层：控件自动隐藏后仍然显示当前句。 */
 @Composable
-internal fun SubtitleOverlay(
+fun SubtitleOverlay(
     cues: List<SubtitleCue>,
     positionMs: Long,
     bottomPadding: androidx.compose.ui.unit.Dp,

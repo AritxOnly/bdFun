@@ -442,3 +442,7 @@ SpaceApi的space只负责原五个并发请求、原await顺序和条件获赞�
 ### 2026-11-13 视频模块接线
 
 :feature:video承接纯业务状态、原生播放器presentation端口、播放器/全屏不可变契约与状态投影；只依赖core与现有TeakUI，不依赖app/infra或其它feature。app保留Activity/平台装配与原TeakUI渲染入口，逐步通过模块契约接线；搬迁不重写UI树。仅实际跨模块的状态/端口契约公开，内部实现函数保持internal/private；测试随被测实现移动，不复制双份。完整渲染/作用域审计与CI仍按全量目标继续。
+
+### 2026-11-13 视频与评论显式依赖检查点
+
+视频/播放器与评论展示从当前VideoPagePresentationState.dependencies取得控制器工厂、进度/下载/发送记录端口、播放队列、后台桥及诊断回调，不再回查AppGraph或旧PlaybackProgressStore/VideoPlayQueue入口。VideoStateFactory位于实际feature:video/application，CommentStateFactory位于feature/comment/application；每次创建独立控制器。原TeakUI渲染函数体保持。字幕/状态行/画质标签/全屏进度条及电视指示器已原样迁入feature:video/presentation/fullscreen，后续迁移不得恢复app/infra反向依赖。

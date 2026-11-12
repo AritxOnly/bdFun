@@ -21,7 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
 @Composable
-internal fun FullscreenStatusLine(modifier: Modifier = Modifier) {
+fun FullscreenStatusLine(modifier: Modifier = Modifier) {
 
     val clock by produceState(initialValue = clockText()) {
         while (true) {
@@ -40,7 +40,7 @@ internal fun FullscreenStatusLine(modifier: Modifier = Modifier) {
 }
 
 @Composable
-internal fun ViewerGlyph(tint: Color = Color.White.copy(alpha = 0.86f)) {
+fun ViewerGlyph(tint: Color = Color.White.copy(alpha = 0.86f)) {
 
     Canvas(modifier = Modifier.size(12.dp)) {
         val stroke = 1.dp.toPx()

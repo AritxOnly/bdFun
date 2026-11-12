@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.sp
 import com.kyant.shapes.Capsule
 
 @Composable
-internal fun QualityAction(label: String, onClick: () -> Unit) {
+fun QualityAction(label: String, onClick: () -> Unit) {
 
     val base = qualityBaseLabel(label)
     val badge = qualityBadgeLabel(label)
@@ -76,7 +76,7 @@ internal fun qualityBaseLabel(label: String): String {
     return cleaned.ifBlank { "画质" }
 }
 
-internal fun qualityMenuLabel(label: String): String = when {
+fun qualityMenuLabel(label: String): String = when {
     label == "1080P+" || label == "1080P 高码率" -> "1080P 高码率"
     label == "1080P60" -> "1080P 60帧"
     label == "720P60" -> "720P 60帧"

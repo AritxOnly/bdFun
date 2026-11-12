@@ -452,3 +452,11 @@ Brotli 0.1.2沿用main选择，集中版本表并仅由infra:bili声明，用于
 21个原对象按职责删除：纯规则/参数/mapper/协议改为具名顶层函数与不可变常量，路由动作显式接收Context，回退房间按页面创建。协议Packet仍保留内容相等与原压缩/分包限制；HTTP池与调试诊断的真实进程生命周期保留。没有改用companion或隐藏可变全局值来制造数字达标。
 
 主题只读适配器由AppContainer持有，读取现有SettingsBindings的colorStyle，不再把设置值复制进ThemePalette.style。移除设置/引导中的冗余双写，原ARGB颜色与未初始化时AC粉回退保持；SnapshotStateObserver验证同源观察，两个独立适配器验证不串状态。
+
+## 2026-11-13 · 显式视频/评论接缝与真实展示组件迁移
+
+- VideoStateFactory只接收领域仓储，按原顺序创建独立详情/互动/元数据/入口/历史控制器；CommentStateFactory共享账号点赞快照，不共享页面控制器。app通过VideoPageDependencies/CommentDependencies组装平台与展示投影，不在业务模块导入app实现。
+- 页面从已有LocalVideoPageState获取显式依赖，进度/下载/发送记录使用原core端口，后台/原生播放使用原实例。保持remember、effect和listener注册/释放时机；评论remember键使用现成SessionIdentity，区分同UID重新登录。旧全局进度/队列别名与无调用AppGraph工厂/点赞入口删除，不留兼容双写。
+- ui/video、ui/player、VideoPlayer与presentation/comment新增禁止AppGraph、旧全局别名和直接日志实现的守卫；诊断回调仍指向原debug日志，不改变日志格式或release开关。
+- 五个纯展示文件（FullscreenFormatting/QualityLabel/Status/SeekBar/SeekThumb）进入实际视频模块；只调整跨模块可见性和SubtitleCue模型import，逐文件去掉import/visibility后内容完全一致。全屏进度状态类原样分离，内联进度状态留原调用方；不改尺寸、字体、颜色、指针手势或布局节点。
+- 这是模块边界继续收口，不代表全部视频渲染已迁完；原生装配和剩余展示组合仍在app，完整生命周期及最终交付继续。

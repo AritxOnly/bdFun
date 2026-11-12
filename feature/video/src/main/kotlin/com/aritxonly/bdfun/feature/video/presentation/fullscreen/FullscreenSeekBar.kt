@@ -26,7 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
 @Composable
-internal fun FullscreenSeekBar(
+fun FullscreenSeekBar(
     positionMs: Long,
     durationMs: Long,
     bufferedMs: Long = 0L,

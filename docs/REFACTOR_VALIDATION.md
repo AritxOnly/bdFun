@@ -583,3 +583,10 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - 最终集中装机脚本已确认真实起播，但进入视频后窗口变为横屏，未满足脚本的竖屏坐标前提。等待wm锁、关闭应用自动转向及对齐系统转向设置后，该前置条件仍不成立；停止重复该脚本，不计全屏/PiP/恢复组合通过，不为此修改生产逻辑。各次finally均force-stop，恢复原settings字节及窗口/系统转向设置；完整组合保留待验收。
 
 `/tmp/bdfun-release-startup.log`：当前R8 release安装成功，COLD启动2599ms，真实推荐首页渲染，crash缓冲为空；截图`/tmp/bdfun-release-startup.png`已人工查看。结束force-stop，不改账号/设置。此记录不代替旋转/PiP等完整组合。
+
+### 2026-11-13 视频/评论显式依赖与全屏展示叶组件
+
+- `/tmp/bdfun-video-explicit.log`：显式视频依赖首轮checkLayering+debug通过，1m；`/tmp/bdfun-comment-explicit.log`：评论依赖接线后通过，36s；删除最后无调用进度/队列别名后`/tmp/bdfun-explicit-final-compile.log`通过，32s。无业务算法变更，没有为工厂构造器新增镜像单测；只新增2项守卫测试方法，现23项源码守卫反例，原模块图/PSI工具测试保持。
+- `/tmp/bdfun-explicit-page-runtime.log`：安装当前debug，核对media_session属于com.aritxonly.bdfun.debug且PLAYING，进入评论tab后真实253条评论数量/列表渲染，crash为空，最后force-stop。截图`/tmp/bdfun-explicit-comment.png`已查看；没有改设置、发送或账号写操作。该记录不声称旋转/PiP组合通过。
+- 全屏五个展示文件与迁移前HEAD逐文件对照，除import与跨模块internal可见性外完全一致；新增拆出的状态类体原样。`/tmp/bdfun-video-render-leaves.log`：独立feature:video assembleDebug、app debug及严格架构/尺寸通过，28s，最新957文件/10436节点/0违规。
+- 本批生产源码已变化，上一阶段5c61d91的release及CI成功记录仅覆盖其对应提交；不作为当前源码最终release/CI证据。最终源码确定后再做默认release、R8及交付，避免每个小搬迁重复release。

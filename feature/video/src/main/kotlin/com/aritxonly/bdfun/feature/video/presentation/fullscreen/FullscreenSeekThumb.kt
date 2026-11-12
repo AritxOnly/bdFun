@@ -14,7 +14,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 
 @Composable
-internal fun TvSeekThumb(
+fun TvSeekThumb(
     look: Float,
     modifier: Modifier = Modifier,
 ) {
