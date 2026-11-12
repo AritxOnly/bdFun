@@ -571,3 +571,15 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - `/tmp/bdfun-message-owner.log`：checkLayering、debug及4组48项定向测试全部通过，36s。分别私信19/会话10/消息流10/关系9。
 - SCOPE_AND_CACHE_AUDIT列明21个Activity及旧六类Memory补丁去向，没有用静态Map替代object；公开只读元数据缓存与账号/页面状态分开保留原语义。
 - CI第二次在平台安装失败：实际SDK包名为platforms;android-37.0，本机source.properties/package.xml确认；workflow已按真实名称修正，使用runner已有新版sdkmanager。尚待该版本远端结果。
+
+### 2026-11-13 当前源码release与远端CI
+
+- main已fetch核对，仍为4c4e03b，无新遗漏提交。当前生产源码dc80049，构建所在提交5c61d91（其间仅CI修正）。
+- `/tmp/bdfun-final-release.log`：默认`:app:assembleRelease`含R8/lint通过，5m08s；499 tasks（233 executed/74 cache/192 up-to-date）。未覆盖包名或签名。
+- APK：`app/build/outputs/apk/release/app-release.apk`，13,044,481 bytes，包名com.aritxonly.bdfun，versionCode500/versionName preview-5.0，min33/target37。SHA256 `38743b8c0a9461444126d06db0390b64abff0a245f8421eb7ea3336a3ddcd62a`。
+- apksigner verify通过，v2=true；默认Android Debug证书，SHA256 `9d6aabd27c61c797ff68293e229707d82083f5f4108b091ded2976bea7c38db1`。没有正式keystore，不称作正式发布签名。
+- 远端[Actions 43269829285](https://github.com/AritxOnly/bdFun/actions/runs/43269829285)已全部成功：架构/严格尺寸、debug、故意注入feature→infra生产依赖并拒绝指定错误、core政策与视频定向测试。环境准备修复依据实际日志和本机SDK元数据；不是绕开检查。
+- 最新严格PSI：954文件/10443节点/0违规。MODULARIZATION_REVIEW提供一页实际数据与结论；未为性能报告追加clean构建，也不编造冷基线或因果收益。
+- 最终集中装机脚本已确认真实起播，但进入视频后窗口变为横屏，未满足脚本的竖屏坐标前提。等待wm锁、关闭应用自动转向及对齐系统转向设置后，该前置条件仍不成立；停止重复该脚本，不计全屏/PiP/恢复组合通过，不为此修改生产逻辑。各次finally均force-stop，恢复原settings字节及窗口/系统转向设置；完整组合保留待验收。
+
+`/tmp/bdfun-release-startup.log`：当前R8 release安装成功，COLD启动2599ms，真实推荐首页渲染，crash缓冲为空；截图`/tmp/bdfun-release-startup.png`已人工查看。结束force-stop，不改账号/设置。此记录不代替旋转/PiP等完整组合。
