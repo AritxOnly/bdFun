@@ -16,9 +16,9 @@ internal fun VideoActivityContent(
     pipMode: Boolean, host: VideoActivityHostActions,
 ) {
     val page = LocalVideoPageState.current
-    val video = rememberVideoActivityEntry(route?.snapshot, requestedBvid, requestedAid, host) ?: return
+    val video = rememberVideoActivityEntry(route?.snapshot, requestedBvid, requestedAid, host, page.dependencies.controllers) ?: return
     val ui = remember { VideoActivityPageStateHolder(page.autoNextRequest) }
-    BindVideoActivityQueue(video, ui, host)
+    BindVideoActivityQueue(video, ui, host, page.dependencies.queue) { page.autoNextRequest }
     val fullscreen = page.playerUi.fullscreen || pipMode
     val alpha = rememberManualProgress(if (fullscreen) 0f else 1f, 200f)
     val commentRequest = remember { Triple(route?.commentRoot ?: 0L, route?.commentTarget ?: 0L, route?.seekMs ?: 0L) }

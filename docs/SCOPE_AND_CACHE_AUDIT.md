@@ -70,3 +70,7 @@ VideoPlayerEntry的UiState、playback、tracking仍沿用原无键remember，观
 ### 2026-11-13 视频详情入口迁移
 
 VideoDetailEntry仍保留原bvid控制器/选择/元数据remember键和页面ui/description作用域，scope仍由同一页面rememberCoroutineScope持有。动作在原键下创建并捕获当时app平台host，onBack保持rememberUpdatedState；host只引用原Context和同一页面，不入进程容器。VideoDetailDanmakuHost由该页面直接实现，没有镜像state/sender；原DisposableEffect随aid/cid释放。app布局/跨feature槽不持久保存参数对象，VideoDetailLayoutContent仅传本次组合输入。
+
+### 2026-11-13 视频Activity页面壳迁移
+
+VideoActivityPageStateHolder仍在同一个Activity composition的remember创建，包含原consumedAutoNext/comments/danmakuInputOpen；没有改为进程状态或增加保存恢复。entry仍remember无键，初始化snapshot和解析Effect(Unit)保持；queue在原bvid与autoNext计数键下执行。OverlayHost由同一页面直接实现，panelBackdrop保持原mutableState引用；可组合槽仅提供原控件和本次布局，不入容器。

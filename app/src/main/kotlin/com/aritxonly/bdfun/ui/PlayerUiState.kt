@@ -19,7 +19,7 @@ internal class VideoPagePresentationState(
     val settings: com.aritxonly.bdfun.core.domain.SettingsRepository,
     val dependencies: VideoPageDependencies,
     private val holder: VideoPageStateHolder = VideoPageStateHolder(),
-) : PlayerPageHost, VideoDetailDanmakuHost {
+) : PlayerPageHost, VideoDetailDanmakuHost, VideoPageOverlayHost {
     private var snapshot by mutableStateOf(holder.state.value)
     init { scope.launch(start = CoroutineStart.UNDISPATCHED) { holder.state.collect { snapshot = holder.state.value } } }
     private fun update(transform: (com.aritxonly.bdfun.core.application.VideoPageState) -> com.aritxonly.bdfun.core.application.VideoPageState) {
@@ -75,7 +75,7 @@ internal class VideoPagePresentationState(
                 playerBottomPx = value,
             ),
         ) }
-    var danmakuInputClose: Int
+    override var danmakuInputClose: Int
         get() = snapshot.danmakuInputClose
         set(value) = update { it.copy(
             requests = it.requests.copy(
@@ -89,7 +89,7 @@ internal class VideoPagePresentationState(
                 danmakuProgressMs = value,
             ),
         ) }
-    var replyEditing: Boolean
+    override var replyEditing: Boolean
         get() = snapshot.replyEditing
         set(value) = update { it.copy(
             reply = it.reply.copy(
@@ -110,7 +110,7 @@ internal class VideoPagePresentationState(
                 consumedReplyFocus = value,
             ),
         ) }
-    var dismissReply: Int
+    override var dismissReply: Int
         get() = snapshot.dismissReply
         set(value) = update { it.copy(
             requests = it.requests.copy(
@@ -124,7 +124,7 @@ internal class VideoPagePresentationState(
                 consumedDismissReply = value,
             ),
         ) }
-    var commentMenuOpen: Boolean
+    override var commentMenuOpen: Boolean
         get() = snapshot.commentMenuOpen
         set(value) = update { it.copy(
             reply = it.reply.copy(
@@ -194,7 +194,7 @@ internal class VideoPagePresentationState(
                 replyParent = value,
             ),
         ) }
-    var panelBackdrop by mutableStateOf<ImageBitmap?>(null)
+    override var panelBackdrop by mutableStateOf<ImageBitmap?>(null)
     var commentSender: (suspend (String, String?) -> Boolean)? = null
     override var danmakuSender: (suspend (String, Int, Int, Int) -> Boolean)? = null
     var playerCollapseScroll: ((Float) -> Float)? = null

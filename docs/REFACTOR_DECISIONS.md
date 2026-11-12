@@ -541,3 +541,9 @@ P5-03将页面控制器分组、remember状态创建、初次加载和元信息�
 P5-03将VideoDetailEntry、详情效果编排、页面弹幕发送绑定/后台元数据投影、VideoDetailViewActions及播放器动作映射迁入实际视频模块。app只组装原Context提示/Intent分享/后台交接、页面实例和评论/收藏夹等跨feature槽。原业务动作/控制器未新建副本；设置/进度/下载仍在事件时读原值，remember动作的原键与latestOnBack保持。分享仍先打开原ACTION_SEND chooser再recordShare，退出仍先按原条件requestHandOff再onBack。发送器成功后历史记录/自身弹幕插入顺序、每个进度读点、aid/cid绑定/释放和后台元数据Effect键保持。
 
 初版十参数Composable布局槽触发当前编译器Function with 11 params had 1 changed params but expected 2；改为VideoDetailLayoutContent具名对象（10字段），原调用参数/节点不变，不升级依赖或放宽尺寸限制。原跨功能收藏夹面板仍由app提供，避免feature间依赖。
+
+### 2026-11-13 视频Activity页面壳
+
+P5-03将页面瞬时状态、原生host中立契约及入口/队列/窗口回调效果归入feature:video。原remember/LaunchedEffect/BackHandler键、队列清理与next→openVideo→finish顺序保持；app仍负责实际窗口和路由，feature不引用Activity实现。实际页面Box/54dp渐变/评论覆盖背景及回复/弹幕输入触摸遮罩/弹幕面板动画迁入VideoPageBody/VideoPageOverlay，原共享控件通过槽装配，原节点顺序不变。
+
+页面直接实现OverlayHost，无state或位图副本。底边在graphicsLayer通过getter读取，原fade alpha/stops保持。动画使用已存在的TeakUI同体manual/spring函数，保留180ms、300/22与0.01/0.99等原阈值；没有创造新的全局状态或跨feature导入。

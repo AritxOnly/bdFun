@@ -496,3 +496,7 @@ VideoDetailControllers/ScreenStateHolders、初次离线→内存→网络加载
 ### 2026-11-13 详情入口、动作与效果归属
 
 VideoDetailEntry在feature:video拥有原状态观察/作用域/画质选择/效果/渲染顺序；app VideoScreen只转发并组装平台和跨feature槽。VideoDetailViewActions与播放器动作绑定移入视频模块，VideoDetailActionHost只提供原提示/分享/下载/进度/后台交接，不复制状态。remember动作的原bvid/控制器/scope键保持；onBack继续rememberUpdatedState。页面本身直接实现VideoDetailDanmakuHost，sender与aid/cid/进度使用原实例，DisposableEffect键和原释放行为不改。布局输入用具名对象跨模块传递，规避当前Compose编译器十参数回调changed-mask异常；没有改变原布局层级。
+
+### 2026-11-13 视频页面壳展示与效果归属
+
+VideoActivityPageStateHolder、VideoActivityHostActions中立契约、入口解析观察/队列/窗口回调效果位于feature:video；app继续创建原控制器并提供窗口/路由动作。VideoPageBody拥有原页面Box/渐变/评论背景，播放器底边必须在graphicsLayer内调用getter；评论内容仍由app跨feature槽提供。VideoPageOverlay拥有原输入/回复触摸遮罩和弹幕面板动画，VideoPageOverlayHost由同一页面状态直接实现，禁止复制reply/sender/panel状态。TeakUI动画已与原app体核对一致，原弹簧300/22、180ms回复渐变与所有阈值/对齐不改。

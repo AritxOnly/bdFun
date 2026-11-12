@@ -2,7 +2,6 @@ package com.aritxonly.bdfun.ui
 
 
 import androidx.activity.compose.BackHandler
-import com.aritxonly.bdfun.ui.LocalVideoPageState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
@@ -11,12 +10,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 
 @Composable
-internal fun rememberVideoActivityEntry(
-    snapshot: com.aritxonly.bdfun.data.VideoItem?, requestedBvid: String?, requestedAid: Long,
-    host: VideoActivityHostActions,
-): com.aritxonly.bdfun.data.VideoItem? {
-    val dependencies = LocalVideoPageState.current.dependencies
-    val entry = remember { dependencies.controllers.entry(snapshot) }
+fun rememberVideoActivityEntry(
+    snapshot: com.aritxonly.bdfun.core.model.video.VideoItem?, requestedBvid: String?, requestedAid: Long,
+    host: VideoActivityHostActions, factory: com.aritxonly.bdfun.feature.video.application.VideoStateFactory,
+): com.aritxonly.bdfun.core.model.video.VideoItem? {
+    val entry = remember { factory.entry(snapshot) }
     val state by entry.state.collectAsState()
     if (state.video == null) {
         LaunchedEffect(Unit) {
@@ -28,28 +26,28 @@ internal fun rememberVideoActivityEntry(
 }
 
 @Composable
-internal fun BindVideoActivityQueue(
-    video: com.aritxonly.bdfun.data.VideoItem, ui: VideoActivityPageStateHolder, host: VideoActivityHostActions,
+fun BindVideoActivityQueue(
+    video: com.aritxonly.bdfun.core.model.video.VideoItem, ui: VideoActivityPageStateHolder, host: VideoActivityHostActions,
+    queue: com.aritxonly.bdfun.core.application.PlaybackQueueStateHolder, autoNextRequest: () -> Int,
 ) {
-    val page = LocalVideoPageState.current
     LaunchedEffect(video.bvid) {
-        if (!page.dependencies.queue.contains(video.bvid)) {
-            page.dependencies.queue.clear()
+        if (!queue.contains(video.bvid)) {
+            queue.clear()
         }
     }
     var consumedAutoNext by ui.consumedAutoNext
-    LaunchedEffect(page.autoNextRequest) {
-        val tick = page.autoNextRequest
+    LaunchedEffect(autoNextRequest()) {
+        val tick = autoNextRequest()
         if (tick == consumedAutoNext) return@LaunchedEffect
         consumedAutoNext = tick
-        val next = page.dependencies.queue.next() ?: return@LaunchedEffect
+        val next = queue.next() ?: return@LaunchedEffect
         host.openVideo(next)
         host.finish()
     }
 }
 
 @Composable
-internal fun BindVideoActivityWindow(
+fun BindVideoActivityWindow(
     immersiveStatus: Boolean, ui: VideoActivityPageStateHolder, host: VideoActivityHostActions,
 ) {
     var comments by ui.comments

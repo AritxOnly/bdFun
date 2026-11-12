@@ -685,3 +685,9 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - quality/page/cache/next/exit函数经native host/model包正规化后与迁移前逐字一致；最初文本比较工具把class尾括号算入旧leaveVideo，修正方法体边界后通过，没有改生产函数迎合检查。app/home/video同包同文件名JVM facade清点无冲突。
 - `/tmp/bdfun-detail-entry-runtime.log`当前APK首轮通过：本包PLAYING 20,390ms→暂停稳定采集→WM竖屏→独占横屏→更多→第一次Back只关面板仍保留全屏→第二次Back简介→WM竖屏tab=[97,787,168,850]在author=[173,915,289,978]之上→正常Back退出本包会话消失→crash空。已查看`/tmp/bdfun-lifecycle-detail-entry-returned.png`。finally精确恢复settings/playback_progress及各.bak字节/不存在状态、WM和系统方向并force-stop。没有发送/点赞/关注等交互。
 - 这里验证新模块根入口/动作Back与原视口，未将其当作全部画质/分P/后台服务/PiP返回验收。剩余Activity壳/平台装配、最终main/release和交付继续。
+
+### 2026-11-13 视频页面壳状态、渐变与覆盖层
+
+- `/tmp/bdfun-video-page-shell.log`首轮37s通过严格checkLayering、独立feature:video/app debug；1002生产文件/10625 PSI节点/0违规。纯机械迁移，无新业务规则，不追加镜像单测或重跑上批20项/全套。渐变体除显式底边getter外逐字一致；app与TeakUI manual/spring函数体一致，同包同文件名清点无JVM facade冲突。
+- `/tmp/bdfun-video-page-shell-runtime.log`首驱动失败：误点“弹”开关而非“点我发弹幕”，未建立输入前提；没有改产品迎合，finally已恢复设置/进度/方向。对照VideoPageTabs的实际onOpenInput/onToggleDanmaku接线修正点击后，`/tmp/bdfun-video-page-shell-corrected-runtime.log`通过当前APK：本包PLAYING 20,712ms→暂停/WM竖屏→原弹幕输入打开→空白触摸屏障关闭→评论tab原回复栏→正常退出本包会话释放→crash空。未输入或发送内容。查看`/tmp/bdfun-lifecycle-page-shell-input.png`，原输入栏和键盘显示。
+- 结束逐字恢复settings/playback_progress及各.bak字节或不存在状态、原WM/系统方向，force-stop。没有重复上批全屏/进度用例；实际后台交接、PiP返回、最终main/release/完整验收与交付继续。
