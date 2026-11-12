@@ -738,3 +738,29 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - 测试为原字段构造回归，覆盖nav/QR、App卡/理由、live房间/画质/URL/弹幕host/表情、字幕最小时长、空降范围及最后三个字段边界；不冒充真实直播或登录响应。原凭据/Cookie/buvid/WBI函数体、protobuf/XML模型转换与live URL/规范化helper体经接收者/可见性调整后逐字一致。
 - 复查API字段命中与模型构造：剩余为传输错误信封、认证、发送rpid/图片上传编码，不再混入业务读模型解析。具体清单见RESPONSE_MAPPING_AUDIT.md。初始14项通过不能覆盖后续三处变更，以最终21项结果为本批最终源码证据。
 - 没有重复装机或全套、未执行扫码确认/消息发送/账号写操作。原请求/重试顺序保持；实际直播/字幕/XML回退与完整必要行为、当前源码全套及最终release/交付继续。
+
+### 2026-11-13 冻结源码最终构建与release装机
+
+生产源码2b5cd24、main 4c4e03b已包含；运行日志 `/tmp/bdfun-final-validation-release.log`，一次组合运行3m55s成功，739任务（125执行、7缓存、607最新）。checkLayering、core model/common/domain/application/navigation test、bili/storage/home/video/TeakUI/danmaku/app testDebugUnitTest及app assembleDebug/assembleRelease通过，无追加重复全套。
+
+| 模块 | 测试数 |
+|---|---:|
+| core/common | 8 |
+| core/domain | 90 |
+| core/application | 102 |
+| infra/bili | 156 |
+| infra/storage | 16 |
+| feature/home | 22 |
+| feature/video | 89 |
+| TeakUI | 14 |
+| danmaku-engine | 97 |
+| app | 395 |
+| 合计 | 1089 |
+
+所有测试0失败/错误/跳过。model/navigation无用例，playback无独立单测，不虚计。尺寸1031文件/10709节点/0违规。当前生产提交远端CI43326151184成功（含实际Gradle违规依赖负例）。
+
+release SHA256 `2aadf2aa1b01117b38d4e6ff2e0e5c4044fe499fbd62fcc6cbfab49c7f02197f`，包名com.aritxonly.bdfun，min33/target37，版本preview-5.0(500)，无pkg/签名覆盖；默认Android Debug证书SHA256 `9d6aabd27c61c797ff68293e229707d82083f5f4108b091ded2976bea7c38db1`，v2验签成功。
+
+release安装成功；冷启动1734ms、真实首页推荐与BV1orW46aEba起播成功（同包TeakBili会话PLAYING）。全屏及弹幕/更多面板可用。小窗播放进入真实pinned任务；截图确认系统中央展开图标后点击，任务退出pinned且同包会话仍PLAYING，crash缓冲为空。证据 `/tmp/bdfun-final-release-pip-{activity,sessions,menu.png}` 与 `/tmp/bdfun-final-release-pip-return-{activity,session}.txt`。返回保持原全屏，未宣称该步骤自动恢复详情Tab。设备release已force-stop，临时UI XML已清理；没有改账号设置或点赞/关注/发送，正常播放会记录进度/历史。
+
+按用户安排，全面同数据UI/行为后续验收，不为了填清单额外执行账号写操作或反复全套。当前包为待验收候选，不能由本轮局部检查推导全站一致。
