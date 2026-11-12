@@ -15,6 +15,7 @@ android {
 }
 kotlin { jvmToolchain(21) }
 dependencies {
+    implementation(project(":core:application"))
     api(project(":core:model"))
     api(project(":core:domain"))
     api(project(":TeakUI"))

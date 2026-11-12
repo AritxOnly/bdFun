@@ -1,6 +1,8 @@
 package com.aritxonly.bdfun.feature.home.application
 
 import com.aritxonly.bdfun.core.common.*
+import com.aritxonly.bdfun.core.application.StateHolder
+import com.aritxonly.bdfun.core.application.UiState
 import com.aritxonly.bdfun.core.domain.*
 import com.aritxonly.bdfun.core.model.video.VideoItem
 import kotlinx.coroutines.async
@@ -23,12 +25,12 @@ internal data class HomeFeedUiState(
     val scrollRevision: Long = 0,
     val filteredPage: Boolean = false,
     val empty: Boolean = false,
-)
+) : UiState
 
 /** 这是首页状态模板：不可变 UiState + StateFlow，界面事件只调用这里的动作。 */
-internal class HomeFeedStateHolder(private val feed: FeedRepository, private val videos: VideoRepository) {
+internal class HomeFeedStateHolder(private val feed: FeedRepository, private val videos: VideoRepository) : StateHolder<HomeFeedUiState> {
     private val mutable = MutableStateFlow(HomeFeedUiState())
-    val state: StateFlow<HomeFeedUiState> = mutable.asStateFlow()
+    override val state: StateFlow<HomeFeedUiState> = mutable.asStateFlow()
     private val firstLoad = Mutex()
     private val exclusions = RecommendationExclusions()
     private var page = 1

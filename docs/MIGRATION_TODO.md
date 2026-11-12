@@ -174,7 +174,7 @@ P5-* 依赖 P4-05，且需要团队同意
 
 #### P1-01 · 抽出 `BiliHttpClient`
 - **负责人**：Codex
-- **状态**：进行中（HTTP 执行、重试、URL/请求头/表单准备已抽离；旧方法只转发，待 main 合入后集成验收）
+- **状态**：实现已接入（HTTP执行/重试/请求准备已抽离，main 4c4e03b已合入；真实首页/视频通过，完整消息人工验收见总表）
 - **动作**：先新建 `:infra:bili` 模块（Android library），再把 `dataRequest` / `executeOnce` / `rawRequest` / `postRequest` / `awaitResponse` / `retryDelayMs` 搬进去，只负责：拼 URL、带 Cookie、超时、重试、把 HTTP 错误转成 `AppError`。
 - **前置**：P0-02 / P0-03
 - **验收**：`BiliApi` 里不再出现 `okhttp3.Call`；首页、视频页、消息页三个页面手动点一遍正常
@@ -182,7 +182,7 @@ P5-* 依赖 P4-05，且需要团队同意
 
 #### P1-02 · 抽出 `WbiSigner`
 - **负责人**：Codex
-- **状态**：进行中（密钥缓存与 App/TV 签名已迁移，11 项签名测试通过；尚未实现服务端明确拒签后的自动重取重试）
+- **状态**：实现已接入（WbiSigner与SignedRequestRecovery已接线；明确拒签的签名GET仅刷新/重试一次，POST/风控不重试，取消传播；完整真实接口验收见总表）
 - **动作**：把 `ensureWbiKeys` / `parseWbi` / `signAppParams` 及相关缓存搬进 `infra:bili/WbiSigner`，加一个"密钥过期自动重取"的显式状态。
 - **前置**：P1-01
 - **验收**：需要签名的接口（`view`/`playInfo`/`related`）全部正常；key 过期时能自动重试一次
@@ -262,6 +262,7 @@ P5-* 依赖 P4-05，且需要团队同意
 > 每个任务的结构都一样：把 Composable 里的 `remember { mutableStateOf }` 搬进 StateHolder，Composable 只读 `UiState`。
 
 #### P2-01 · 定义 StateHolder 模板，先改造 `HomeFeedState`
+- **当前实现（2026-11-13）**：core/application提供UiState/StateHolder只读StateFlow契约，首页示例实现；具体动作保留在业务类，未引入泛型事件总线。首页22项现有测试、debug/release与架构检查通过。
 - **动作**：
   1. 在 `:core:application` 定模板（约定 + 一个 `UiState` 基础接口）：`data class XxxUiState`（不可变）+ `class XxxStateHolder` 暴露 `StateFlow<XxxUiState>` + `onEvent(...)`。具体实现放各 feature，不放进 `core`。
   2. 把现有 `HomeFeedState`（已是不错的雏形）改造成模板的标准样例，保留"退出再回来不重新拉取"的现有行为。

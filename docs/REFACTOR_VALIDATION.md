@@ -768,3 +768,10 @@ release安装成功；冷启动1734ms、真实首页推荐与BV1orW46aEba起播�
 ### 2026-11-13 候选包交付
 
 已按原会话授权，通过lark-im以应用机器人身份向当前认证用户本人发送同SHA256的release APK、Note附件及摘要，三次发送均返回ok:true。生产源码仍为2b5cd24；后续5e67342等提交只整理文档，未改变APK源码。草稿PR33已更新为当前范围/结果/待验收项；未合并、未声明全面人工验收通过。全站UI/完整行为按用户明确安排留待后续验收，本次不再重复全套。
+
+### 2026-11-13 任务卡逐项核对：状态契约与服务重建
+
+- P2-01补齐原任务卡明确要求的core/application UiState和StateHolder只读StateFlow契约，首页模板实现；业务动作仍由具体页面提供。首轮编译32s失败：首页未声明core:application依赖，已补显式project依赖；没有改守卫规则。修正后 `/tmp/bdfun-state-contract-corrected.log` 3m38s通过checkLayering、原首页22项测试、debug和R8 release。1032文件/10709节点/0违规；未再次跑1089项全套，没有新增镜像测试或第三方依赖。之前交付的2b5cd24候选包来源不变，不把它冒充本次新增契约的产物。
+- 原后台正常操作用例仅重复一次以观察服务重建：两轮均正常Back交接到真实前台后台服务，媒体暂停/播放成功，stop后同包session和service消失；第二轮重新启动同包新的媒体会话（120→122），再次停止正常，crash空。`/tmp/bdfun-service-recreation-runtime.log` exit0，测试设置与进度四文件逐字/缺失状态恢复并force-stop。该证据是显式停止后的正常重建，不冒充系统杀进程后的START_STICKY/null-intent恢复。
+- 核对P1-02：recoverSignedRead已实际接入BiliRequestGateway，签名GET拒签最多一次恢复；原5项SignedRequestRecoveryTest在1089项集中测试中已通过。原卡“尚未实现”是旧记录，本次纠正状态，未重复实现。
+- P4-03仍有真实代码缺口：VideoEntry缺参后Close→finish；Space/Dynamic缺参直接finish；PrivateChat尚未对talkerId<=0给出明确提示。不将这几条静默路径算作“少传参数明确报错”已完成，下一步补齐原生提示并保持合法入口渲染与交互不变。

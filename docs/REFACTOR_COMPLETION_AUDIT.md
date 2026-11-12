@@ -41,7 +41,7 @@ P5 虽在原计划中标为可选，本次全量目标继续保留，不静默�
 | P3-08 删除 `*Memory` 内存补丁 | 源码审计完成 | SCOPE_AND_CACHE_AUDIT列明原六类补丁去向及缓存上限；无无界可变静态Map | 最终进程回收与页面行为验收继续 |
 | P4-01 `VideoPageBus` → `StateFlow` | 实现已接入，待完整验收 | 页面作用域状态替换全局 VideoPageBus | 后台联动和指定评论跳转；兼容展示投影最终审计 |
 | P4-02 其余三个 Bus 收敛 | 实现已接入，待完整验收 | 滚顶/页面 chrome/刷新等作用域状态 | 清选择/回顶部/消息刷新跨页面装机 |
-| P4-03 `AppGraph.pendingXxx` → 路由参数 | 实现未完全验收 | Route 契约/显式 Intent；pending 参数已迁 | 主入口已输出Route.Video并删除BiliLink；继续所有入口和缺参数错误验收 |
+| P4-03 `AppGraph.pendingXxx` → 路由参数 | 实现未完全验收 | Route 契约/显式 Intent；pending 参数已迁 | 主入口已输出Route.Video并删除BiliLink；发现视频/空间/动态缺参静默finish与私信无效talkerId未提示，P4-03此项仍需代码补齐 |
 | P4-04 `BackgroundPlayback` 单例 → `PlaybackController` | 实现已接入，局部验证 | infra/playback 控制器/服务/会话；系统媒体键原生验证 | 原生后台所有权已迁infra，正常Back交接/系统暂停播放停止已通过；服务销毁重建/耳机组合待人工验收 |
 | P4-05 全局 `object` 审计 | 当前实现通过 | 同口径现7个具名object，含纯资源目录/debug；每项生命周期见GLOBAL_OBJECT_AUDIT.md | 后续接线保持门槛；作用域与最终验收独立检查 |
 | P4-06 `AppContainer` 引入作用域 | 实现及源码审计完成，待装机验收 | 21个Activity统一ensure(applicationContext)；页面状态按工厂/每Activity ViewModel创建；SCOPE_AND_CACHE_AUDIT列明生命周期；消息/私信/关系补即时identity守卫，48项定向测试通过 | 账号切换/进程回收组合装机验收继续 |
@@ -81,3 +81,5 @@ P5 虽在原计划中标为可选，本次全量目标继续保留，不静默�
 - 当前release包名 `com.aritxonly.bdfun`，默认Android Debug证书、APK v2验签通过，SHA256 `2aadf2aa1b01117b38d4e6ff2e0e5c4044fe499fbd62fcc6cbfab49c7f02197f`。release冷启动1734ms、真实推荐/起播/全屏/弹幕/更多面板通过；实际系统PiP小窗→截图识别展开按钮→非pinned且同包PLAYING通过，crash缓冲为空。没有进行点赞/关注/发送类操作。
 - TeakScrollContainer已统一设置等标题页、搜索和条款页；内容列表与左右留白为兄弟节点，共享原状态，不在列表祖先重复scrollable。原宽屏中心/留白/反向拖动装机验证通过。未动main布局/TeakUI设计系统；所有页面同数据像素/行为一致仍需后续人工验收。
 - 上表“剩余验收”保留用户后续验收项，不为补全表格追加账号写操作或重复全套测试。完整功能验收与代码施工分开报告。
+
+2026-11-13任务卡复核补充：P2-01统一UiState/StateHolder契约已补齐，首页22项现有测试及debug/R8 release通过，生产扫描1032文件/10709节点/0违规。正常停止后后台服务重新创建两轮通过；系统杀进程START_STICKY恢复、耳机组合仍未验证。P4-03缺参明确提示发现未落实，已列为实现缺口；不以先前“各任务已接入”替代逐条验收。已发送2b5cd24候选包仍是该历史生产提交，后续最终交付需更新。
