@@ -33,8 +33,9 @@ import top.yukonga.miuix.kmp.theme.ThemeController
 object TeakUiStyle {
     var style by mutableStateOf(0)
 
-    /** 0 = 官方，1 = 经典。 */
+    /** 0 = 官方，1 = 经典，2 = HyperOS 4（新底栏 + 搜索一镜到底）。 */
     val isClassic: Boolean get() = style == 1
+    val isHyperOs4: Boolean get() = style == 2
 }
 
 /**
