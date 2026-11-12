@@ -764,3 +764,7 @@ release SHA256 `2aadf2aa1b01117b38d4e6ff2e0e5c4044fe499fbd62fcc6cbfab49c7f02197f
 release安装成功；冷启动1734ms、真实首页推荐与BV1orW46aEba起播成功（同包TeakBili会话PLAYING）。全屏及弹幕/更多面板可用。小窗播放进入真实pinned任务；截图确认系统中央展开图标后点击，任务退出pinned且同包会话仍PLAYING，crash缓冲为空。证据 `/tmp/bdfun-final-release-pip-{activity,sessions,menu.png}` 与 `/tmp/bdfun-final-release-pip-return-{activity,session}.txt`。返回保持原全屏，未宣称该步骤自动恢复详情Tab。设备release已force-stop，临时UI XML已清理；没有改账号设置或点赞/关注/发送，正常播放会记录进度/历史。
 
 按用户安排，全面同数据UI/行为后续验收，不为了填清单额外执行账号写操作或反复全套。当前包为待验收候选，不能由本轮局部检查推导全站一致。
+
+### 2026-11-13 候选包交付
+
+已按原会话授权，通过lark-im以应用机器人身份向当前认证用户本人发送同SHA256的release APK、Note附件及摘要，三次发送均返回ok:true。生产源码仍为2b5cd24；后续5e67342等提交只整理文档，未改变APK源码。草稿PR33已更新为当前范围/结果/待验收项；未合并、未声明全面人工验收通过。全站UI/完整行为按用户明确安排留待后续验收，本次不再重复全套。
