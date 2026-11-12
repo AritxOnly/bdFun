@@ -14,7 +14,7 @@ internal fun readPlayInfo(data: JSONObject): PlayInfoDto {
     return PlayInfoDto(
         videos = dash?.optJSONArray("video").objects().map(::readPlaybackRepresentation),
         audios = dash?.optJSONArray("audio").objects().map(::readPlaybackRepresentation),
-        fallback = data.optJSONArray("durl")?.optJSONObject(0)?.s("url").orEmpty(),
+        fallback = readProgressiveFallback(data),
         durationMs = data.l("timelength"),
         acceptQuality = data.optJSONArray("accept_quality")?.let { array ->
             (0 until array.length()).map { array.optInt(it, 0) }
@@ -57,3 +57,6 @@ internal fun mapPlayInfo(
         acceptQuality = dto.acceptQuality,
     )
 }
+
+internal fun readProgressiveFallback(data: JSONObject): String =
+    data.optJSONArray("durl")?.optJSONObject(0)?.s("url").orEmpty()

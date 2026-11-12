@@ -244,7 +244,7 @@ internal suspend fun BiliApiContext.cloudResumePositionMs(
             mapOf("aid" to aid.toString(), "cid" to cid.toString()),
         )
     }.getOrNull() ?: return@withContext 0L
-    resolveCloudResumePositionMs(data.l("last_play_cid"), cid, data.l("last_play_time"), durationSec)
+    mapCloudResumePositionMs(data, cid, durationSec)
 }
 
 /**

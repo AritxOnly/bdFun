@@ -4,6 +4,7 @@ import com.aritxonly.bdfun.core.model.video.*
 import com.aritxonly.bdfun.core.model.library.*
 import com.aritxonly.bdfun.core.model.user.*
 import com.aritxonly.bdfun.core.domain.relationNextPage
+import com.aritxonly.bdfun.core.domain.resolveCloudResumePositionMs
 import com.aritxonly.bdfun.infra.bili.biliImage as image
 import com.aritxonly.bdfun.infra.bili.biliAvatar as avatar
 import com.aritxonly.bdfun.infra.bili.parseBiliDurationText as parseDurationText
@@ -70,3 +71,6 @@ internal fun mapWatchLater(data: JSONObject): List<HistoryItem> =
             aid = item.l("aid"),
         )
     }
+
+internal fun mapCloudResumePositionMs(data: JSONObject, cid: Long, durationSec: Int): Long =
+    resolveCloudResumePositionMs(data.l("last_play_cid"), cid, data.l("last_play_time"), durationSec)

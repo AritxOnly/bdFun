@@ -79,19 +79,7 @@ internal suspend fun BiliApiContext.cdnSampleUrl(): String? = withContext(Dispat
             ),
         )
     }.getOrNull() ?: return@withContext null
-    val rep = data.optJSONObject("dash")
-        ?.optJSONArray("video")
-        ?.objects()
-        ?.firstOrNull()
-        ?: return@withContext null
-    val urls = buildList {
-        add(rep.s("baseUrl").ifBlank { rep.s("base_url") })
-        addAll(jsonStrings(rep.optJSONArray("backupUrl") ?: rep.optJSONArray("backup_url")))
-    }.filter { it.isNotBlank() }
-    // 优先用 /upgcxcode/ 形态的地址：mcdn 的 /vN/resource 地址换 host 会 403，不能用来测速。
-    urls.firstOrNull { it.contains("/upgcxcode/") && !isMcdnResource(it) }
-        ?: urls.firstOrNull { it.contains("/upgcxcode/") }
-        ?: urls.firstOrNull()
+    mapCdnSampleUrl(data, ::isMcdnResource)
 }
 
 internal fun BiliApiContext.decodeDanmakuBytes(bytes: ByteArray): String {
@@ -114,36 +102,4 @@ internal fun BiliApiContext.decodeDanmakuBytes(bytes: ByteArray): String {
         }
     }.getOrNull()
     return String(decompressed ?: bytes, Charsets.UTF_8)
-}
-
-internal fun BiliApiContext.parseDanmakuXml(xml: String): List<DanmakuItem> {
-    if (xml.isBlank()) return emptyList()
-    val result = ArrayList<DanmakuItem>(512)
-    cancellableCatching {
-        val parser = org.xmlpull.v1.XmlPullParserFactory.newInstance().newPullParser()
-        parser.setInput(java.io.StringReader(xml))
-        var event = parser.eventType
-        while (event != XmlPullParser.END_DOCUMENT && result.size < 4000) {
-            if (event == XmlPullParser.START_TAG && parser.name == "d") {
-                val p = parser.getAttributeValue(null, "p").orEmpty()
-                val text = parser.nextText().orEmpty().trim()
-                val parts = p.split(',')
-                if (parts.size >= 4 && text.isNotBlank() && text.length <= 90) {
-                    val seconds = parts[0].toFloatOrNull() ?: 0f
-                    val mode = parts[1].toIntOrNull() ?: 1
-                    if (mode == 1 || mode == 4 || mode == 5 || mode == 7 || mode == 8) {
-                        result += DanmakuItem(
-                            timeMs = (seconds * 1000).toLong(),
-                            mode = mode,
-                            color = parts[3].toIntOrNull() ?: 0xFFFFFF,
-                            size = parts.getOrNull(2)?.toFloatOrNull() ?: 25f,
-                            text = text,
-                        )
-                    }
-                }
-            }
-            event = parser.next()
-        }
-    }
-    return result.sortedBy { it.timeMs }
 }

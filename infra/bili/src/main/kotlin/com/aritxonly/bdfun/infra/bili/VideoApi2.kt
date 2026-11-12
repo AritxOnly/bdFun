@@ -101,7 +101,7 @@ internal suspend fun BiliApiContext.onlineTotal(aid: Long, cid: Long): Pair<Long
                 "/x/player/online/total",
                 mapOf("aid" to aid.toString(), "cid" to cid.toString()),
             )
-            data.optLong("count", 0L) to data.s("total")
+            mapVideoOnline(data)
         }.getOrDefault(0L to "")
     }
 
@@ -111,18 +111,7 @@ internal suspend fun BiliApiContext.subtitles(aid: Long, cid: Long): List<Subtit
             "/x/player/v2",
             mapOf("aid" to aid.toString(), "cid" to cid.toString()),
         )
-        val subtitle = data.optJSONObject("subtitle") ?: return@cancellableCatching emptyList()
-        subtitle.optJSONArray("subtitles").objects().mapNotNull { item ->
-            val url = item.s("subtitle_url")
-                .ifBlank { item.s("subtitle_url_v2") }
-            if (url.isBlank()) return@mapNotNull null
-            SubtitleTrack(
-                id = item.s("id").ifBlank { item.s("lan") },
-                label = item.s("lan_doc").ifBlank { item.s("lan") },
-                url = if (url.startsWith("//")) "https:$url" else url,
-                isAi = item.optInt("ai_type", 0) > 0,
-            )
-        }
+        mapSubtitleTracks(data)
     }.getOrDefault(emptyList())
 }
 
@@ -140,14 +129,7 @@ internal suspend fun BiliApiContext.subtitleCues(url: String): List<SubtitleCue>
             if (!response.isSuccessful) return@cancellableCatching emptyList()
             response.body?.string().orEmpty()
         }
-        val root = JSONObject(text)
-        root.optJSONArray("body").objects().mapNotNull { cue ->
-            val content = cue.s("content").trim()
-            if (content.isBlank()) return@mapNotNull null
-            val from = (cue.optDouble("from", 0.0) * 1000).toLong()
-            val to = (cue.optDouble("to", 0.0) * 1000).toLong()
-            SubtitleCue(from, to.coerceAtLeast(from + 300L), content)
-        }
+        mapSubtitleCues(text)
     }.getOrDefault(emptyList())
 }
 

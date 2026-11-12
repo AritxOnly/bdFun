@@ -587,3 +587,9 @@ P1-10云端续播原跨cid隔离与秒/毫秒阈值归core/domain，API保留aid
 P1-04/P1-07/P1-09将空间投稿/合集/文章/番剧/小店/brief/计数/IP与动态page/portal/up/详情包装读取归mapper，API保留原请求签名、空间并发聚合、获赞回退及小店POST。空间视频读取仅显式传原HTML解码器，body一致；合集仍seasons后series且保留重复，校验和完整循环体经空白/最终return正规化后一致。文章covers存在但首项空时不新增fallback，小店价格/标签格式不改。
 
 动态正文仍复用原parseDynamicItem；UP列表同mid保留首项，直播UP不新增去重，Boolean与长字符串id按原读取。parseDynamicUpPage去掉context接收者后逐字一致；动态点赞写操作不改。初始说明中的“合集去重”不作为改动依据，查原实现无去重后明确保留重复并有回归。
+
+### 2026-11-13 剩余直播/账号/推荐/视频附加映射
+
+P1-04收口LiveResponseMapper、AccountResponseMapper、AppRecommendationMapper、VideoSupplementMapper和VideoDanmakuMapper。Live API只保留原请求/重试：plain→signed、room_init后的实际id与清WBI重试顺序不变；模型解析保留原FLV+AVC/首url_info、443稳定host排序、画质accept字典与三档过滤。账号只搬nav/QR非成功模型，成功分支saveTvLogin→nav、凭据/Cookie/buvid/WBI体不改。App卡片原32位aid限制、args对象/字符串回退与理由去重优先级保持。
+
+字幕/空降与弹幕转换从API分片抽离，protobuf/XML转换体去接收者后逐字一致，未修改danmaku-engine、解压或分段请求并发。复查补齐渐进fallback、CDN样本地址与云续播字段的最后三处业务读取；原字段/URL选择规则保持。传输错误信封、认证和评论发送/上传回执编码保留在infra适配器，不为消除org.json字样而创建空壳DTO。

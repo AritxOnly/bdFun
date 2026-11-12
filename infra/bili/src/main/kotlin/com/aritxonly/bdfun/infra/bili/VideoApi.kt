@@ -154,10 +154,7 @@ internal suspend fun BiliApiContext.playInfo(
                     ),
                 )
             }.getOrNull() ?: continue
-            val candidate = fallbackData.optJSONArray("durl")
-                ?.optJSONObject(0)
-                ?.s("url")
-                .orEmpty()
+            val candidate = readProgressiveFallback(fallbackData)
             if (candidate.isNotBlank()) {
                 fallbackUrl = candidate
                 break
@@ -173,7 +170,7 @@ internal suspend fun BiliApiContext.related(bvid: String): List<VideoItem> = wit
     // 该接口的 data 是数组而不是对象，不能用 dataRequest
     val root = rawRequest("/x/web-interface/archive/related", mapOf("bvid" to bvid))
     if (root.optInt("code", 0) != 0) return@withContext emptyList()
-    root.optJSONArray("data").objects().mapNotNull(this@related::parseFeedVideo)
+    mapRelatedVideos(root, this@related::parseFeedVideo)
 }
 
 /**
@@ -203,28 +200,7 @@ internal suspend fun BiliApiContext.danmakuSegments(cid: Long, durationSec: Int)
             }
         }.awaitAll()
     }.filterNotNull()
-    val result = ArrayList<DanmakuItem>(1024)
-    for (bytes in parsed) {
-        val elems = cancellableCatching {
-            com.android.purebilibili.danmaku.parser.DanmakuProto.parse(bytes)
-        }.getOrDefault(emptyList())
-        for (elem in elems) {
-            val text = elem.content.trim()
-            if (text.isBlank() || text.length > 90) continue
-            if (elem.mode !in intArrayOf(1, 2, 3, 4, 5, 6, 7, 8)) continue
-            result += DanmakuItem(
-                timeMs = elem.progress.toLong(),
-                mode = elem.mode,
-                color = elem.color,
-                size = if (elem.fontsize > 0) elem.fontsize.toFloat() else 25f,
-                text = text,
-                id = elem.id,
-                likeCount = elem.like,
-                count = elem.count,
-            )
-        }
-    }
-    return result.sortedBy { it.timeMs }
+    return mapDanmakuSegments(parsed)
 }
 
 internal suspend fun BiliApiContext.fetchDanmakuSegment(cid: Long, index: Int): ByteArray? {
@@ -276,26 +252,7 @@ internal suspend fun BiliApiContext.sponsorSegments(bvid: String): List<SponsorS
             if (!response.isSuccessful) return@cancellableCatching emptyList()
             response.body?.string().orEmpty()
         }
-        val array = JSONArray(text)
-        buildList {
-            for (i in 0 until array.length()) {
-                val obj = array.optJSONObject(i) ?: continue
-                val segment = obj.optJSONArray("segment") ?: continue
-                if (segment.length() < 2) continue
-                val start = (segment.optDouble(0, 0.0) * 1000.0).toLong()
-                val end = (segment.optDouble(1, 0.0) * 1000.0).toLong()
-                if (end <= start) continue
-                add(
-                    SponsorSegment(
-                        startMs = start,
-                        endMs = end,
-                        category = obj.optString("category"),
-                        actionType = obj.optString("actionType", "skip"),
-                        uuid = obj.optString("UUID"),
-                    ),
-                )
-            }
-        }
+        mapSponsorSegments(text)
     }.getOrDefault(emptyList())
     sponsorSegments.put(bvid, result)
     result

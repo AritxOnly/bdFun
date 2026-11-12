@@ -731,3 +731,10 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - `/tmp/bdfun-space-dynamic-mappers.log`首轮13s编译失败：提取脚本把两处out+=误加return，未算通过；恢复原追加语句。`/tmp/bdfun-space-dynamic-mappers-corrected.log`26s通过checkLayering、SpaceContentMapperTest5/DynamicPageMapperTest2及原SpaceLikesFallbackTest5，共12项/0失败/错误/跳过，app debug通过；1026生产文件/10684 PSI节点/0违规。未改断言。
 - 复用真实space-info/nav样本验证brief和515投稿计数，其余构造用例明确不是新真实响应；覆盖空间视频显式HTML/时长/长id、season/series原序与重复、archive统计null-only回退、article首cover存在性、番剧筛选、小店价格/标签、UP去重/直播重复/原Boolean语义及原获赞fallback取消。
 - 合集完整循环体经空白/最终return正规化后相同；空间视频、UP reader经接收者/依赖替换后逐字一致；动态点赞body逐字一致。空间请求/小店POST/并行聚合和获赞回退时序保持。按要求没有重复装机或全套，也未执行点赞/关注等写操作。最终必要回归、其余映射、release/交付继续。
+
+### 2026-11-13 剩余响应映射及协议职责复查
+
+- `/tmp/bdfun-final-response-mappers.log`首轮17s通过初始11项RemainingResponseMapperTest、原BiliQrLoginRepositoryTest3、debug/架构。复查API残余后补齐fallback/CDN测速/云续播字段，`/tmp/bdfun-final-response-boundaries.log`23s通过最终12项RemainingResponseMapperTest+原PlayInfoMapperTest6+原扫码仓储3，共21项/0失败/错误/跳过，app debug通过；1031生产文件/10709 PSI节点/0违规。没有新增依赖或改变测试断言。
+- 测试为原字段构造回归，覆盖nav/QR、App卡/理由、live房间/画质/URL/弹幕host/表情、字幕最小时长、空降范围及最后三个字段边界；不冒充真实直播或登录响应。原凭据/Cookie/buvid/WBI函数体、protobuf/XML模型转换与live URL/规范化helper体经接收者/可见性调整后逐字一致。
+- 复查API字段命中与模型构造：剩余为传输错误信封、认证、发送rpid/图片上传编码，不再混入业务读模型解析。具体清单见RESPONSE_MAPPING_AUDIT.md。初始14项通过不能覆盖后续三处变更，以最终21项结果为本批最终源码证据。
+- 没有重复装机或全套、未执行扫码确认/消息发送/账号写操作。原请求/重试顺序保持；实际直播/字幕/XML回退与完整必要行为、当前源码全套及最终release/交付继续。
