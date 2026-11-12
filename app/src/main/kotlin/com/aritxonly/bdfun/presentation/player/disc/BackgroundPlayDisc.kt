@@ -50,7 +50,11 @@ private fun rememberDiscRuntime(settings: SettingsBindings, dependencies: DiscDe
         DiscRuntime(settings, dependencies, size, ui, scope, context, oneTake, coverPx, geometry, session) {
             val base = dependencies.playback.video
             if (base != null) {
-                val target = base.copy(startPositionMs = dependencies.playback.positionMs.coerceAtLeast(0L))
+                val target = base.copy(
+                    extras = base.extras.copy(
+                        startPositionMs = dependencies.playback.positionMs.coerceAtLeast(0L),
+                    ),
+                )
                 oneTake.open(context, target, radiusPx) { onOpenFallback(target) }
             }
         }

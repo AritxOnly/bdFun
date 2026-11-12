@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.infra.bili.mapper
 
+import com.aritxonly.bdfun.core.model.video.VideoItemExtras
+
 import com.aritxonly.bdfun.core.model.video.VideoItem
 import com.aritxonly.bdfun.infra.bili.BiliParameters.avatar
 import com.aritxonly.bdfun.infra.bili.BiliParameters.image
@@ -22,10 +24,23 @@ internal object FeedVideoMapper {
     }
 
     fun map(dto: VideoFeedDto, cleanHtml: (String) -> String): VideoItem = VideoItem(
-        bvid = dto.bvid, aid = dto.aid, title = cleanHtml(dto.title), cover = image(dto.cover, 480),
-        ownerName = dto.owner.name, ownerFace = avatar(dto.owner.face, 96), ownerMid = dto.owner.mid,
-        play = dto.stats.play, danmaku = dto.stats.danmaku, duration = dto.timing.duration,
-        pubdate = dto.timing.publishedAt, cid = dto.timing.cid, categoryName = dto.category,
-        recommendationTrackId = dto.trackId, reason = dto.reason, isFollowed = dto.followed,
+        bvid = dto.bvid,
+        aid = dto.aid,
+        title = cleanHtml(dto.title),
+        cover = image(dto.cover, 480),
+        ownerName = dto.owner.name,
+        ownerFace = avatar(dto.owner.face, 96),
+        ownerMid = dto.owner.mid,
+        play = dto.stats.play,
+        danmaku = dto.stats.danmaku,
+        duration = dto.timing.duration,
+        pubdate = dto.timing.publishedAt,
+        extras = VideoItemExtras(
+            cid = dto.timing.cid,
+            categoryName = dto.category,
+            recommendationTrackId = dto.trackId,
+            reason = dto.reason,
+            isFollowed = dto.followed,
+        ),
     )
 }

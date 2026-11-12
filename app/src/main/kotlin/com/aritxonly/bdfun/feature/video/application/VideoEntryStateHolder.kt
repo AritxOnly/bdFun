@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.feature.video.application
 
+import com.aritxonly.bdfun.core.model.video.VideoItemExtras
+
 import com.aritxonly.bdfun.core.common.AppError
 import com.aritxonly.bdfun.core.common.Outcome
 import com.aritxonly.bdfun.core.domain.VideoEntryRepository
@@ -34,7 +36,10 @@ internal class VideoEntryStateHolder(private val repository: VideoEntryRepositor
             if (version != revision) return VideoEntryResolution.Obsolete
             return when (result) {
                 is Outcome.Success -> {
-                    mutableState.update { it.copy(video = entryVideo(result.value), error = null) }
+                    mutableState.update { it.copy(
+                        video = entryVideo(result.value),
+                        error = null,
+                    ) }
                     VideoEntryResolution.Ready
                 }
                 is Outcome.Failure -> {
@@ -48,8 +53,19 @@ internal class VideoEntryStateHolder(private val repository: VideoEntryRepositor
     }
 
     private fun entryVideo(detail: VideoDetail) = VideoItem(
-        detail.bvid, detail.aid, detail.title, detail.cover, detail.ownerName,
-        detail.ownerFace, detail.ownerMid, detail.play, detail.danmaku,
-        detail.duration, detail.pubdate, detail.cid,
+        bvid = detail.bvid,
+        aid = detail.aid,
+        title = detail.title,
+        cover = detail.cover,
+        ownerName = detail.ownerName,
+        ownerFace = detail.ownerFace,
+        ownerMid = detail.ownerMid,
+        play = detail.play,
+        danmaku = detail.danmaku,
+        duration = detail.duration,
+        pubdate = detail.pubdate,
+        extras = VideoItemExtras(
+            cid = detail.cid,
+        ),
     )
 }

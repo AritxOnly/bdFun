@@ -1,5 +1,9 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.ui.FullscreenTransport
+
+import com.aritxonly.bdfun.ui.FullscreenPlaybackOptions
+
 
 
 
@@ -95,30 +99,34 @@ private fun fullscreenPlaybackProjection(
     val fsSeekLook by ui.fsSeekLook
     val fsScrubbing by ui.fsScrubbing
     return FullscreenPlaybackState(
-                playing = playing,
-                positionMs = if (controlsVisible) {
+        transport = FullscreenTransport(
+            playing = playing,
+            positionMs = if (controlsVisible) {
                     if (seekPreviewMs >= 0L) seekPreviewMs else positionMs
                 } else {
                     0L
                 },
-                durationMs = if (controlsVisible) durationMs else 0L,
-                bufferedMs = if (controlsVisible) bufferedMs else 0L,
-                speed = speed,
-                qualities = info?.qualities.orEmpty(),
-                qualityId = quality?.id ?: 0,
-                autoQuality = autoQuality,
-                danmakuEnabled = settings.danmakuOn,
-                autoPlayNext = fsAutoPlayNext,
-                loopMode = fsLoopMode,
-                mirror = fsMirror,
-                resizeMode = fsResizeMode,
-                colorAssist = fsColorAssist,
-                audioOnly = fsAudioOnly,
-                sleepAtMs = fsSleepAt,
-                backgroundPlay = settings.backgroundPlay,
-                seekLook = if (controlsVisible) fsSeekLook else 0f,
-                scrubbing = controlsVisible && fsScrubbing,
-            )
+            durationMs = if (controlsVisible) durationMs else 0L,
+            bufferedMs = if (controlsVisible) bufferedMs else 0L,
+            speed = speed,
+            seekLook = if (controlsVisible) fsSeekLook else 0f,
+            scrubbing = controlsVisible && fsScrubbing,
+        ),
+        options = FullscreenPlaybackOptions(
+            qualities = info?.qualities.orEmpty(),
+            qualityId = quality?.id ?: 0,
+            autoQuality = autoQuality,
+            danmakuEnabled = settings.danmakuOn,
+            autoPlayNext = fsAutoPlayNext,
+            loopMode = fsLoopMode,
+            mirror = fsMirror,
+            resizeMode = fsResizeMode,
+            colorAssist = fsColorAssist,
+            audioOnly = fsAudioOnly,
+            sleepAtMs = fsSleepAt,
+            backgroundPlay = settings.backgroundPlay,
+        ),
+    )
 }
 
 @Composable

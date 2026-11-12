@@ -1,5 +1,11 @@
 package com.aritxonly.bdfun.feature.dynamic.application
 
+import com.aritxonly.bdfun.core.model.feed.DynamicItemAuthor
+
+import com.aritxonly.bdfun.core.model.feed.DynamicCounts
+
+import com.aritxonly.bdfun.core.model.feed.DynamicAuthor
+
 import com.aritxonly.bdfun.core.domain.*
 import com.aritxonly.bdfun.core.model.feed.*
 import com.aritxonly.bdfun.core.common.*
@@ -14,7 +20,23 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class DynamicFeedStateTest {
-    private fun item(id: String) = DynamicItem(id, "UP", "", 7, "", "", emptyList(), null, 0, 0, 0)
+    private fun item(id: String) = DynamicItem(
+        id = id,
+        author = DynamicItemAuthor(
+            name = "UP",
+            face = "",
+            mid = 7,
+        ),
+        time = "",
+        text = "",
+        images = emptyList(),
+        video = null,
+        counts = DynamicCounts(
+            like = 0,
+            comment = 0,
+            forward = 0,
+        ),
+    )
     private fun page(vararg ids: String, offset: String = "", more: Boolean = false) =
         DynamicPage(ids.map(::item), offset, more)
     private class Source : DynamicRepository {
@@ -201,7 +223,7 @@ class DynamicFeedStateTest {
     @Test fun unlikeReturnsTheNewStateAndClampsTheCount() = runBlocking {
         val source = Source()
         val state = DynamicFeedStateHolder(source)
-        val item = item("liked").copy(liked = true, like = 0)
+        val item = item("liked").let { it.copy(counts = it.counts.copy(liked = true, like = 0)) }
         assertEquals(Outcome.Success(false), state.toggleLike(item))
         assertEquals(listOf(item.id to false), source.likes)
         assertEquals(0, state.likeCounts[item.id])

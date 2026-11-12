@@ -1,5 +1,11 @@
 package com.aritxonly.bdfun.feature.dynamic.application
 
+import com.aritxonly.bdfun.core.model.feed.DynamicItemAuthor
+
+import com.aritxonly.bdfun.core.model.feed.DynamicCounts
+
+import com.aritxonly.bdfun.core.model.feed.DynamicAuthor
+
 import com.aritxonly.bdfun.core.common.*
 import com.aritxonly.bdfun.core.domain.DynamicDetailRepository
 import com.aritxonly.bdfun.core.model.feed.DynamicItem
@@ -8,7 +14,23 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class DynamicDetailStateHolderTest {
-    private val initial = DynamicItem("one", "作者", "", 1, "今天", "摘要", emptyList(), null, 2, 3, 4)
+    private val initial = DynamicItem(
+        id = "one",
+        author = DynamicItemAuthor(
+            name = "作者",
+            face = "",
+            mid = 1,
+        ),
+        time = "今天",
+        text = "摘要",
+        images = emptyList(),
+        video = null,
+        counts = DynamicCounts(
+            like = 2,
+            comment = 3,
+            forward = 4,
+        ),
+    )
     private class Fake : DynamicDetailRepository {
         var full: Outcome<DynamicItem?> = Outcome.Success(null)
         var ip: Outcome<String> = Outcome.Success("")
@@ -31,7 +53,14 @@ class DynamicDetailStateHolderTest {
     }
 
     @Test fun fullDetailReplacesSummaryAndInteractionSnapshot() = runBlocking {
-        val source = Fake(); val full = initial.copy(text = "完整正文", liked = true, like = 20, images = listOf("image"))
+        val source = Fake(); val full = initial.copy(
+            text = "完整正文",
+            counts = initial.counts.copy(
+                liked = true,
+                like = 20,
+            ),
+            images = listOf("image"),
+        )
         source.full = Outcome.Success(full)
         val holder = DynamicDetailStateHolder(source, initial)
         assertEquals(DynamicDetailUiState(initial), holder.state.value)
@@ -52,7 +81,11 @@ class DynamicDetailStateHolderTest {
         val holder = DynamicDetailStateHolder(source, initial); holder.loadIpLocation(); holder.loadIpLocation()
         assertEquals(listOf(1L), source.ipMids)
         assertEquals("IP属地：广东", holder.state.value.detail.ipLocation)
-        DynamicDetailStateHolder(source, initial.copy(mid = 0)).loadIpLocation()
+        DynamicDetailStateHolder(source, initial.copy(
+            author = initial.author.copy(
+                mid = 0,
+            ),
+        )).loadIpLocation()
         assertEquals(1, source.ipMids.size)
     }
 
@@ -67,14 +100,32 @@ class DynamicDetailStateHolderTest {
         val source = Fake(); source.ip = Outcome.Success("广东"); source.ipGate = CompletableDeferred()
         val holder = DynamicDetailStateHolder(source, initial)
         val job = launch(start = CoroutineStart.UNDISPATCHED) { holder.loadIpLocation() }
-        val full = initial.copy(text = "完整正文", like = 50, liked = true)
+        val full = initial.copy(
+            text = "完整正文",
+            counts = initial.counts.copy(
+                like = 50,
+                liked = true,
+            ),
+        )
         source.full = Outcome.Success(full); holder.load()
         source.ipGate!!.complete(Unit); job.join()
-        assertEquals(DynamicDetailUiState(full.copy(ipLocation = "广东")), holder.state.value)
+        assertEquals(DynamicDetailUiState(full.copy(
+            author = full.author.copy(
+                ipLocation = "广东",
+            ),
+        )), holder.state.value)
     }
 
     @Test fun lateIpCannotOverwriteOtherAuthorOrExplicitLocation() = runBlocking {
-        for (full in listOf(initial.copy(mid = 2), initial.copy(ipLocation = "上海"))) {
+        for (full in listOf(initial.copy(
+            author = initial.author.copy(
+                mid = 2,
+            ),
+        ), initial.copy(
+            author = initial.author.copy(
+                ipLocation = "上海",
+            ),
+        ))) {
             val source = Fake(); source.ip = Outcome.Success("广东"); source.ipGate = CompletableDeferred()
             val holder = DynamicDetailStateHolder(source, initial)
             val job = launch(start = CoroutineStart.UNDISPATCHED) { holder.loadIpLocation() }
@@ -98,7 +149,12 @@ class DynamicDetailStateHolderTest {
 
     @Test fun unlikeRetainsOriginalUnclampedCounterAndFailureReversesDelta() = runBlocking {
         val source = Fake(); source.liked = Outcome.Success(false)
-        val holder = DynamicDetailStateHolder(source, initial.copy(liked = true, like = 0))
+        val holder = DynamicDetailStateHolder(source, initial.copy(
+            counts = initial.counts.copy(
+                liked = true,
+                like = 0,
+            ),
+        ))
         val next = holder.beginLike()!!
         assertFalse(next); assertEquals(-1, holder.state.value.likeCount)
         assertEquals("点赞失败", holder.commitLike(next))
@@ -121,7 +177,12 @@ class DynamicDetailStateHolderTest {
         val source = Fake(); source.liked = Outcome.Success(false); source.likeGate = CompletableDeferred()
         val holder = DynamicDetailStateHolder(source, initial)
         val job = async(start = CoroutineStart.UNDISPATCHED) { holder.commitLike(holder.beginLike()!!) }
-        source.full = Outcome.Success(initial.copy(liked = true, like = 20)); holder.load()
+        source.full = Outcome.Success(initial.copy(
+            counts = initial.counts.copy(
+                liked = true,
+                like = 20,
+            ),
+        )); holder.load()
         source.likeGate!!.complete(Unit); assertEquals("点赞失败", job.await())
         assertFalse(holder.state.value.liked); assertEquals(19, holder.state.value.likeCount)
     }

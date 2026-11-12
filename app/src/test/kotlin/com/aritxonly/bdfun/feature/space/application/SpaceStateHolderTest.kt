@@ -1,5 +1,11 @@
 package com.aritxonly.bdfun.feature.space.application
 
+import com.aritxonly.bdfun.core.model.feed.DynamicItemAuthor
+
+import com.aritxonly.bdfun.core.model.feed.DynamicCounts
+
+import com.aritxonly.bdfun.core.model.feed.DynamicAuthor
+
 import com.aritxonly.bdfun.core.common.*
 import com.aritxonly.bdfun.core.domain.SpaceRepository
 import com.aritxonly.bdfun.core.model.user.*
@@ -12,7 +18,23 @@ import org.junit.Test
 
 class SpaceStateHolderTest {
     private fun video(id: Long) = VideoItem("BV$id", id, "标题", "", "UP", "", 1, 0, 0, 1, 0)
-    private fun dynamic(id: String) = DynamicItem(id, "UP", "", 1, "时间", "正文", emptyList(), null, 0, 0, 0)
+    private fun dynamic(id: String) = DynamicItem(
+        id = id,
+        author = DynamicItemAuthor(
+            name = "UP",
+            face = "",
+            mid = 1,
+        ),
+        time = "时间",
+        text = "正文",
+        images = emptyList(),
+        video = null,
+        counts = DynamicCounts(
+            like = 0,
+            comment = 0,
+            forward = 0,
+        ),
+    )
     private class Fake : SpaceRepository {
         var profile: Outcome<SpaceInfo> = Outcome.Success(SpaceInfo(UserProfile(1, "姓名", "", "", 1, 0.0, false, ""), emptyList()))
         var videos = emptyList<VideoItem>()

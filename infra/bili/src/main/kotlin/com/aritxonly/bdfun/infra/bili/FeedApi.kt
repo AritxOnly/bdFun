@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.infra.bili
 
+import com.aritxonly.bdfun.core.model.video.VideoItemExtras
+
 import android.content.Context
 import android.net.Uri
 import android.text.Html
@@ -181,15 +183,17 @@ internal suspend fun BiliApiContext.appRecommend(freshIndex: Int): List<VideoIte
                 ?.takeIf { it > 0 }
                 ?: parseDurationText(raw.s("cover_right_text")),
             pubdate = 0,
-            cid = player?.l("cid")?.takeIf { it > 0 } ?: 0,
-            categoryName = args.s("tname").ifBlank { raw.s("tname") },
-            appRecommendation = true,
-            dislikeReasons = (raw.optJSONArray("three_point_v2").objects()
+            extras = VideoItemExtras(
+                cid = player?.l("cid")?.takeIf { it > 0 } ?: 0,
+                categoryName = args.s("tname").ifBlank { raw.s("tname") },
+                appRecommendation = true,
+                dislikeReasons = (raw.optJSONArray("three_point_v2").objects()
                 .filter { it.s("type") == "dislike" }.flatMap { it.optJSONArray("reasons").objects() } +
                 raw.optJSONObject("three_point")?.optJSONArray("dislike_reasons").objects())
                 .map { RecommendationReason(it.l("id"), it.s("name")) }.distinctBy { it.id },
-            isFollowed = args.optBoolean("is_followed", false) ||
+                isFollowed = args.optBoolean("is_followed", false) ||
                 raw.optBoolean("is_followed", false),
+            ),
         )
     }
     val rawCount = data.optJSONArray("items")?.length() ?: 0

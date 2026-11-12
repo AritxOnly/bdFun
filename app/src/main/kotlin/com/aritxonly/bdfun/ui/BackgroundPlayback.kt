@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.core.model.video.VideoItemExtras
+
 import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
@@ -351,7 +353,9 @@ internal class BackgroundPlaybackStateHolder(
         danmaku = danmaku,
         duration = duration,
         pubdate = pubdate,
-        cid = cid,
-        startPositionMs = positionMs,
+        extras = VideoItemExtras(
+            cid = cid,
+            startPositionMs = positionMs,
+        ),
     )
 }

@@ -15,9 +15,19 @@ internal data class VideoInteractionState(
     val coined: Boolean = false, val coinCount: Long = 0,
     val favorited: Boolean = false, val favoriteCount: Long = 0, val shareCount: Long = 0,
     val followed: Boolean = false,
+    val favorites: VideoFavoriteState = VideoFavoriteState(), val busy: Boolean = false,
+) {
+    val folders get() = favorites.folders
+    val folderIds get() = favorites.folderIds
+    val favoritesLoading get() = favorites.favoritesLoading
+    val favoritesLoaded get() = favorites.favoritesLoaded
+    val pendingFolder get() = favorites.pendingFolder
+}
+
+internal data class VideoFavoriteState(
     val folders: List<FavoriteFolder> = emptyList(), val folderIds: Set<Long> = emptySet(),
     val favoritesLoading: Boolean = false, val favoritesLoaded: Boolean = false,
-    val pendingFolder: Long? = null, val busy: Boolean = false,
+    val pendingFolder: Long? = null,
 )
 
 /** 写操作按视频隔离；失败或取消撤销乐观状态，旧单集响应不能回写当前单集。 */
@@ -51,16 +61,28 @@ internal class VideoInteractionStateHolder(private val repository: VideoActionsR
         val detail = initial.detail ?: return
         if (initial.favoritesLoading || initial.favoritesLoaded) return
         val version = revision
-        mutableState.update { it.copy(favoritesLoading = true) }
+        mutableState.update { it.copy(
+            favorites = it.favorites.copy(
+                favoritesLoading = true,
+            ),
+        ) }
         try {
             val folders = repository.folders()
             if (folders !is Outcome.Success) return
             val ids = repository.folderIds(detail.aid)
             if (version == revision) mutableState.update { it.copy(
-                folders = folders.value, folderIds = (ids as? Outcome.Success)?.value.orEmpty(), favoritesLoaded = true,
+                favorites = it.favorites.copy(
+                    folders = folders.value,
+                    folderIds = (ids as? Outcome.Success)?.value.orEmpty(),
+                    favoritesLoaded = true,
+                ),
             ) }
         } finally {
-            if (version == revision) mutableState.update { it.copy(favoritesLoading = false) }
+            if (version == revision) mutableState.update { it.copy(
+                favorites = it.favorites.copy(
+                    favoritesLoading = false,
+                ),
+            ) }
         }
     }
 
@@ -117,7 +139,12 @@ internal class VideoInteractionStateHolder(private val repository: VideoActionsR
         val version = revision
         mutableState.update { it.copy(busy = true) }
         try { return action(before, version).takeIf { version == revision } }
-        finally { if (version == revision) mutableState.update { it.copy(busy = false, pendingFolder = null) } }
+        finally { if (version == revision) mutableState.update { it.copy(
+            busy = false,
+            favorites = it.favorites.copy(
+                pendingFolder = null,
+            ),
+        ) } }
     }
 
     suspend fun coin(count: Int): String? = perform { before, version ->
@@ -135,11 +162,17 @@ internal class VideoInteractionStateHolder(private val repository: VideoActionsR
 
     suspend fun toggleFolder(folderId: Long): String? = perform { before, version ->
         val contains = folderId in before.folderIds
-        mutableState.update { it.copy(pendingFolder = folderId) }
+        mutableState.update { it.copy(
+            favorites = it.favorites.copy(
+                pendingFolder = folderId,
+            ),
+        ) }
         val result = repository.setFavorite(before.detail!!.aid, folderId, !contains)
         if (result is Outcome.Success && result.value && version == revision) {
             mutableState.update { it.copy(
-                folderIds = if (contains) it.folderIds - folderId else it.folderIds + folderId,
+                favorites = it.favorites.copy(
+                    folderIds = if (contains) it.folderIds - folderId else it.folderIds + folderId,
+                ),
                 favorited = if (contains) (it.folderIds - folderId).isNotEmpty() else true,
                 favoriteCount = (it.favoriteCount + if (contains) -1 else 1).coerceAtLeast(0),
             ) }
@@ -158,8 +191,13 @@ internal class VideoInteractionStateHolder(private val repository: VideoActionsR
             ids.forEach { if (repository.setFavorite(aid, it, false) is Outcome.Success) anyOk = true }
         }
         if (anyOk && version == revision) {
-            mutableState.update { it.copy(folderIds = emptySet(), favorited = false,
-                favoriteCount = (it.favoriteCount - 1).coerceAtLeast(0)) }
+            mutableState.update { it.copy(
+                favorites = it.favorites.copy(
+                    folderIds = emptySet(),
+                ),
+                favorited = false,
+                favoriteCount = (it.favoriteCount - 1).coerceAtLeast(0),
+            ) }
             "已取消收藏"
         } else "取消收藏失败：${(result as? Outcome.Failure)?.error?.messageOr("未知错误") ?: "未知错误"}"
     }
@@ -186,7 +224,13 @@ internal class VideoInteractionStateHolder(private val repository: VideoActionsR
             if (folder != null && version == revision) {
                 val result = repository.setFavorite(aid, folder.id, true)
                 if (result is Outcome.Success && version == revision) mutableState.update {
-                    it.copy(favorited = true, folderIds = it.folderIds + folder.id, favoriteCount = it.favoriteCount + 1)
+                    it.copy(
+                        favorited = true,
+                        favorites = it.favorites.copy(
+                            folderIds = it.folderIds + folder.id,
+                        ),
+                        favoriteCount = it.favoriteCount + 1,
+                    )
                 } else ok = false
             } else ok = false
         }

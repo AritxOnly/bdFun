@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.core.model.video.VideoItemExtras
+
 import com.aritxonly.bdfun.core.model.user.UserProfile
 import com.aritxonly.bdfun.core.model.user.SentRecord
 import com.aritxonly.bdfun.feature.mine.application.*
@@ -14,8 +16,20 @@ internal class MineNavigation(
 ) {
     fun openRecord(record: SentRecord) {
         if (record.bvid.isNotBlank()) onOpenVideo(com.aritxonly.bdfun.core.model.video.VideoItem(
-            bvid = record.bvid, aid = 0, title = record.title, cover = "", ownerName = "", ownerFace = "",
-            ownerMid = 0, play = 0, danmaku = 0, duration = 0, pubdate = 0, startPositionMs = record.videoTimeMs,
+            bvid = record.bvid,
+            aid = 0,
+            title = record.title,
+            cover = "",
+            ownerName = "",
+            ownerFace = "",
+            ownerMid = 0,
+            play = 0,
+            danmaku = 0,
+            duration = 0,
+            pubdate = 0,
+            extras = VideoItemExtras(
+                startPositionMs = record.videoTimeMs,
+            ),
         ))
     }
 }

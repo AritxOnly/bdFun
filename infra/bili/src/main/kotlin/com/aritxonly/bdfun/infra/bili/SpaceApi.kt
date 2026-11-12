@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.infra.bili
 
+import com.aritxonly.bdfun.core.model.video.VideoItemExtras
+
 import android.content.Context
 import android.net.Uri
 import android.text.Html
@@ -277,7 +279,9 @@ internal suspend fun BiliApiContext.spaceCollectionArchives(
                 danmaku = stat?.l("danmaku") ?: 0L,
                 duration = archive.optInt("duration", 0),
                 pubdate = archive.l("pubdate"),
-                cid = archive.l("cid"),
+                extras = VideoItemExtras(
+                    cid = archive.l("cid"),
+                ),
             )
         }
     }.getOrDefault(emptyList())

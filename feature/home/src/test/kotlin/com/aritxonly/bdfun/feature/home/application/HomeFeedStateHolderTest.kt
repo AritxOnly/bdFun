@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.feature.home.application
 
+import com.aritxonly.bdfun.core.model.video.VideoItemExtras
+
 import com.aritxonly.bdfun.core.common.*
 import com.aritxonly.bdfun.core.domain.*
 import com.aritxonly.bdfun.core.model.feed.DynamicPage
@@ -10,7 +12,22 @@ import org.junit.Test
 
 class HomeFeedStateHolderTest {
     private fun item(id: String, owner: Long = 1, category: String = "游戏") =
-        VideoItem(id, 1, id, "", "", "", owner, 0, 0, 0, 0, categoryName = category)
+        VideoItem(
+            bvid = id,
+            aid = 1,
+            title = id,
+            cover = "",
+            ownerName = "",
+            ownerFace = "",
+            ownerMid = owner,
+            play = 0,
+            danmaku = 0,
+            duration = 0,
+            pubdate = 0,
+            extras = VideoItemExtras(
+                categoryName = category,
+            ),
+        )
     private class Feed : FeedRepository {
         val requests = mutableListOf<Int>()
         var load: suspend (Int) -> Outcome<List<VideoItem>> = { Outcome.Success(emptyList()) }

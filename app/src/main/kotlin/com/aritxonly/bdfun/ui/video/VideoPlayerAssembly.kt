@@ -1,5 +1,11 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.ui.FullscreenVideoInfo
+
+import com.aritxonly.bdfun.ui.FullscreenMediaInfo
+
+import com.aritxonly.bdfun.ui.FullscreenInteractionInfo
+
 import com.aritxonly.bdfun.core.model.video.*
 import com.aritxonly.bdfun.feature.video.application.*
 
@@ -30,16 +36,34 @@ private fun fullscreenPlayerInfo(content: VideoPlayerContent): FullscreenPlayerI
     val state = content.interaction
     val metadata = content.metadata
     return FullscreenPlayerInfo(
-        title = detail?.title ?: video.title, author = detail?.ownerName ?: video.ownerName,
-        authorFace = detail?.ownerFace ?: video.ownerFace,
-        onlineText = metadata.onlineText, onlineCount = metadata.onlineCount,
-        followed = state.followed, liked = state.liked, likeCount = state.likeCount,
-        replyCount = detail?.reply ?: 0L, favorited = state.favorited, favoriteCount = state.favoriteCount,
-        shareCount = state.shareCount,
-        qualityLabel = if (content.selection.autoQuality) "自动" else content.quality?.label ?: "",
-        cover = detail?.cover ?: video.cover, pages = detail?.let(com.aritxonly.bdfun.core.domain.VideoPagePolicy::pages).orEmpty(),
-        currentCid = content.selection.cid, folders = state.folders, folderIds = state.folderIds,
-        loggedIn = content.loggedIn, subtitles = metadata.subtitles, selectedSubtitle = metadata.selectedSubtitle,
-        subtitleCues = metadata.subtitleCues, danmakuItems = content.danmaku,
+        video = FullscreenVideoInfo(
+            title = detail?.title ?: video.title,
+            author = detail?.ownerName ?: video.ownerName,
+            authorFace = detail?.ownerFace ?: video.ownerFace,
+            onlineText = metadata.onlineText,
+            onlineCount = metadata.onlineCount,
+            cover = detail?.cover ?: video.cover,
+        ),
+        interaction = FullscreenInteractionInfo(
+            followed = state.followed,
+            liked = state.liked,
+            likeCount = state.likeCount,
+            replyCount = detail?.reply ?: 0L,
+            favorited = state.favorited,
+            favoriteCount = state.favoriteCount,
+            shareCount = state.shareCount,
+            folders = state.folders,
+            folderIds = state.folderIds,
+            loggedIn = content.loggedIn,
+        ),
+        media = FullscreenMediaInfo(
+            qualityLabel = if (content.selection.autoQuality) "自动" else content.quality?.label ?: "",
+            pages = detail?.let(com.aritxonly.bdfun.core.domain.VideoPagePolicy::pages).orEmpty(),
+            currentCid = content.selection.cid,
+            subtitles = metadata.subtitles,
+            selectedSubtitle = metadata.selectedSubtitle,
+            subtitleCues = metadata.subtitleCues,
+            danmakuItems = content.danmaku,
+        ),
     )
 }

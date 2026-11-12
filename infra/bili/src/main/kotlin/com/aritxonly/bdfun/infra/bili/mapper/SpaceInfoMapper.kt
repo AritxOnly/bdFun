@@ -1,5 +1,11 @@
 package com.aritxonly.bdfun.infra.bili.mapper
 
+import com.aritxonly.bdfun.core.model.user.UserProfileStats
+
+import com.aritxonly.bdfun.core.model.user.UserProfileExperience
+
+import com.aritxonly.bdfun.core.model.user.UserProfileDecoration
+
 import com.aritxonly.bdfun.core.model.user.SpaceInfo
 import com.aritxonly.bdfun.core.model.user.UserProfile
 import com.aritxonly.bdfun.core.model.video.VideoItem
@@ -47,21 +53,27 @@ private fun mapSpaceProfile(payloads: SpacePayloadsDto, likes: Long): UserProfil
         coins = 0.0,
         vip = vipStatus == 1,
         vipLabel = vipLabel,
-        follower = stat?.l("follower") ?: 0,
-        following = stat?.l("following") ?: 0,
-        likes = likes,
-        banner = spaceBannerCandidates(appSpace, info).firstOrNull().orEmpty(),
-        bannerFallbacks = spaceBannerCandidates(appSpace, info).drop(1),
-        bannerAlignmentY = spaceBannerAlignment(appSpace),
-        officialTitle = official?.s("title").orEmpty(),
-        officialDesc = official?.s("desc").orEmpty(),
-        officialType = official?.optInt("type", 0) ?: 0,
-        fansMedalName = medal?.s("medal_name").orEmpty(),
-        fansMedalLevel = medal?.optInt("level", 0) ?: 0,
-        fansMedalColor = medal?.optInt("medal_color", 0) ?: 0,
-        chargingCount = charge,
-        levelExp = info.optLong("level_exp", 0L),
-        nextLevelExp = info.optLong("next_level_exp", 0L),
+        stats = UserProfileStats(
+            follower = stat?.l("follower") ?: 0,
+            following = stat?.l("following") ?: 0,
+            likes = likes,
+        ),
+        decoration = UserProfileDecoration(
+            banner = spaceBannerCandidates(appSpace, info).firstOrNull().orEmpty(),
+            bannerFallbacks = spaceBannerCandidates(appSpace, info).drop(1),
+            bannerAlignmentY = spaceBannerAlignment(appSpace),
+            officialTitle = official?.s("title").orEmpty(),
+            officialDesc = official?.s("desc").orEmpty(),
+            officialType = official?.optInt("type", 0) ?: 0,
+            fansMedalName = medal?.s("medal_name").orEmpty(),
+            fansMedalLevel = medal?.optInt("level", 0) ?: 0,
+            fansMedalColor = medal?.optInt("medal_color", 0) ?: 0,
+            chargingCount = charge,
+        ),
+        experience = UserProfileExperience(
+            levelExp = info.optLong("level_exp", 0L),
+            nextLevelExp = info.optLong("next_level_exp", 0L),
+        ),
     )
 }
 

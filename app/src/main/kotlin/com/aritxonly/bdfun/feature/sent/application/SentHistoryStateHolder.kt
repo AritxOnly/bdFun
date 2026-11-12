@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.feature.sent.application
 
+import com.aritxonly.bdfun.core.model.video.VideoItemExtras
+
 import com.aritxonly.bdfun.core.model.user.SentRecord
 import com.aritxonly.bdfun.core.model.video.VideoItem
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +26,19 @@ internal class SentHistoryStateHolder(records: List<SentRecord>) {
     val state = mutable.asStateFlow()
     fun select(filter: Int) { mutable.update { it.copy(filter = filter) } }
     fun videoFor(record: SentRecord): VideoItem? = if (record.bvid.isBlank()) null else VideoItem(
-        bvid = record.bvid, aid = 0, title = record.title, cover = "", ownerName = "", ownerFace = "", ownerMid = 0,
-        play = 0, danmaku = 0, duration = 0, pubdate = 0, startPositionMs = record.videoTimeMs,
+        bvid = record.bvid,
+        aid = 0,
+        title = record.title,
+        cover = "",
+        ownerName = "",
+        ownerFace = "",
+        ownerMid = 0,
+        play = 0,
+        danmaku = 0,
+        duration = 0,
+        pubdate = 0,
+        extras = VideoItemExtras(
+            startPositionMs = record.videoTimeMs,
+        ),
     )
 }

@@ -12,6 +12,21 @@ data class CommentItem(
     val isUp: Boolean,
     val isTop: Boolean,
     val liked: Boolean = false,
+    val extras: CommentExtras = CommentExtras(),
+) {
+    val mid get() = extras.mid
+    val oid get() = extras.oid
+    val root get() = extras.root
+    val parent get() = extras.parent
+    val previewReplies get() = extras.previewReplies
+    val emotes get() = extras.emotes
+    val ipLocation get() = extras.ipLocation
+    val isVip get() = extras.isVip
+    val pictures get() = extras.pictures
+    val mentions get() = extras.mentions
+}
+
+data class CommentExtras(
     val mid: Long = 0L,
     val oid: Long = 0L,
     val root: Long = 0L,

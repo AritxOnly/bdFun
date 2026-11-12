@@ -141,14 +141,18 @@ internal suspend fun BiliApiContext.enrichMessageVideos(
         val bvid = resolvedBvid(item)
         val brief = briefs[bvid] ?: return@map item
         item.copy(
-            bvid = item.bvid.ifBlank { bvid },
-            subjectCover = if (item.videoSubject && item.subjectCover.isBlank()) {
+            navigation = item.navigation.copy(
+                bvid = item.bvid.ifBlank { bvid },
+            ),
+            presentation = item.presentation.copy(
+                subjectCover = if (item.videoSubject && item.subjectCover.isBlank()) {
                 brief.cover
             } else {
                 item.subjectCover
             },
-            isUp = item.isUp ||
+                isUp = item.isUp ||
                 (item.userMid > 0L && brief.ownerMid > 0L && item.userMid == brief.ownerMid),
+            ),
         )
     }
 }

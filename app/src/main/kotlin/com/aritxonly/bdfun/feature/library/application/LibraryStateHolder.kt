@@ -39,8 +39,16 @@ internal class LibraryStateHolder(
     fun close() {
         if (closed) return
         closed = true
-        mutable.update { it.copy(busy = false, loading = it.loading.mapValues { false },
-            favorites = it.favorites.copy(loadingMore = false), history = it.history.copy(loadingMore = false)) }
+        mutable.update { it.copy(
+            busy = false,
+            loading = it.loading.mapValues { false },
+            favorites = it.favorites.copy(
+                loadingMore = false,
+            ),
+            history = it.history.copy(
+                loadingMore = false,
+            ),
+        ) }
     }
     private suspend fun <T> request(action: suspend () -> Outcome<T>): Outcome<T> {
         if (!isActive) throw CancellationException("媒体库页面已关闭")
@@ -58,7 +66,12 @@ internal class LibraryStateHolder(
         try {
             when (val result = request { repository.folders() }) {
                 is Outcome.Success -> {
-                    mutable.update { it.copy(favorites = it.favorites.copy(folders = result.value, index = 0)) }
+                    mutable.update { it.copy(
+                        favorites = it.favorites.copy(
+                            folders = result.value,
+                            index = 0,
+                        ),
+                    ) }
                     if (result.value.isEmpty()) error(0, "还没有收藏夹") else loadFolder(0)
                 }
                 is Outcome.Failure -> error(0, result.error.messageOr("收藏夹加载失败"))
@@ -71,7 +84,13 @@ internal class LibraryStateHolder(
         val initial = mutable.value.favorites
         val folder = initial.folders.getOrNull(index) ?: return
         val revision = initial.revision + 1
-        mutable.update { it.copy(favorites = it.favorites.copy(index = index, revision = revision, loadingMore = false)) }
+        mutable.update { it.copy(
+            favorites = it.favorites.copy(
+                index = index,
+                revision = revision,
+                loadingMore = false,
+            ),
+        ) }
         loading(0, true); error(0, null)
         try {
             when (val result = request { repository.videos(folder.id, 1) }) {
@@ -160,7 +179,9 @@ internal class LibraryStateHolder(
         }
 
     private fun updateFavorite(revision: Int, transform: (FavoriteUiState) -> FavoriteUiState) = mutable.update {
-        if (isActive && it.favorites.revision == revision) it.copy(favorites = transform(it.favorites)) else it
+        if (isActive && it.favorites.revision == revision) it.copy(
+            favorites = transform(it.favorites),
+        ) else it
     }
     private fun updateHistory(revision: Int, transform: (HistoryUiState) -> HistoryUiState) = mutable.update {
         if (isActive && it.history.revision == revision) it.copy(history = transform(it.history)) else it
@@ -217,7 +238,11 @@ internal class LibraryStateHolder(
     }
 
     private fun remove(mode: Int, ids: Set<String>) = mutable.update { if (!isActive) it else when (mode) {
-        0 -> it.copy(favorites = it.favorites.copy(videos = it.favorites.videos.filterNot { video -> video.bvid in ids }))
+        0 -> it.copy(
+            favorites = it.favorites.copy(
+                videos = it.favorites.videos.filterNot { video -> video.bvid in ids },
+            ),
+        )
         1 -> it.copy(history = it.history.copy(entries = it.history.entries.filterNot { entry -> entry.bvid in ids }))
         else -> it.copy(watchLater = it.watchLater.filterNot { entry -> entry.bvid in ids })
     } }

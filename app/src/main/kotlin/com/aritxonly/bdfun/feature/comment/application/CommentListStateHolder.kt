@@ -76,12 +76,18 @@ internal class CommentListStateHolder(private val repository: CommentContentRepo
 
     fun applyLike(rpid: Long, liked: Boolean, count: Int) {
         if (closed) return
-        mutableState.update { it.copy(items = it.items.map { item ->
+        mutableState.update { it.copy(
+            items = it.items.map { item ->
             if (item.rpid == rpid) item.copy(liked = liked, like = count)
-            else item.copy(previewReplies = item.previewReplies.map { reply ->
+            else item.copy(
+                extras = item.extras.copy(
+                    previewReplies = item.previewReplies.map { reply ->
                 if (reply.rpid == rpid) reply.copy(liked = liked, like = count) else reply
-            })
-        }) }
+            },
+                ),
+            )
+        },
+        ) }
     }
 
     fun remove(rpid: Long) { if (closed) return; mutableState.update { it.copy(items = it.items.filterNot { item -> item.rpid == rpid }, total = (it.total - 1).coerceAtLeast(0)) } }

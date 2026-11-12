@@ -1,5 +1,11 @@
 package com.aritxonly.bdfun.feature.video.application
 
+import com.aritxonly.bdfun.core.model.video.VideoDetailOwner
+
+import com.aritxonly.bdfun.core.model.video.VideoDetailInfo
+
+import com.aritxonly.bdfun.core.model.video.VideoDetailCounts
+
 import com.aritxonly.bdfun.core.common.*
 import com.aritxonly.bdfun.core.domain.*
 import com.aritxonly.bdfun.core.model.video.*
@@ -64,12 +70,42 @@ class VideoDetailStateHolderTest {
     @Test fun restoringDetailKeepsRecommendationsAndSupportsEpisodeReplacement() {
         val holder = holder(Fake(), listOf(video))
         val detail = VideoDetail(
-            "one", 42, "标题", "", "简介", "UP", "", 7, "", 0, 0, 0, 0, 0, 0, 0, 0,
-            10, 12, "分区", emptyList(),
+            bvid = "one",
+            aid = 42,
+            title = "标题",
+            cover = "",
+            desc = "简介",
+            owner = VideoDetailOwner(
+                ownerName = "UP",
+                ownerFace = "",
+                ownerMid = 7,
+                ownerSign = "",
+            ),
+            counts = VideoDetailCounts(
+                play = 0,
+                danmaku = 0,
+                like = 0,
+                coin = 0,
+                favorite = 0,
+                share = 0,
+                reply = 0,
+            ),
+            info = VideoDetailInfo(
+                pubdate = 0,
+                duration = 10,
+                cid = 12,
+                tname = "分区",
+                pages = emptyList(),
+            ),
         )
         holder.restoreDetail(detail)
         assertEquals(detail, holder.state.value.detail)
-        holder.restoreDetail(detail.copy(bvid = "episode", cid = 13))
+        holder.restoreDetail(detail.copy(
+            bvid = "episode",
+            info = detail.info.copy(
+                cid = 13,
+            ),
+        ))
         assertEquals("episode", holder.state.value.detail?.bvid)
         assertEquals(listOf(video), holder.state.value.related)
     }

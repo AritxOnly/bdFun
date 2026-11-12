@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.feature.message.application
 
+import com.aritxonly.bdfun.core.model.message.MessageActor
+
 import com.aritxonly.bdfun.core.common.*
 import com.aritxonly.bdfun.core.domain.MessageFeedRepository
 import com.aritxonly.bdfun.core.model.message.*
@@ -8,7 +10,17 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class MessageFeedStateHolderTest {
-    private fun item(id: String = "one") = MessageItem(id, "标题", "正文", 1, "姓名", "", userMid = 1)
+    private fun item(id: String = "one") = MessageItem(
+        id = id,
+        title = "标题",
+        content = "正文",
+        time = 1,
+        name = "姓名",
+        avatar = "",
+        actor = MessageActor(
+            userMid = 1,
+        ),
+    )
     private class Fake : MessageFeedRepository {
         var items = emptyList<MessageItem>()
         var next: MessageCursor? = null
@@ -72,7 +84,7 @@ class MessageFeedStateHolderTest {
         val source = Fake(); source.items = listOf(item())
         val holder = MessageFeedStateHolder(source, MessageFeedKind.Like); holder.loadPage(0)
         holder.mutate(0, item(), false)
-        assertEquals(listOf(item().copy(noticeState = 1)), holder.state.value.itemsByTab[0])
+        assertEquals(listOf(item().let { it.copy(notice = it.notice.copy(noticeState = 1)) }), holder.state.value.itemsByTab[0])
     }
 
     @Test fun closeRejectsLatePageAndFurtherRequests() = runBlocking {

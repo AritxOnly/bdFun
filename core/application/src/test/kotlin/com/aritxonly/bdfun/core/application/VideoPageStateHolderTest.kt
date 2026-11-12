@@ -7,7 +7,16 @@ class VideoPageStateHolderTest {
     @Test fun twoPagesDoNotShareFullscreenReplyOrPlaybackProgress() {
         val first = VideoPageStateHolder()
         val second = VideoPageStateHolder()
-        first.update { it.copy(fullscreen = true, replyRoot = 1, replyName = "UP", danmakuProgressMs = 9000) }
+        first.update { it.copy(
+            player = it.player.copy(
+                fullscreen = true,
+                danmakuProgressMs = 9000,
+            ),
+            reply = it.reply.copy(
+                replyRoot = 1,
+                replyName = "UP",
+            ),
+        ) }
         assertFalse(second.state.value.fullscreen)
         assertNull(second.state.value.replyName)
         assertEquals(0L, second.state.value.danmakuProgressMs)
@@ -15,7 +24,13 @@ class VideoPageStateHolderTest {
     @Test fun oldSnapshotsRemainImmutable() {
         val holder = VideoPageStateHolder()
         val old = holder.state.value
-        holder.update { it.copy(replyName = "UP", replyRoot = 1, replyParent = 2) }
+        holder.update { it.copy(
+            reply = it.reply.copy(
+                replyName = "UP",
+                replyRoot = 1,
+                replyParent = 2,
+            ),
+        ) }
         assertNull(old.replyName)
         assertEquals(2L, holder.state.value.replyParent)
     }

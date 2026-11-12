@@ -1,5 +1,13 @@
 package com.aritxonly.bdfun.feature.home.application
 
+import com.aritxonly.bdfun.core.model.video.VideoDetailOwner
+
+import com.aritxonly.bdfun.core.model.video.VideoDetailInfo
+
+import com.aritxonly.bdfun.core.model.video.VideoDetailCounts
+
+import com.aritxonly.bdfun.core.model.video.VideoItemExtras
+
 import com.aritxonly.bdfun.core.common.*
 import com.aritxonly.bdfun.core.domain.*
 import com.aritxonly.bdfun.core.model.feed.DynamicPage
@@ -9,7 +17,22 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class HomeActionsStateHolderTest {
-    private val video = VideoItem("one", 42, "one", "", "UP", "", 7, 0, 0, 0, 0, categoryName = "游戏")
+    private val video = VideoItem(
+        bvid = "one",
+        aid = 42,
+        title = "one",
+        cover = "",
+        ownerName = "UP",
+        ownerFace = "",
+        ownerMid = 7,
+        play = 0,
+        danmaku = 0,
+        duration = 0,
+        pubdate = 0,
+        extras = VideoItemExtras(
+            categoryName = "游戏",
+        ),
+    )
     private class Actions : RecommendationActionsRepository {
         val reasons = mutableListOf<RecommendationReason>()
         var fail = false
@@ -53,7 +76,11 @@ class HomeActionsStateHolderTest {
         assertEquals(listOf(4L, 4L), actions.reasons.map { it.id })
     }
     @Test fun appFeedbackNeverInventsMissingServerReasons() = runBlocking {
-        val target = video.copy(appRecommendation = true)
+        val target = video.copy(
+            extras = video.extras.copy(
+                appRecommendation = true,
+            ),
+        )
         val feed = feed(target); feed.ensureLoaded()
         val actions = Actions()
         val state = HomeActionsStateHolder(videos, actions, feed)
@@ -73,7 +100,11 @@ class HomeActionsStateHolderTest {
     }
     @Test fun unavailableCategoryStaysUnknownAndDoesNotCreateFeedback() = runBlocking {
         val state = HomeActionsStateHolder(videos, Actions(), feed())
-        state.select(video.copy(categoryName = ""))
+        state.select(video.copy(
+            extras = video.extras.copy(
+                categoryName = "",
+            ),
+        ))
         assertEquals("", state.state.value.category)
         assertFalse(state.state.value.categoryLoading)
         assertTrue(state.perform(HomeVideoAction.HideCategory) is Outcome.Failure)
@@ -109,9 +140,40 @@ class HomeActionsStateHolderTest {
             override suspend fun related(bvid: String): Outcome<List<VideoItem>> = error("unused")
         }
         val state = HomeActionsStateHolder(repository, Actions(), feed(video))
-        val request = launch(start = CoroutineStart.UNDISPATCHED) { state.select(video.copy(categoryName = "")) }
+        val request = launch(start = CoroutineStart.UNDISPATCHED) { state.select(video.copy(
+            extras = video.extras.copy(
+                categoryName = "",
+            ),
+        )) }
         state.close(); pending.complete(Outcome.Success(VideoDetail(
-            "one", 42, "one", "", "", "UP", "", 7, "", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "迟到分类", emptyList()))); request.join()
+            bvid = "one",
+            aid = 42,
+            title = "one",
+            cover = "",
+            desc = "",
+            owner = VideoDetailOwner(
+                ownerName = "UP",
+                ownerFace = "",
+                ownerMid = 7,
+                ownerSign = "",
+            ),
+            counts = VideoDetailCounts(
+                play = 0,
+                danmaku = 0,
+                like = 0,
+                coin = 0,
+                favorite = 0,
+                share = 0,
+                reply = 0,
+            ),
+            info = VideoDetailInfo(
+                pubdate = 0,
+                duration = 0,
+                cid = 0,
+                tname = "迟到分类",
+                pages = emptyList(),
+            ),
+        ))); request.join()
         assertFalse(state.state.value.categoryLoading); assertEquals("", state.state.value.category)
     }
     @Test fun closePreventsLateDislikeFromFilteringFeed() = runBlocking {

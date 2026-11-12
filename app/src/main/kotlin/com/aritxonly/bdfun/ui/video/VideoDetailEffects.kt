@@ -109,7 +109,9 @@ internal fun BindBackgroundVideoMetadata(video: VideoItem, detail: VideoDetail?,
             danmaku = d?.danmaku ?: video.danmaku,
             duration = d?.duration ?: video.duration,
             pubdate = d?.pubdate ?: video.pubdate,
-            cid = currentCid,
+            extras = video.extras.copy(
+                cid = currentCid,
+            ),
         )
         com.aritxonly.bdfun.ui.BackgroundPlayback.updateInfo(
             video = item,

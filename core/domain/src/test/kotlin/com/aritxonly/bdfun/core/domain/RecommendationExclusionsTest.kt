@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.core.domain
 
+import com.aritxonly.bdfun.core.model.video.VideoItemExtras
+
 import com.aritxonly.bdfun.core.model.video.VideoItem
 
 import org.junit.Assert.*
@@ -7,7 +9,22 @@ import org.junit.Test
 
 class RecommendationExclusionsTest {
     private fun video(id: String, creator: Long = 1, category: String = "游戏") =
-        VideoItem(id, 1, "", "", "", "", creator, 0, 0, 0, 0, categoryName = category)
+        VideoItem(
+            bvid = id,
+            aid = 1,
+            title = "",
+            cover = "",
+            ownerName = "",
+            ownerFace = "",
+            ownerMid = creator,
+            play = 0,
+            danmaku = 0,
+            duration = 0,
+            pubdate = 0,
+            extras = VideoItemExtras(
+                categoryName = category,
+            ),
+        )
     @Test fun currentVideoDoesNotExcludeTheWholeCreator() {
         val filter = RecommendationExclusions()
         filter.exclude(video("one"))

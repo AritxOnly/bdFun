@@ -1,5 +1,13 @@
 package com.aritxonly.bdfun.feature.video.application
 
+import com.aritxonly.bdfun.core.model.video.VideoDetailOwner
+
+import com.aritxonly.bdfun.core.model.video.VideoDetailInfo
+
+import com.aritxonly.bdfun.core.model.video.VideoDetailCounts
+
+import com.aritxonly.bdfun.core.model.video.VideoItemExtras
+
 import com.aritxonly.bdfun.core.common.*
 import com.aritxonly.bdfun.core.domain.VideoEntryRepository
 import com.aritxonly.bdfun.core.model.video.*
@@ -8,8 +16,35 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class VideoEntryStateHolderTest {
-    private val detail = VideoDetail("resolved", 42, "详情", "cover", "desc", "UP", "face", 7,
-        "sign", 1234, 555, 3, 4, 5, 6, 7, 123456, 88, 99, "分区", emptyList())
+    private val detail = VideoDetail(
+        bvid = "resolved",
+        aid = 42,
+        title = "详情",
+        cover = "cover",
+        desc = "desc",
+        owner = VideoDetailOwner(
+            ownerName = "UP",
+            ownerFace = "face",
+            ownerMid = 7,
+            ownerSign = "sign",
+        ),
+        counts = VideoDetailCounts(
+            play = 1234,
+            danmaku = 555,
+            like = 3,
+            coin = 4,
+            favorite = 5,
+            share = 6,
+            reply = 7,
+        ),
+        info = VideoDetailInfo(
+            pubdate = 123456,
+            duration = 88,
+            cid = 99,
+            tname = "分区",
+            pages = emptyList(),
+        ),
+    )
     private class Fake(val load: suspend (String) -> Outcome<VideoDetail>) : VideoEntryRepository {
         val calls = mutableListOf<String>()
         override suspend fun byBvid(bvid: String): Outcome<VideoDetail> {
@@ -21,7 +56,22 @@ class VideoEntryStateHolderTest {
     }
     @Test fun routeSnapshotSkipsBothReadsAndKeepsExplicitProgress() = runBlocking {
         val repository = Fake { error("snapshot must not fetch") }
-        val snapshot = VideoItem("cached", 1, "缓存", "", "UP", "", 7, 0, 0, 88, 0, startPositionMs = 12000)
+        val snapshot = VideoItem(
+            bvid = "cached",
+            aid = 1,
+            title = "缓存",
+            cover = "",
+            ownerName = "UP",
+            ownerFace = "",
+            ownerMid = 7,
+            play = 0,
+            danmaku = 0,
+            duration = 88,
+            pubdate = 0,
+            extras = VideoItemExtras(
+                startPositionMs = 12000,
+            ),
+        )
         val holder = VideoEntryStateHolder(repository, snapshot)
         assertFalse(holder.state.value.loading)
         assertEquals(VideoEntryResolution.Ready, holder.resolve("different", 42))

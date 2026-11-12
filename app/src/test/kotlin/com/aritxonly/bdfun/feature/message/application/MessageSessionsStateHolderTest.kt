@@ -32,7 +32,11 @@ class MessageSessionsStateHolderTest {
         val source = Fake(); val holder = MessageSessionsStateHolder(source)
         source.page = MessageSessionPage(listOf(item()), 42)
         holder.load()
-        source.page = MessageSessionPage(listOf(item(), item("two").copy(pinned = true)), null)
+        source.page = MessageSessionPage(listOf(item(), item("two").let { it.copy(
+            preferences = it.preferences.copy(
+                pinned = true,
+            ),
+        ) }), null)
         holder.load(true)
         assertEquals(42L, source.cursor)
         assertEquals(listOf("two", "one"), holder.state.value.sessions.map { it.id })

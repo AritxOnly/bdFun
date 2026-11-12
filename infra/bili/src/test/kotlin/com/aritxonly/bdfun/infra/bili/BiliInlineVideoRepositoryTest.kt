@@ -1,5 +1,11 @@
 package com.aritxonly.bdfun.infra.bili
 
+import com.aritxonly.bdfun.core.model.video.VideoDetailOwner
+
+import com.aritxonly.bdfun.core.model.video.VideoDetailInfo
+
+import com.aritxonly.bdfun.core.model.video.VideoDetailCounts
+
 import com.aritxonly.bdfun.core.common.Outcome
 import com.aritxonly.bdfun.core.domain.InlineVideoPreferences
 import com.aritxonly.bdfun.core.model.video.*
@@ -11,9 +17,33 @@ import org.junit.Test
 class BiliInlineVideoRepositoryTest {
     private val preferences = InlineVideoPreferences(64, "auto", "base")
     private fun detail(id: String) = VideoDetail(
-        bvid = id, aid = 1, title = "", cover = "", desc = "", ownerName = "", ownerFace = "", ownerMid = 1,
-        ownerSign = "", play = 0, danmaku = 0, like = 0, coin = 0, favorite = 0, share = 0, reply = 0,
-        pubdate = 0, duration = 1, cid = 2, tname = "", pages = emptyList(),
+        bvid = id,
+        aid = 1,
+        title = "",
+        cover = "",
+        desc = "",
+        owner = VideoDetailOwner(
+            ownerName = "",
+            ownerFace = "",
+            ownerMid = 1,
+            ownerSign = "",
+        ),
+        counts = VideoDetailCounts(
+            play = 0,
+            danmaku = 0,
+            like = 0,
+            coin = 0,
+            favorite = 0,
+            share = 0,
+            reply = 0,
+        ),
+        info = VideoDetailInfo(
+            pubdate = 0,
+            duration = 1,
+            cid = 2,
+            tname = "",
+            pages = emptyList(),
+        ),
     )
     private fun info(id: String = "one") = PlayInfo(emptyList(), null, id, 1, emptyList())
 

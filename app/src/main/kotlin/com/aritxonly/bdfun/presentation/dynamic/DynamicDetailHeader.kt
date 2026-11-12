@@ -23,7 +23,12 @@ internal fun LazyListScope.dynamicDetailHeader(snapshot: DynamicDetailUiState, a
     item(key = "detail-dynamic") {
         Box(modifier = Modifier.padding(bottom = 4.dp)) {
             DynamicCard(
-                item = detail.copy(liked = liked, like = likeCount),
+                item = detail.copy(
+                    counts = detail.counts.copy(
+                        liked = liked,
+                        like = likeCount,
+                    ),
+                ),
                 presentation = DynamicCardPresentation(liked, expanded = true, animatedOpen = false),
                 actions = DynamicCardActions(
                     onOpen = {},

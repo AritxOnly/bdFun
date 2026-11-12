@@ -133,7 +133,11 @@ internal class HomeFeedStateHolder(private val feed: FeedRepository, private val
                 if (exclusions.hasCategories && video.categoryName.isBlank()) {
                     limit.withPermit {
                         when (val detail = videos.videoDetail(video.bvid)) {
-                            is Outcome.Success -> video.copy(categoryName = detail.value.tname)
+                            is Outcome.Success -> video.copy(
+                                extras = video.extras.copy(
+                                    categoryName = detail.value.tname,
+                                ),
+                            )
                             is Outcome.Failure -> video
                         }
                     }

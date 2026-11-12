@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.feature.mine.application
 
+import com.aritxonly.bdfun.core.model.user.UserProfileStats
+
 import com.aritxonly.bdfun.core.common.*
 import com.aritxonly.bdfun.core.domain.MineRepository
 import com.aritxonly.bdfun.core.model.user.UserProfile
@@ -8,10 +10,31 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class MineStateHolderTest {
-    private fun profile(mid: Long = 1) = UserProfile(mid, "old", "face", "sign", 3, 2.5, false, "", 20, 10, 30)
+    private fun profile(mid: Long = 1) = UserProfile(
+        mid = mid,
+        name = "old",
+        face = "face",
+        sign = "sign",
+        level = 3,
+        coins = 2.5,
+        vip = false,
+        vipLabel = "",
+        stats = UserProfileStats(
+            follower = 20,
+            following = 10,
+            likes = 30,
+        ),
+    )
     private class Fake(val initial: UserProfile) : MineRepository {
         val calls = mutableListOf<String>()
-        var nav: Outcome<UserProfile?> = Outcome.Success(initial.copy(name = "fresh", following = 999, follower = 998, likes = 997))
+        var nav: Outcome<UserProfile?> = Outcome.Success(initial.copy(
+            name = "fresh",
+            stats = initial.stats.copy(
+                following = 999,
+                follower = 998,
+                likes = 997,
+            ),
+        ))
         var relation: Outcome<Pair<Long, Long>> = Outcome.Success(40L to 50L)
         var liked: Outcome<Long> = Outcome.Success(60L)
         var hook: suspend (String) -> Unit = {}
@@ -29,7 +52,14 @@ class MineStateHolderTest {
     @Test fun requestsKeepOriginalOrderAndFieldPrecedence() = runBlocking {
         val p = profile(); val fake = Fake(p); val h = MineStateHolder(p, fake, MineProfileStore { 0 })
         h.load(); assertEquals(listOf("nav", "relation:1", "likes:1"), fake.calls)
-        assertEquals(p.copy(name = "fresh", following = 40, follower = 50, likes = 60), h.state.value.profile)
+        assertEquals(p.copy(
+            name = "fresh",
+            stats = p.stats.copy(
+                following = 40,
+                follower = 50,
+                likes = 60,
+            ),
+        ), h.state.value.profile)
         assertFalse(h.state.value.loading)
     }
     @Test fun eachFailureFallsBackToInitialFieldsEvenWhenNavContainsOtherCounts() = runBlocking {
@@ -40,16 +70,27 @@ class MineStateHolderTest {
             if (mask and 2 != 0) fake.relation = failure
             if (mask and 4 != 0) fake.liked = failure
             val h = MineStateHolder(p, fake, MineProfileStore { 0 }); h.load()
-            assertEquals(p.copy(name = if (mask and 1 != 0) "old" else "fresh",
-                following = if (mask and 2 != 0) 10 else 40, follower = if (mask and 2 != 0) 20 else 50,
-                likes = if (mask and 4 != 0) 30 else 60), h.state.value.profile)
+            assertEquals(p.copy(
+                name = if (mask and 1 != 0) "old" else "fresh",
+                stats = p.stats.copy(
+                    following = if (mask and 2 != 0) 10 else 40,
+                    follower = if (mask and 2 != 0) 20 else 50,
+                    likes = if (mask and 4 != 0) 30 else 60,
+                ),
+            ), h.state.value.profile)
             assertEquals(3, fake.calls.size)
         }
     }
     @Test fun successfulNullNavRetainsInitialProfileAndLoadsOtherCounts() = runBlocking {
         val p = profile(); val fake = Fake(p).apply { nav = Outcome.Success(null) }
         val h = MineStateHolder(p, fake, MineProfileStore { 0 }); h.load()
-        assertEquals(p.copy(following = 40, follower = 50, likes = 60), h.state.value.profile)
+        assertEquals(p.copy(
+            stats = p.stats.copy(
+                following = 40,
+                follower = 50,
+                likes = 60,
+            ),
+        ), h.state.value.profile)
     }
     @Test fun cacheReusesMergedResultAndExpiresAtExactlyFiveMinutesFromRequestStart() = runBlocking {
         var now = 1000L; val p = profile(); val fake = Fake(p); val cache = MineProfileStore { now }

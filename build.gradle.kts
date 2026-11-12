@@ -44,7 +44,7 @@ val checkModuleGraph by tasks.registering(Exec::class) {
 
 // 新模块接线前先检查边界，避免将平台实现带回核心层。
 val checkLayering by tasks.registering(Exec::class) {
-    dependsOn(testLayeringRules, checkModuleGraph)
+    dependsOn(testLayeringRules, checkModuleGraph, ":tools:kotlin-audit:checkKotlinSizes")
     group = "verification"
     commandLine("python3", rootProject.file("tools/check-layering.py"))
 }

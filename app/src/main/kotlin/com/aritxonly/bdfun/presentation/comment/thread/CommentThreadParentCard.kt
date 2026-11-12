@@ -24,7 +24,7 @@ internal fun CommentThreadParentCard(comment: CommentItem, transient: CommentThr
         CommentRow(
             item = comment.copy(
                 replyCount = 0,
-                previewReplies = emptyList(),
+                extras = comment.extras.copy(previewReplies = emptyList()),
                 liked = AppGraph.commentLikes.isLiked(comment),
                 like = AppGraph.commentLikes.likeCount(comment),
             ),

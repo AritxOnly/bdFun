@@ -22,8 +22,12 @@ internal fun BindVideoScreenEffects(
         val current = content.interaction
         val d = current.detail ?: return@LaunchedEffect
         controllers.readCache.updateVideo(d.bvid) { cached ->
-            cached.copy(liked = current.liked, like = current.likeCount, coined = current.coined,
-                coin = current.coinCount, favorited = current.favorited, favorite = current.favoriteCount)
+            cached.copy(
+                interaction = cached.interaction.copy(liked = current.liked, coined = current.coined,
+                    favorited = current.favorited),
+                counts = cached.counts.copy(like = current.likeCount, coin = current.coinCount,
+                    favorite = current.favoriteCount),
+            )
         }
     }
     BackHandler {

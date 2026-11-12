@@ -1,5 +1,15 @@
 package com.aritxonly.bdfun.infra.storage
 
+import com.aritxonly.bdfun.core.model.feed.DynamicItemAuthor
+
+import com.aritxonly.bdfun.core.model.feed.DynamicCounts
+
+import com.aritxonly.bdfun.core.model.feed.DynamicAuthor
+
+import com.aritxonly.bdfun.core.model.feed.DynamicAttachments
+
+import com.aritxonly.bdfun.core.model.video.VideoItemExtras
+
 import com.aritxonly.bdfun.core.navigation.Route
 import com.aritxonly.bdfun.core.model.video.*
 import com.aritxonly.bdfun.core.model.feed.*
@@ -53,12 +63,27 @@ class RouteJsonCodec {
     }
 
     private fun readVideo(v: JSONObject) = VideoItem(
-        v.getString("bvid"), v.getLong("aid"), v.getString("title"), v.getString("cover"),
-        v.getString("ownerName"), v.getString("ownerFace"), v.getLong("ownerMid"), v.getLong("play"),
-        v.getLong("danmaku"), v.getInt("duration"), v.getLong("pubdate"), v.optLong("cid"),
-        v.optString("reason"), v.optBoolean("isFollowed"), v.optLong("startPositionMs"), v.optString("categoryName"),
-        v.optString("recommendationTrackId"), v.optBoolean("appRecommendation"),
-        v.optJSONArray("dislikeReasons").objects().map { RecommendationReason(it.getLong("id"), it.getString("name")) },
+        bvid = v.getString("bvid"),
+        aid = v.getLong("aid"),
+        title = v.getString("title"),
+        cover = v.getString("cover"),
+        ownerName = v.getString("ownerName"),
+        ownerFace = v.getString("ownerFace"),
+        ownerMid = v.getLong("ownerMid"),
+        play = v.getLong("play"),
+        danmaku = v.getLong("danmaku"),
+        duration = v.getInt("duration"),
+        pubdate = v.getLong("pubdate"),
+        extras = VideoItemExtras(
+            cid = v.optLong("cid"),
+            reason = v.optString("reason"),
+            isFollowed = v.optBoolean("isFollowed"),
+            startPositionMs = v.optLong("startPositionMs"),
+            categoryName = v.optString("categoryName"),
+            recommendationTrackId = v.optString("recommendationTrackId"),
+            appRecommendation = v.optBoolean("appRecommendation"),
+            dislikeReasons = v.optJSONArray("dislikeReasons").objects().map { RecommendationReason(it.getLong("id"), it.getString("name")) },
+        ),
     )
 
     private fun dynamic(d: DynamicItem): JSONObject = JSONObject().apply {
@@ -76,16 +101,39 @@ class RouteJsonCodec {
     }
 
     private fun readDynamic(d: JSONObject): DynamicItem = DynamicItem(
-        d.getString("id"), d.getString("name"), d.getString("face"), d.getLong("mid"), d.getString("time"),
-        d.getString("text"), d.getJSONArray("images").let { a -> List(a.length()) { a.getString(it) } },
-        d.optJSONObject("video")?.let(::readVideo), d.getInt("like"), d.getInt("comment"), d.getInt("forward"),
-        d.optBoolean("liked"), d.getString("commentOid"), d.getInt("commentType"), d.optString("title"),
-        d.optJSONObject("orig")?.let(::readDynamic), d.optBoolean("authorVip"), d.optBoolean("isCollection"),
-        d.optString("pgcCover"), d.optString("pgcTitle"), d.optString("pgcLabel"), d.optString("moduleTag"),
-        d.optJSONObject("liveRecommendation")?.let {
+        id = d.getString("id"),
+        author = DynamicItemAuthor(
+            name = d.getString("name"),
+            face = d.getString("face"),
+            mid = d.getLong("mid"),
+            authorVip = d.optBoolean("authorVip"),
+            ipLocation = d.optString("ipLocation"),
+        ),
+        time = d.getString("time"),
+        text = d.getString("text"),
+        images = d.getJSONArray("images").let { a -> List(a.length()) { a.getString(it) } },
+        video = d.optJSONObject("video")?.let(::readVideo),
+        counts = DynamicCounts(
+            like = d.getInt("like"),
+            comment = d.getInt("comment"),
+            forward = d.getInt("forward"),
+            liked = d.optBoolean("liked"),
+        ),
+        commentOid = d.getString("commentOid"),
+        commentType = d.getInt("commentType"),
+        attachments = DynamicAttachments(
+            title = d.optString("title"),
+            orig = d.optJSONObject("orig")?.let(::readDynamic),
+            isCollection = d.optBoolean("isCollection"),
+            pgcCover = d.optString("pgcCover"),
+            pgcTitle = d.optString("pgcTitle"),
+            pgcLabel = d.optString("pgcLabel"),
+            moduleTag = d.optString("moduleTag"),
+            liveRecommendation = d.optJSONObject("liveRecommendation")?.let {
             DynamicLiveRecommendation(it.getLong("roomId"), it.getString("title"), it.getString("cover"),
                 it.getBoolean("live"), it.getString("areaName"), it.getString("watched"))
-        }, d.optString("ipLocation"),
+        },
+        ),
     )
 
     private fun JSONArray?.objects(): List<JSONObject> = if (this == null) emptyList() else List(length()) { getJSONObject(it) }

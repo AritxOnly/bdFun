@@ -1,5 +1,15 @@
 package com.aritxonly.bdfun.infra.storage
 
+import com.aritxonly.bdfun.core.model.feed.DynamicItemAuthor
+
+import com.aritxonly.bdfun.core.model.feed.DynamicCounts
+
+import com.aritxonly.bdfun.core.model.feed.DynamicAuthor
+
+import com.aritxonly.bdfun.core.model.feed.DynamicAttachments
+
+import com.aritxonly.bdfun.core.model.video.VideoItemExtras
+
 import com.aritxonly.bdfun.core.navigation.Route
 import com.aritxonly.bdfun.core.model.video.*
 import com.aritxonly.bdfun.core.model.feed.*
@@ -7,13 +17,60 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class RouteJsonCodecTest {
-    private val video = VideoItem("BVone", Long.MAX_VALUE, "标题\"😀", "cover", "UP", "face", 88, 11, 12, 13, 14,
-        cid = 15, reason = "推荐", isFollowed = true, startPositionMs = 123456, categoryName = "游戏",
-        recommendationTrackId = "track", appRecommendation = true, dislikeReasons = listOf(RecommendationReason(1, "原因")))
-    private val dynamic = DynamicItem("id", "UP", "face", 88, "时间", "内容\n😀", listOf("a", "b"), video,
-        11, 12, 13, true, "oid", 11, "文章", authorVip = true, isCollection = true,
-        pgcCover = "pc", pgcTitle = "pt", pgcLabel = "pl", moduleTag = "tag",
-        liveRecommendation = DynamicLiveRecommendation(1, "直播", "封面", true, "分区", "观看"), ipLocation = "上海")
+    private val video = VideoItem(
+        bvid = "BVone",
+        aid = Long.MAX_VALUE,
+        title = "标题\"😀",
+        cover = "cover",
+        ownerName = "UP",
+        ownerFace = "face",
+        ownerMid = 88,
+        play = 11,
+        danmaku = 12,
+        duration = 13,
+        pubdate = 14,
+        extras = VideoItemExtras(
+            cid = 15,
+            reason = "推荐",
+            isFollowed = true,
+            startPositionMs = 123456,
+            categoryName = "游戏",
+            recommendationTrackId = "track",
+            appRecommendation = true,
+            dislikeReasons = listOf(RecommendationReason(1, "原因")),
+        ),
+    )
+    private val dynamic = DynamicItem(
+        id = "id",
+        author = DynamicItemAuthor(
+            name = "UP",
+            face = "face",
+            mid = 88,
+            authorVip = true,
+            ipLocation = "上海",
+        ),
+        time = "时间",
+        text = "内容\n😀",
+        images = listOf("a", "b"),
+        video = video,
+        counts = DynamicCounts(
+            like = 11,
+            comment = 12,
+            forward = 13,
+            liked = true,
+        ),
+        commentOid = "oid",
+        commentType = 11,
+        attachments = DynamicAttachments(
+            title = "文章",
+            isCollection = true,
+            pgcCover = "pc",
+            pgcTitle = "pt",
+            pgcLabel = "pl",
+            moduleTag = "tag",
+            liveRecommendation = DynamicLiveRecommendation(1, "直播", "封面", true, "分区", "观看"),
+        ),
+    )
     private val codec = RouteJsonCodec()
 
     @Test fun videoSnapshotAndCommentTargetSurviveIndependentDecoder() {
@@ -21,7 +78,7 @@ class RouteJsonCodecTest {
         assertEquals(route, RouteJsonCodec().decode(codec.encode(route)))
     }
     @Test fun nestedForwardAndAllDynamicMetadataSurviveRoundTrip() {
-        val forwarded = dynamic.copy(id = "forward", orig = dynamic)
+        val forwarded = dynamic.copy(id = "forward", attachments = dynamic.attachments.copy(orig = dynamic))
         val route = Route.Dynamic(forwarded.id, forwarded)
         assertEquals(route, RouteJsonCodec().decode(codec.encode(route)))
     }

@@ -1,5 +1,13 @@
 package com.aritxonly.bdfun.infra.bili.mapper
 
+import com.aritxonly.bdfun.core.model.message.MessagePresentation
+
+import com.aritxonly.bdfun.core.model.message.MessageNotice
+
+import com.aritxonly.bdfun.core.model.message.MessageNavigation
+
+import com.aritxonly.bdfun.core.model.message.MessageActor
+
 import com.aritxonly.bdfun.core.model.message.MessageItem
 import org.json.JSONObject
 import com.aritxonly.bdfun.infra.bili.BiliParameters.avatar
@@ -150,32 +158,40 @@ internal fun mapMessageFeedItem(payload: MessageFeedItemDto): MessageItem? = wit
             ?: (item.s("pub_time").toLongOrNull() ?: 0L),
         name = user?.s("nickname").orEmpty().ifBlank { user?.s("uname").orEmpty() },
         avatar = avatar(user?.s("avatar").orEmpty(), 96),
-        bvid = bvid,
-        action = action,
-        source = source,
-        userMid = user?.l("mid") ?: 0L,
-        followed = isFollowedMessageUser(user, item),
-        likeNames = names,
-        likeCount = maxOf(
+        navigation = MessageNavigation(
+            bvid = bvid,
+            aid = aid,
+            rootRpid = uriRootRpid.takeIf { it > 0L } ?: (detail?.l("root_id") ?: 0L),
+            targetRpid = uriSecondRpid.takeIf { it > 0L } ?: (detail?.l("target_id") ?: 0L),
+            sourceRpid = uriSecondRpid.takeIf { it > 0L }
+            ?: (detail?.l("source_id") ?: 0L),
+            businessId = businessId,
+            seekMs = seekSeconds * 1000L,
+            nativeUri = nativeUri,
+        ),
+        presentation = MessagePresentation(
+            action = action,
+            source = source,
+            quote = quote,
+            subjectText = subjectText,
+            subjectCover = subjectCover,
+            videoSubject = videoSubject,
+            atMe = isAt,
+            commentOnMyVideo = commentOnMyVideo,
+        ),
+        actor = MessageActor(
+            userMid = user?.l("mid") ?: 0L,
+            followed = isFollowedMessageUser(user, item),
+            likeNames = names,
+            likeCount = maxOf(
             item.optInt("counts", 0),
             detail?.optInt("counts", 0) ?: 0,
             names.size,
         ),
-        aid = aid,
-        rootRpid = uriRootRpid.takeIf { it > 0L } ?: (detail?.l("root_id") ?: 0L),
-        targetRpid = uriSecondRpid.takeIf { it > 0L } ?: (detail?.l("target_id") ?: 0L),
-        sourceRpid = uriSecondRpid.takeIf { it > 0L }
-            ?: (detail?.l("source_id") ?: 0L),
-        businessId = businessId,
-        seekMs = seekSeconds * 1000L,
-        nativeUri = nativeUri,
-        noticeState = item.optInt("notice_state", 0),
-        quote = quote,
-        subjectText = subjectText,
-        subjectCover = subjectCover,
-        videoSubject = videoSubject,
-        atMe = isAt,
-        commentOnMyVideo = commentOnMyVideo,
+        ),
+        notice = MessageNotice(
+            noticeState = item.optInt("notice_state", 0),
+        ),
     )
 }
 

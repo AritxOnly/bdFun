@@ -1,5 +1,11 @@
 package com.aritxonly.bdfun.feature.video.application
 
+import com.aritxonly.bdfun.core.model.video.VideoDetailOwner
+
+import com.aritxonly.bdfun.core.model.video.VideoDetailInfo
+
+import com.aritxonly.bdfun.core.model.video.VideoDetailCounts
+
 import com.aritxonly.bdfun.core.common.*
 import com.aritxonly.bdfun.core.domain.*
 import com.aritxonly.bdfun.core.model.video.*
@@ -8,8 +14,35 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class BackgroundQueueLoaderTest {
-    private val detail = VideoDetail("one", 42, "标题", "", "简介", "UP", "", 7, "", 0, 0, 10, 3, 4, 0, 0, 0,
-        10, 12, "分区", listOf(VideoPage(12, 1, "一", 10), VideoPage(13, 2, "二", 20)))
+    private val detail = VideoDetail(
+        bvid = "one",
+        aid = 42,
+        title = "标题",
+        cover = "",
+        desc = "简介",
+        owner = VideoDetailOwner(
+            ownerName = "UP",
+            ownerFace = "",
+            ownerMid = 7,
+            ownerSign = "",
+        ),
+        counts = VideoDetailCounts(
+            play = 0,
+            danmaku = 0,
+            like = 10,
+            coin = 3,
+            favorite = 4,
+            share = 0,
+            reply = 0,
+        ),
+        info = VideoDetailInfo(
+            pubdate = 0,
+            duration = 10,
+            cid = 12,
+            tname = "分区",
+            pages = listOf(VideoPage(12, 1, "一", 10), VideoPage(13, 2, "二", 20)),
+        ),
+    )
     private class Videos : VideoRepository {
         override suspend fun videoDetail(bvid: String): Outcome<VideoDetail> = error("unused")
         override suspend fun related(bvid: String): Outcome<List<VideoItem>> = error("unused")

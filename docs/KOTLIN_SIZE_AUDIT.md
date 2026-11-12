@@ -1,34 +1,13 @@
 # Kotlin语法树尺寸审计
 
-> 2026-11-12：尺寸门槛尚未通过。以下为真实PSI节点报告，不再以旧正则扫描的“具名块函数无超标”作为完成证据。
+> 2026-11-12：严格尺寸门槛已通过，当前违规0；这只代表结构门槛，不代表全量重构验收完成。
 
-使用开发工具 `:tools:kotlin-audit`（Kotlin 2.4.21 PSI），扫描953个自有生产Kotlin文件，包含debug；共10190个可调用/函数类型节点，语法解析错误0。规则仍为文件≤400行、函数体/lambda/init≤80行、声明/构造/函数类型输入参数≤12。17项JVM正反例覆盖边界、表达式、主次构造、匿名函数、lambda、访问器、初始化块、字符串插值代码、函数类型、context参数、CRLF和语法失败。
+使用同版本Kotlin PSI开发工具`:tools:kotlin-audit`，扫描953个自有生产Kotlin文件（含debug），共10421个可调用/函数类型节点。文件≤400行、函数体/lambda/init≤80行、声明/构造/函数类型输入参数≤12，阈值与范围不变。没有排除数据类、表达式或长构造器；原17项正反例保持。
 
-完整机器报告：`build/reports/kotlin-audit/report.json`。严格任务 `./gradlew :tools:kotlin-audit:checkKotlinSizes` 必须为非零；只供定位的report任务为0，不是验收通过。严格任务尚未并入checkLayering，待清零后完成最终接线。
+严格任务`:tools:kotlin-audit:checkKotlinSizes`已接入`checkLayering`；reportKotlinSizes继续仅用于定位，退出0不能代替严格任务。完整机器报告位于`build/reports/kotlin-audit/report.json`。
 
-开发依赖理由：重用已锁定Kotlin版本的compiler-embeddable提供PSI，替代无法可靠处理表达式、构造和字符串插值的正则；手工括号扫描无法证明完整语法覆盖。该依赖只属于工具模块，实际app debugRuntimeClasspath及当前APK确认不含PSI/审计器，不引入Android运行时框架或编译器版本变化。
+此前19项在空间mapper阶段降至17，消息mapper/日志页拆分后降至12；最后12个长构造器按领域分组清零：视频列表扩展、详情作者/计数/资料/关系、用户统计/装饰/经验、动态作者/计数/附件、评论扩展、消息导航/参与者/展示/通知、会话偏好、页面身份/请求/播放器/回复、视频交互收藏选择及全屏信息/播放状态/动作分组。所有原只读属性与默认值保留，调用方构造/copy显式接入分组，没有新增长参数兼容工厂。动态commentOid仍在主记录以id为默认值，copy不重新计算该默认值。
 
-当前12条违规均为长参数构造器；同一物理函数及其内部lambda可能分别违规，不把节点数误称独立文件数。
+现有真实样本mapper、消息目标/通知、路由JSON往返、缓存/交互/分页与页面隔离用例验证语义保持；测试样本只改构造/copy接线，不降低断言或改变预期值。工具编译器依赖仍仅在开发模块，不进入APK；生产Gradle图禁止app依赖tools。
 
-| 文件 | 行 | 节点 | 当前 | 限制 |
-|---|---:|---|---:|---:|
-| [VideoInteractionStateHolder.kt](../app/src/main/kotlin/com/aritxonly/bdfun/feature/video/application/VideoInteractionStateHolder.kt#L12) | 12 | `parameters` / `primary-constructor:VideoInteractionState` | 16 | 12 |
-| [FullscreenPlayerModels.kt](../app/src/main/kotlin/com/aritxonly/bdfun/ui/player/fullscreen/FullscreenPlayerModels.kt#L24) | 24 | `parameters` / `primary-constructor:FullscreenPlayerInfo` | 23 | 12 |
-| [FullscreenPlayerModels.kt](../app/src/main/kotlin/com/aritxonly/bdfun/ui/player/fullscreen/FullscreenPlayerModels.kt#L50) | 50 | `parameters` / `primary-constructor:FullscreenPlaybackState` | 19 | 12 |
-| [FullscreenPlayerModels.kt](../app/src/main/kotlin/com/aritxonly/bdfun/ui/player/fullscreen/FullscreenPlayerModels.kt#L72) | 72 | `parameters` / `primary-constructor:FullscreenActions` | 31 | 12 |
-| [VideoPageStateHolder.kt](../core/application/src/main/kotlin/com/aritxonly/bdfun/core/application/VideoPageStateHolder.kt#L7) | 7 | `parameters` / `primary-constructor:VideoPageState` | 24 | 12 |
-| [CommentItem.kt](../core/model/src/main/kotlin/com/aritxonly/bdfun/core/model/comment/CommentItem.kt#L3) | 3 | `parameters` / `primary-constructor:CommentItem` | 21 | 12 |
-| [DynamicItem.kt](../core/model/src/main/kotlin/com/aritxonly/bdfun/core/model/feed/DynamicItem.kt#L5) | 5 | `parameters` / `primary-constructor:DynamicItem` | 24 | 12 |
-| [MessageItem.kt](../core/model/src/main/kotlin/com/aritxonly/bdfun/core/model/message/MessageItem.kt#L3) | 3 | `parameters` / `primary-constructor:MessageItem` | 29 | 12 |
-| [MessageSession.kt](../core/model/src/main/kotlin/com/aritxonly/bdfun/core/model/message/MessageSession.kt#L4) | 4 | `parameters` / `primary-constructor:MessageSession` | 14 | 12 |
-| [UserProfile.kt](../core/model/src/main/kotlin/com/aritxonly/bdfun/core/model/user/UserProfile.kt#L3) | 3 | `parameters` / `primary-constructor:UserProfile` | 23 | 12 |
-| [VideoDetail.kt](../core/model/src/main/kotlin/com/aritxonly/bdfun/core/model/video/VideoDetail.kt#L3) | 3 | `parameters` / `primary-constructor:VideoDetail` | 27 | 12 |
-| [VideoItem.kt](../core/model/src/main/kotlin/com/aritxonly/bdfun/core/model/video/VideoItem.kt#L3) | 3 | `parameters` / `primary-constructor:VideoItem` | 19 | 12 |
-
-2026-11-12空间资料mapper检查点消除了space()的119行函数/嵌套lambda两项；此前基线为909文件/9511节点/19条，当前以机器报告为准。没有放宽阈值或排除构造器。
-
-范围排除沿用原重构边界：测试、生成源码、TeakUI/弹幕引擎及内联供应商源码；没有因超标临时排除数据类、构造器或debug日志页。分组构造参数时仍须保留全部原字段、默认值、copy/相等/存储协议与UI行为；不能直接删字段或放宽阈值。此处不是P3/P4/P5或全量验收完成声明。
-
-2026-11-12直播集成检查点：最新main 4c4e03b的直播页面、手势、弹幕配置与协议已拆分；直播相关新增尺寸违规为0，全仓仍为此前17项。report任务成功不代表全量尺寸门槛通过。
-
-2026-11-12继续收尾：消息条目解析拆为DTO/表现/目标mapper，日志页按原item拆分，原5个体积节点消除；现剩12个长构造器。未放宽或排除任何规则。
+范围排除保持原约定：测试、生成源码、TeakUI/弹幕引擎与内联供应商源码。用户新授权的滚动容器公开入口为4参数，未利用排除范围添加长接口。严格尺寸通过不替代全局作用域、模块依赖、完整视觉/播放器验收。

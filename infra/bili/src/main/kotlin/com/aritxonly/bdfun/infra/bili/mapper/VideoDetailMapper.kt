@@ -1,5 +1,13 @@
 package com.aritxonly.bdfun.infra.bili.mapper
 
+import com.aritxonly.bdfun.core.model.video.VideoDetailOwner
+
+import com.aritxonly.bdfun.core.model.video.VideoDetailInteraction
+
+import com.aritxonly.bdfun.core.model.video.VideoDetailInfo
+
+import com.aritxonly.bdfun.core.model.video.VideoDetailCounts
+
 import com.aritxonly.bdfun.core.model.video.*
 import com.aritxonly.bdfun.infra.bili.BiliParameters.avatar
 import com.aritxonly.bdfun.infra.bili.BiliParameters.image
@@ -26,19 +34,43 @@ internal object VideoDetailMapper {
     }
 
     fun map(dto: VideoDetailDto, cleanHtml: (String) -> String): VideoDetail = VideoDetail(
-        bvid = dto.bvid, aid = dto.aid, title = cleanHtml(dto.title), cover = image(dto.cover, 1200),
-        desc = dto.description, ownerName = dto.owner.name, ownerFace = avatar(dto.owner.face, 160),
-        ownerMid = dto.owner.mid, ownerSign = "", play = dto.stats.play, danmaku = dto.stats.danmaku,
-        like = dto.stats.like, coin = dto.stats.coin, favorite = dto.stats.favorite,
-        share = dto.stats.share, reply = dto.stats.reply, pubdate = dto.timing.publishedAt,
-        duration = dto.timing.duration, cid = dto.timing.cid, tname = dto.category,
-        pages = dto.collection.pages.map { VideoPage(it.cid, it.page, it.part, it.duration) },
-        episodes = dto.collection.episodes.map {
+        bvid = dto.bvid,
+        aid = dto.aid,
+        title = cleanHtml(dto.title),
+        cover = image(dto.cover, 1200),
+        desc = dto.description,
+        owner = VideoDetailOwner(
+            ownerName = dto.owner.name,
+            ownerFace = avatar(dto.owner.face, 160),
+            ownerMid = dto.owner.mid,
+            ownerSign = "",
+        ),
+        counts = VideoDetailCounts(
+            play = dto.stats.play,
+            danmaku = dto.stats.danmaku,
+            like = dto.stats.like,
+            coin = dto.stats.coin,
+            favorite = dto.stats.favorite,
+            share = dto.stats.share,
+            reply = dto.stats.reply,
+        ),
+        info = VideoDetailInfo(
+            pubdate = dto.timing.publishedAt,
+            duration = dto.timing.duration,
+            cid = dto.timing.cid,
+            tname = dto.category,
+            pages = dto.collection.pages.map { VideoPage(it.cid, it.page, it.part, it.duration) },
+            episodes = dto.collection.episodes.map {
             VideoEpisode(it.bvid, it.aid, it.cid, it.title, image(it.cover, 480), it.duration,
                 it.play, it.danmaku, it.publishedAt)
         },
-        seasonTitle = dto.collection.title, liked = dto.interaction.liked,
-        coined = dto.interaction.coined, favorited = dto.interaction.favorited,
+            seasonTitle = dto.collection.title,
+        ),
+        interaction = VideoDetailInteraction(
+            liked = dto.interaction.liked,
+            coined = dto.interaction.coined,
+            favorited = dto.interaction.favorited,
+        ),
     )
 
     internal fun readStats(stat: JSONObject?): VideoStatsDto = VideoStatsDto(

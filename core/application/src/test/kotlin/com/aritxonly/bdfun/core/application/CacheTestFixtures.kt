@@ -1,5 +1,11 @@
 package com.aritxonly.bdfun.core.application
 
+import com.aritxonly.bdfun.core.model.video.VideoDetailOwner
+
+import com.aritxonly.bdfun.core.model.video.VideoDetailInfo
+
+import com.aritxonly.bdfun.core.model.video.VideoDetailCounts
+
 import com.aritxonly.bdfun.core.common.Outcome
 import com.aritxonly.bdfun.core.domain.*
 import com.aritxonly.bdfun.core.model.cache.*
@@ -10,8 +16,35 @@ internal fun cacheEntry(status: CacheStatus = CacheStatus.Completed, id: String 
     CacheVideoInfo("BV1234567890", 3, 7, "title", "https://cover", "owner", 5, 12),
     CacheVideoFiles(80, "1080P", "$id/video.m4s", "$id/audio.m4s", "$id/cover.jpg"),
     CacheTransferState(1f, 120, 120, status), 100)
-internal fun cacheDetail() = VideoDetail("BV1234567890", 3, "title", "https://cover", "", "owner", "", 5,
-    "", 0, 0, 0, 0, 0, 0, 0, 0, 12, 7, "", emptyList())
+internal fun cacheDetail() = VideoDetail(
+    bvid = "BV1234567890",
+    aid = 3,
+    title = "title",
+    cover = "https://cover",
+    desc = "",
+    owner = VideoDetailOwner(
+        ownerName = "owner",
+        ownerFace = "",
+        ownerMid = 5,
+        ownerSign = "",
+    ),
+    counts = VideoDetailCounts(
+        play = 0,
+        danmaku = 0,
+        like = 0,
+        coin = 0,
+        favorite = 0,
+        share = 0,
+        reply = 0,
+    ),
+    info = VideoDetailInfo(
+        pubdate = 0,
+        duration = 12,
+        cid = 7,
+        tname = "",
+        pages = emptyList(),
+    ),
+)
 internal fun cacheQuality() = Quality(80, "1080P", 1920, 1080, "30", "codec", "video")
 internal open class CacheFilesFake : VideoCacheStorage {
     var restored = emptyList<CachedVideo>()

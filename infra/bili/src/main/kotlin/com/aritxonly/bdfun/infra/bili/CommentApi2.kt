@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.infra.bili
 
+import com.aritxonly.bdfun.core.model.comment.CommentExtras
+
 import android.content.Context
 import android.net.Uri
 import android.text.Html
@@ -104,16 +106,17 @@ internal fun BiliApiContext.parseComment(
         isUp = upMid > 0 && mid == upMid,
         isTop = top,
         liked = reply.optInt("action", 0) == 1,
-        mid = mid,
-        oid = reply.l("oid"),
-        root = reply.l("root"),
-        parent = reply.l("parent"),
-        emotes = emotes,
-        ipLocation = reply.optJSONObject("reply_control")?.s("location").orEmpty(),
-        isVip = member?.optJSONObject("vip")?.optInt("vipStatus", 0) == 1,
-        pictures = pictures,
-        mentions = mentions,
-        previewReplies = if (depth < 1) {
+        extras = CommentExtras(
+            mid = mid,
+            oid = reply.l("oid"),
+            root = reply.l("root"),
+            parent = reply.l("parent"),
+            emotes = emotes,
+            ipLocation = reply.optJSONObject("reply_control")?.s("location").orEmpty(),
+            isVip = member?.optJSONObject("vip")?.optInt("vipStatus", 0) == 1,
+            pictures = pictures,
+            mentions = mentions,
+            previewReplies = if (depth < 1) {
             reply.optJSONArray("replies")?.objects()
                 ?.take(3)
                 ?.map { parseComment(it, upMid, false, depth + 1) }
@@ -121,6 +124,7 @@ internal fun BiliApiContext.parseComment(
         } else {
             emptyList()
         },
+        ),
     )
 }
 

@@ -111,7 +111,7 @@ internal class MessageFeedStateHolder(private val repository: MessageFeedReposit
             if (result is Outcome.Success) mutable.update { it.copy(itemsByTab = it.itemsByTab + (page to
                 it.itemsByTab[page].orEmpty().mapNotNull { current ->
                     if (current.id != item.id) current else if (delete) null
-                    else current.copy(noticeState = if (item.noticeState == 0) 1 else 0)
+                    else current.copy(notice = current.notice.copy(noticeState = if (item.noticeState == 0) 1 else 0))
                 })) }
             return result
         } finally { mutable.update { it.copy(busy = false) } }

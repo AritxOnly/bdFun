@@ -78,7 +78,7 @@ class CommentListStateHolderTest {
     }
     @Test fun likeProjectionUpdatesCollapsedPreviewAsWellAsTopLevel() = runBlocking {
         val fake = Fake().apply { load = { _, page -> Outcome.Success(CommentPage(
-            listOf(item(1).copy(previewReplies = listOf(item(2)))), page, true, 1)) } }
+            listOf(item(1).let { it.copy(extras = it.extras.copy(previewReplies = listOf(item(2)))) }), page, true, 1)) } }
         val holder = CommentListStateHolder(fake, query); holder.reset()
         holder.applyLike(2, true, 8)
         assertTrue(holder.state.value.items.single().previewReplies.single().liked)

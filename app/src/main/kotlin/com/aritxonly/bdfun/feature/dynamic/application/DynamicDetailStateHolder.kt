@@ -38,7 +38,13 @@ internal class DynamicDetailStateHolder(private val repository: DynamicDetailRep
         if (closed) return
         if (result is Outcome.Success && result.value.isNotBlank()) mutable.update { current ->
             if (current.detail.mid == detail.mid && current.detail.ipLocation.isBlank())
-                current.copy(detail = current.detail.copy(ipLocation = result.value)) else current
+                current.copy(
+                    detail = current.detail.copy(
+                        author = current.detail.author.copy(
+                            ipLocation = result.value,
+                        ),
+                    ),
+                ) else current
         }
     }
 

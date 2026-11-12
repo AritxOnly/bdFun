@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.infra.bili
 
+import com.aritxonly.bdfun.core.model.video.VideoItemExtras
+
 import android.content.Context
 import android.net.Uri
 import android.text.Html
@@ -160,7 +162,9 @@ internal fun BiliApiContext.parseSpaceVideo(item: JSONObject): VideoItem? {
         danmaku = item.l("video_review"),
         duration = parseDurationText(item.s("length")),
         pubdate = item.l("created"),
-        cid = item.l("cid"),
+        extras = VideoItemExtras(
+            cid = item.l("cid"),
+        ),
     )
 }
 

@@ -1,5 +1,13 @@
 package com.aritxonly.bdfun.infra.bili
 
+import com.aritxonly.bdfun.core.model.message.MessagePresentation
+
+import com.aritxonly.bdfun.core.model.message.MessageNotice
+
+import com.aritxonly.bdfun.core.model.message.MessageActor
+
+import com.aritxonly.bdfun.core.model.message.MessageSessionPreferences
+
 import android.content.Context
 import android.net.Uri
 import android.text.Html
@@ -175,12 +183,15 @@ internal suspend fun BiliApiContext.newFollowers(page: Int = 1): List<MessageIte
             time = fan.l("mtime").takeIf { it > 0L } ?: fan.l("ctime"),
             name = fan.s("uname"),
             avatar = avatar(fan.s("face"), 120),
-            action = "关注了我",
-            source = fan.s("sign"),
-            userMid = fanMid,
-            // 粉丝列表接口里 attribute 2/6 表示我已经关注 / 互关，用来决定「回关」按钮。
-            followed = attribute == 2 || attribute == 6 ||
+            presentation = MessagePresentation(
+                action = "关注了我",
+                source = fan.s("sign"),
+            ),
+            actor = MessageActor(
+                userMid = fanMid,
+                followed = attribute == 2 || attribute == 6 ||
                 fan.optBoolean("is_follow", false),
+            ),
         )
     }
 }
@@ -269,8 +280,20 @@ internal suspend fun BiliApiContext.systemMessages(cursor: MessageCursor?): Mess
     val items = root.optJSONArray("data").objects().map {
         val raw = it.s("content")
         val content = cancellableCatching { JSONObject(raw).optString("web", raw) }.getOrDefault(raw)
-        MessageItem(id = it.s("id"), title = it.s("title"), content = content,
-            time = 0L, name = "系统通知", avatar = "", source = it.s("time_at"), systemCursor = it.l("cursor"))
+        MessageItem(
+            id = it.s("id"),
+            title = it.s("title"),
+            content = content,
+            time = 0L,
+            name = "系统通知",
+            avatar = "",
+            presentation = MessagePresentation(
+                source = it.s("time_at"),
+            ),
+            notice = MessageNotice(
+                systemCursor = it.l("cursor"),
+            ),
+        )
     }
     if (cursor == null && items.isNotEmpty()) {
         try {
@@ -315,9 +338,11 @@ internal fun BiliApiContext.parseMessageSession(message: JSONObject): MessageSes
             ?: (last?.l("timestamp") ?: 0L),
         unread = optInt("unread_count", 0),
         isSystem = systemType != 0,
-        followed = optInt("is_follow") == 1,
-        pinned = l("top_ts") > 0L,
-        muted = optInt("is_dnd") == 1,
+        preferences = MessageSessionPreferences(
+            followed = optInt("is_follow") == 1,
+            pinned = l("top_ts") > 0L,
+            muted = optInt("is_dnd") == 1,
+        ),
         maxSeqno = l("max_seqno"),
         sessionTs = l("session_ts"),
     )

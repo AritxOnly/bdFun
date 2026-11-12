@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.infra.bili.mapper
 
+import com.aritxonly.bdfun.core.model.video.VideoItemExtras
+
 import org.json.JSONObject
 import com.aritxonly.bdfun.core.model.feed.*
 import com.aritxonly.bdfun.core.model.video.*
@@ -23,7 +25,9 @@ internal fun parseDynamicVideo(archive: JSONObject?, ugcSeason: JSONObject?, aut
             danmaku = parseCountText(it.optJSONObject("stat")?.optString("danmaku").orEmpty()),
             duration = parseDurationText(it.s("duration_text")),
             pubdate = 0,
-            cid = 0,
+            extras = VideoItemExtras(
+                cid = 0,
+            ),
         )
     } ?: ugcSeason?.let {
         VideoItem(
@@ -38,7 +42,9 @@ internal fun parseDynamicVideo(archive: JSONObject?, ugcSeason: JSONObject?, aut
             danmaku = parseCountText(it.optJSONObject("stat")?.optString("danmaku").orEmpty()),
             duration = parseDurationText(it.s("duration_text")),
             pubdate = 0,
-            cid = 0,
+            extras = VideoItemExtras(
+                cid = 0,
+            ),
         )
     }
 }

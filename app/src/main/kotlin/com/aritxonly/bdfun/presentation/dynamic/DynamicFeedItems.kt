@@ -10,7 +10,12 @@ internal fun androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridSco
         val likedNow = state.liked[item.id] ?: item.liked
         val countNow = state.likeCounts[item.id] ?: item.like
         DynamicCard(
-            item = item.copy(liked = likedNow, like = countNow),
+            item = item.copy(
+                counts = item.counts.copy(
+                    liked = likedNow,
+                    like = countNow,
+                ),
+            ),
             actions = com.aritxonly.bdfun.ui.DynamicCardActions(
                 onOpen = {
                 actions.open(item)

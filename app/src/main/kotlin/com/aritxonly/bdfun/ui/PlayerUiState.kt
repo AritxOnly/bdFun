@@ -27,76 +27,172 @@ internal class VideoPagePresentationState(
     }
     var aid: Long
         get() = snapshot.aid
-        set(value) = update { it.copy(aid = value) }
+        set(value) = update { it.copy(
+            identity = it.identity.copy(
+                aid = value,
+            ),
+        ) }
     var cid: Long
         get() = snapshot.cid
-        set(value) = update { it.copy(cid = value) }
+        set(value) = update { it.copy(
+            identity = it.identity.copy(
+                cid = value,
+            ),
+        ) }
     var currentBvid: String
         get() = snapshot.currentBvid
-        set(value) = update { it.copy(currentBvid = value) }
+        set(value) = update { it.copy(
+            identity = it.identity.copy(
+                currentBvid = value,
+            ),
+        ) }
     var autoNextRequest: Int
         get() = snapshot.autoNextRequest
-        set(value) = update { it.copy(autoNextRequest = value) }
+        set(value) = update { it.copy(
+            requests = it.requests.copy(
+                autoNextRequest = value,
+            ),
+        ) }
     var danmakuOn: Boolean
         get() = snapshot.danmakuOn
-        set(value) = update { it.copy(danmakuOn = value) }
+        set(value) = update { it.copy(
+            player = it.player.copy(
+                danmakuOn = value,
+            ),
+        ) }
     var playerLiftPx: Float
         get() = snapshot.playerLiftPx
-        set(value) = update { it.copy(playerLiftPx = value) }
+        set(value) = update { it.copy(
+            player = it.player.copy(
+                playerLiftPx = value,
+            ),
+        ) }
     var playerBottomPx: Float
         get() = snapshot.playerBottomPx
-        set(value) = update { it.copy(playerBottomPx = value) }
+        set(value) = update { it.copy(
+            player = it.player.copy(
+                playerBottomPx = value,
+            ),
+        ) }
     var danmakuInputClose: Int
         get() = snapshot.danmakuInputClose
-        set(value) = update { it.copy(danmakuInputClose = value) }
+        set(value) = update { it.copy(
+            requests = it.requests.copy(
+                danmakuInputClose = value,
+            ),
+        ) }
     var danmakuProgressMs: Long
         get() = snapshot.danmakuProgressMs
-        set(value) = update { it.copy(danmakuProgressMs = value) }
+        set(value) = update { it.copy(
+            player = it.player.copy(
+                danmakuProgressMs = value,
+            ),
+        ) }
     var replyEditing: Boolean
         get() = snapshot.replyEditing
-        set(value) = update { it.copy(replyEditing = value) }
+        set(value) = update { it.copy(
+            reply = it.reply.copy(
+                replyEditing = value,
+            ),
+        ) }
     var requestReplyFocus: Int
         get() = snapshot.requestReplyFocus
-        set(value) = update { it.copy(requestReplyFocus = value) }
+        set(value) = update { it.copy(
+            requests = it.requests.copy(
+                requestReplyFocus = value,
+            ),
+        ) }
     var consumedReplyFocus: Int
         get() = snapshot.consumedReplyFocus
-        set(value) = update { it.copy(consumedReplyFocus = value) }
+        set(value) = update { it.copy(
+            requests = it.requests.copy(
+                consumedReplyFocus = value,
+            ),
+        ) }
     var dismissReply: Int
         get() = snapshot.dismissReply
-        set(value) = update { it.copy(dismissReply = value) }
+        set(value) = update { it.copy(
+            requests = it.requests.copy(
+                dismissReply = value,
+            ),
+        ) }
     var consumedDismissReply: Int
         get() = snapshot.consumedDismissReply
-        set(value) = update { it.copy(consumedDismissReply = value) }
+        set(value) = update { it.copy(
+            requests = it.requests.copy(
+                consumedDismissReply = value,
+            ),
+        ) }
     var commentMenuOpen: Boolean
         get() = snapshot.commentMenuOpen
-        set(value) = update { it.copy(commentMenuOpen = value) }
+        set(value) = update { it.copy(
+            reply = it.reply.copy(
+                commentMenuOpen = value,
+            ),
+        ) }
     var commentThreadVisible: Boolean
         get() = snapshot.commentThreadVisible
-        set(value) = update { it.copy(commentThreadVisible = value) }
+        set(value) = update { it.copy(
+            reply = it.reply.copy(
+                commentThreadVisible = value,
+            ),
+        ) }
     var fullscreen: Boolean
         get() = snapshot.fullscreen
-        set(value) = update { it.copy(fullscreen = value) }
+        set(value) = update { it.copy(
+            player = it.player.copy(
+                fullscreen = value,
+            ),
+        ) }
     var controlsVisible: Boolean
         get() = snapshot.controlsVisible
-        set(value) = update { it.copy(controlsVisible = value) }
+        set(value) = update { it.copy(
+            player = it.player.copy(
+                controlsVisible = value,
+            ),
+        ) }
     var danmakuPanelOpen: Boolean
         get() = snapshot.danmakuPanelOpen
-        set(value) = update { it.copy(danmakuPanelOpen = value) }
+        set(value) = update { it.copy(
+            player = it.player.copy(
+                danmakuPanelOpen = value,
+            ),
+        ) }
     var danmakuInteract: Int
         get() = snapshot.danmakuInteract
-        set(value) = update { it.copy(danmakuInteract = value) }
+        set(value) = update { it.copy(
+            requests = it.requests.copy(
+                danmakuInteract = value,
+            ),
+        ) }
     var orientationLocked: Boolean
         get() = snapshot.orientationLocked
-        set(value) = update { it.copy(orientationLocked = value) }
+        set(value) = update { it.copy(
+            player = it.player.copy(
+                orientationLocked = value,
+            ),
+        ) }
     var replyName: String?
         get() = snapshot.replyName
-        set(value) = update { it.copy(replyName = value) }
+        set(value) = update { it.copy(
+            reply = it.reply.copy(
+                replyName = value,
+            ),
+        ) }
     var replyRoot: Long
         get() = snapshot.replyRoot
-        set(value) = update { it.copy(replyRoot = value) }
+        set(value) = update { it.copy(
+            reply = it.reply.copy(
+                replyRoot = value,
+            ),
+        ) }
     var replyParent: Long
         get() = snapshot.replyParent
-        set(value) = update { it.copy(replyParent = value) }
+        set(value) = update { it.copy(
+            reply = it.reply.copy(
+                replyParent = value,
+            ),
+        ) }
     var panelBackdrop by mutableStateOf<ImageBitmap?>(null)
     var commentSender: (suspend (String, String?) -> Boolean)? = null
     var danmakuSender: (suspend (String, Int, Int, Int) -> Boolean)? = null
@@ -126,8 +222,20 @@ internal class VideoPagePresentationState(
             get() = page.replyParent
             set(value) { page.replyParent = value }
         fun set(name: String, root: Long, parent: Long) {
-            page.update { it.copy(replyName = name, replyRoot = root, replyParent = parent) }
+            page.update { it.copy(
+                reply = it.reply.copy(
+                    replyName = name,
+                    replyRoot = root,
+                    replyParent = parent,
+                ),
+            ) }
         }
-        fun clear() { page.update { it.copy(replyName = null, replyRoot = 0L, replyParent = 0L) } }
+        fun clear() { page.update { it.copy(
+            reply = it.reply.copy(
+                replyName = null,
+                replyRoot = 0L,
+                replyParent = 0L,
+            ),
+        ) } }
     }
 }

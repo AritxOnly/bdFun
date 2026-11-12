@@ -1,5 +1,11 @@
 package com.aritxonly.bdfun.feature.video.application
 
+import com.aritxonly.bdfun.core.model.video.VideoDetailOwner
+
+import com.aritxonly.bdfun.core.model.video.VideoDetailInfo
+
+import com.aritxonly.bdfun.core.model.video.VideoDetailCounts
+
 import com.aritxonly.bdfun.core.model.video.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -9,8 +15,35 @@ class VideoReadCacheTest {
     private val cache = VideoReadCache { owner }
     private fun video(id: String) = VideoItem(id, 42, id, "", "UP", "", 7, 0, 0, 0, 0)
     private fun entry(id: String) = VideoCacheEntry(
-        VideoDetail(id, 42, id, "", "", "UP", "", 7, "", 0, 0, 0, 0, 0, 0, 0,
-            0, 10, 11, "", emptyList()), null, emptyList(), emptyList())
+        VideoDetail(
+            bvid = id,
+            aid = 42,
+            title = id,
+            cover = "",
+            desc = "",
+            owner = VideoDetailOwner(
+                ownerName = "UP",
+                ownerFace = "",
+                ownerMid = 7,
+                ownerSign = "",
+            ),
+            counts = VideoDetailCounts(
+                play = 0,
+                danmaku = 0,
+                like = 0,
+                coin = 0,
+                favorite = 0,
+                share = 0,
+                reply = 0,
+            ),
+            info = VideoDetailInfo(
+                pubdate = 0,
+                duration = 10,
+                cid = 11,
+                tname = "",
+                pages = emptyList(),
+            ),
+        ), null, emptyList(), emptyList())
 
     @Test fun detailAndRelatedAreSharedBySameAccountPages() {
         val first = cache.scope(); val next = cache.scope()
@@ -32,7 +65,7 @@ class VideoReadCacheTest {
     @Test fun replacingAndUpdatingAnEntryDoNotRefreshItsEvictionOrder() {
         val page = cache.scope()
         for (i in 1..6) page.putVideo("$i", entry("$i"))
-        page.putVideo("1", entry("replacement")); page.updateVideo("1") { it.copy(liked = true) }
+        page.putVideo("1", entry("replacement")); page.updateVideo("1") { it.copy(interaction = it.interaction.copy(liked = true)) }
         page.putVideo("7", entry("7")); assertNull(page.video("1"))
     }
     @Test fun relatedUsesOriginalHashMapEvictionAtTwelve() {
@@ -48,10 +81,22 @@ class VideoReadCacheTest {
     @Test fun interactionUpdateKeepsOtherEntryFieldsAndMissingDoesNotInsert() {
         val page = cache.scope(); val original = entry("a").copy(related = listOf(video("r")))
         page.putVideo("a", original)
-        page.updateVideo("a") { it.copy(liked = true, like = 12, coined = true, coin = 2, favorited = true, favorite = 3) }
+        page.updateVideo("a") { it.copy(interaction = it.interaction.copy(liked = true, coined = true, favorited = true), counts = it.counts.copy(like = 12, coin = 2, favorite = 3)) }
         val updated = page.video("a")!!
-        assertEquals(original.copy(detail = original.detail.copy(liked = true, like = 12,
-            coined = true, coin = 2, favorited = true, favorite = 3)), updated)
+        assertEquals(original.copy(
+            detail = original.detail.copy(
+                interaction = original.detail.interaction.copy(
+                    liked = true,
+                    coined = true,
+                    favorited = true,
+                ),
+                counts = original.detail.counts.copy(
+                    like = 12,
+                    coin = 2,
+                    favorite = 3,
+                ),
+            ),
+        ), updated)
         page.updateVideo("missing") { error("must not transform") }; assertNull(page.video("missing"))
     }
     @Test fun rotationClosesOldPageButKeepsRowsForReplacement() {

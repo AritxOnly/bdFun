@@ -14,6 +14,14 @@ data class MessageSession(
     val maxSeqno: Long = 0L,
     /** 原始 session_ts（微秒），用于消息列表翻页。 */
     val sessionTs: Long = 0L,
+    val preferences: MessageSessionPreferences = MessageSessionPreferences(),
+) {
+    val followed get() = preferences.followed
+    val pinned get() = preferences.pinned
+    val muted get() = preferences.muted
+}
+
+data class MessageSessionPreferences(
     val followed: Boolean = false,
     val pinned: Boolean = false,
     val muted: Boolean = false,

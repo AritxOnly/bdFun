@@ -88,14 +88,24 @@ internal class MessageSessionsStateHolder(private val repository: MessageSession
         try {
             val result = repository.mutate(target, action)
             if (closed || mutable.value.revision != version) return null
-            if (result is Outcome.Success) mutable.update { it.copy(sessions = it.sessions.mapNotNull { item ->
+            if (result is Outcome.Success) mutable.update { it.copy(
+                sessions = it.sessions.mapNotNull { item ->
                 if (item.id != target.id) item else when (action) {
                     SessionAction.Delete -> null
-                    SessionAction.Pin -> item.copy(pinned = !target.pinned)
-                    SessionAction.Mute -> item.copy(muted = !target.muted)
+                    SessionAction.Pin -> item.copy(
+                        preferences = item.preferences.copy(
+                            pinned = !target.pinned,
+                        ),
+                    )
+                    SessionAction.Mute -> item.copy(
+                        preferences = item.preferences.copy(
+                            muted = !target.muted,
+                        ),
+                    )
                     SessionAction.Read -> item.copy(unread = 0)
                 }
-            }.sortedByDescending { it.pinned }) }
+            }.sortedByDescending { it.pinned },
+            ) }
             return result
         } finally { mutable.update { if (it.revision == version) it.copy(busy = false) else it } }
     }

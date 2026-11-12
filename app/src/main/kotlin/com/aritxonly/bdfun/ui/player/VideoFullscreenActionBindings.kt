@@ -1,5 +1,13 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.ui.FullscreenTransportActions
+
+import com.aritxonly.bdfun.ui.FullscreenSocialActions
+
+import com.aritxonly.bdfun.ui.FullscreenPreferenceActions
+
+import com.aritxonly.bdfun.ui.FullscreenNavigationActions
+
 import android.app.Activity
 import android.app.PictureInPictureParams
 import android.content.Context
@@ -198,36 +206,44 @@ internal class VideoFullscreenActionBindings(
     }
 
     fun create(): FullscreenActions = FullscreenActions(
-        onBack = onBack,
-        onPlayPause = onPlayPause,
-        onNext = onNext,
-        onEpisodes = onEpisodes,
-        onLike = onLike,
-        onComment = onComment,
-        onShare = onShare,
-        onOpenSpace = onOpenSpace,
-        onToggleFolder = onToggleFolder,
-        onRequestFavorites = onRequestFavorites,
-        onSeek = onSeek,
-        onQualitySelected = onQualitySelected,
-        onOpenCachePanel = onOpenCachePanel,
-        onCacheSelected = onCacheSelected,
-        onSpeedSelected = onSpeedSelected,
-        onPageSelected = onPageSelected,
-        onSubtitleSelected = onSubtitleSelected,
-        onSendDanmaku = onSendDanmaku,
-        onToggleDanmaku = onToggleDanmaku,
-        onAddWatchLater = onAddWatchLater,
-        onPictureInPicture = onPictureInPicture,
-        onCast = onCast,
-        onAudioOnlyChanged = onAudioOnlyChanged,
-        onAutoPlayNextChanged = onAutoPlayNextChanged,
-        onLoopModeChanged = onLoopModeChanged,
-        onMirrorChanged = onMirrorChanged,
-        onResizeModeChanged = onResizeModeChanged,
-        onColorAssistChanged = onColorAssistChanged,
-        onSleepAtChanged = onSleepAtChanged,
-        onBackgroundPlayChanged = onBackgroundPlayChanged,
-        onSeekRelative = onSeekRelative,
+        navigation = FullscreenNavigationActions(
+            onBack = onBack,
+            onNext = onNext,
+            onEpisodes = onEpisodes,
+            onComment = onComment,
+            onOpenSpace = onOpenSpace,
+            onOpenCachePanel = onOpenCachePanel,
+            onPageSelected = onPageSelected,
+            onPictureInPicture = onPictureInPicture,
+            onCast = onCast,
+        ),
+        playback = FullscreenTransportActions(
+            onPlayPause = onPlayPause,
+            onSeek = onSeek,
+            onQualitySelected = onQualitySelected,
+            onCacheSelected = onCacheSelected,
+            onSpeedSelected = onSpeedSelected,
+            onSubtitleSelected = onSubtitleSelected,
+            onToggleDanmaku = onToggleDanmaku,
+            onSeekRelative = onSeekRelative,
+        ),
+        social = FullscreenSocialActions(
+            onLike = onLike,
+            onShare = onShare,
+            onToggleFolder = onToggleFolder,
+            onRequestFavorites = onRequestFavorites,
+            onSendDanmaku = onSendDanmaku,
+            onAddWatchLater = onAddWatchLater,
+        ),
+        preferences = FullscreenPreferenceActions(
+            onAudioOnlyChanged = onAudioOnlyChanged,
+            onAutoPlayNextChanged = onAutoPlayNextChanged,
+            onLoopModeChanged = onLoopModeChanged,
+            onMirrorChanged = onMirrorChanged,
+            onResizeModeChanged = onResizeModeChanged,
+            onColorAssistChanged = onColorAssistChanged,
+            onSleepAtChanged = onSleepAtChanged,
+            onBackgroundPlayChanged = onBackgroundPlayChanged,
+        ),
     )
 }

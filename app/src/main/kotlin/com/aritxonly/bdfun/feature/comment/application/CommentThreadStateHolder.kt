@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun.feature.comment.application
 
+import com.aritxonly.bdfun.core.model.comment.CommentExtras
+
 import com.aritxonly.bdfun.core.model.comment.CommentItem
 import com.aritxonly.bdfun.core.model.user.UserProfile
 import kotlinx.coroutines.currentCoroutineContext
@@ -25,9 +27,20 @@ internal class CommentThreadStateHolder(val actions: CommentActionsStateHolder, 
         if (!isActive) return null
         val nowMs = clock()
         val item = CommentItem(
-            rpid = if (result > 0) result else nowMs, uname = profile?.name ?: "我", avatar = profile?.face.orEmpty(),
-            message = text, like = 0, ctime = nowMs / 1000, level = profile?.level ?: 0,
-            replyCount = 0, isUp = false, isTop = false, mid = profile?.mid ?: 0L, root = root,
+            rpid = if (result > 0) result else nowMs,
+            uname = profile?.name ?: "我",
+            avatar = profile?.face.orEmpty(),
+            message = text,
+            like = 0,
+            ctime = nowMs / 1000,
+            level = profile?.level ?: 0,
+            replyCount = 0,
+            isUp = false,
+            isTop = false,
+            extras = CommentExtras(
+                mid = profile?.mid ?: 0L,
+                root = root,
+            ),
         )
         mutableState.update { it.copy(extra = listOf(item) + it.extra) }
         return result

@@ -531,3 +531,11 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - `/tmp/bdfun-scroll-message.log`构建成功2m58s，只执行MessageFeedMapperTest三项与TeakContentWidthTest两项，共5项/0失败/错误/跳过；debug构建通过。新增JSON明确为旧字段结构用例，非真实线上样本。宽度测试覆盖599/600断点、70%/680上限、显式宽度和无界约束。未重跑其他既有套件。
 - 最终debug安装/冷启动/真实推荐/“我的”→设置通过；2424×1080宽屏实际内容拖动后主题行y424→229，留白拖动后列表继续向上、内容区反向接续后y164返回顶部方向，crash buffer为空。首脚本把“必须首项完全离屏”当作成功条件而误失败，未改生产代码迎合；保留已经成功的中心拖动结果，只补完留白/反向两步。日志`/tmp/bdfun-scroll-runtime.log`与`/tmp/bdfun-scroll-runtime-followup.log`，实际截图`/tmp/bdfun-scroll-runtime-landscape.png`已查看，样式/横向位置保持；不宣称所有设备手感或完整视觉验收。未修改设置或执行账号写入，finally停止应用并清理远端XML。
 - 源码分层检查通过；容器没有新增依赖。此阶段仍继续全量重构；上一阶段ed67f02的release不是本批最终产物，不重复构建release，待最终源码收尾后再构建。
+
+## 2026-11-12 · 十二个长构造器与严格尺寸门槛收尾
+
+- 视频/用户/动态/评论/消息与全屏/页面状态按职责分组，保留原flat只读属性、默认值与手写JSON协议，更新构造与copy接线。界面树、控件参数、回调对象及remember/effect keys保持；没有新依赖，没有为每个数据类添加样板测试。
+- 第一批视频列表扩展、会话偏好与收藏选择：`/tmp/bdfun-record-targeted.log`完成domain推荐过滤、core缓存恢复、路由往返、视频/动态mapper与首页22项；随后只补跑未执行的app交互/会话/装配测试及debug（`/tmp/bdfun-record-app-final.log`44s成功）。首次编译遗漏测试工厂item().copy(pinned)，按新签名改样本构造，未改预期值。
+- 剩余九组编译检查发现新动态作者类型与现有portal作者同名，已命名为DynamicItemAuthor；另补齐通知、楼中楼预览、视频缓存同步及测试样本的copy。编译错误不算验证通过，未绕过类型检查。
+- 最终`/tmp/bdfun-record-final-targeted.log`成功1m3s：严格PSI检查0违规，953个生产文件/10421节点；domain VideoPagePolicy3、core/application VideoPageStateHolder4、storage RouteJsonCodec7、bili mapper27、app相关状态/目标/缓存/装配106，共147项既有定向测试，0失败/错误。不是全量917项重跑；测试构造/copy随API更新，断言预期值未减弱。debug构建通过。
+- 严格checkKotlinSizes接入checkLayering，17项工具规则不变；不把report退出0或历史扫描结果当成最终验收。全局对象与作用域、模块化和最终交付仍继续。

@@ -12,6 +12,20 @@ data class VideoItem(
     val danmaku: Long,
     val duration: Int,
     val pubdate: Long,
+    val extras: VideoItemExtras = VideoItemExtras(),
+) {
+    val cid get() = extras.cid
+    val reason get() = extras.reason
+    val isFollowed get() = extras.isFollowed
+    val startPositionMs get() = extras.startPositionMs
+    val categoryName get() = extras.categoryName
+    val recommendationTrackId get() = extras.recommendationTrackId
+    val appRecommendation get() = extras.appRecommendation
+    val dislikeReasons get() = extras.dislikeReasons
+}
+
+/** 列表来源/跳转与推荐扩展；不改变各字段的存储键与默认值。 */
+data class VideoItemExtras(
     val cid: Long = 0L,
     val reason: String = "",
     val isFollowed: Boolean = false,

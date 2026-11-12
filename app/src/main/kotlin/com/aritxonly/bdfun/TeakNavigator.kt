@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.core.model.video.VideoItemExtras
+
 import android.content.Context
 import android.content.Intent
 import com.aritxonly.bdfun.core.navigation.Route
@@ -127,7 +129,20 @@ object TeakNavigator {
             return
         }
         val snapshot = if (resolvedBvid.isNotBlank()) VideoItem(
-            resolvedBvid, aid, title, "", "", "", 0L, 0L, 0L, 0, 0L, startPositionMs = seekMs,
+            bvid = resolvedBvid,
+            aid = aid,
+            title = title,
+            cover = "",
+            ownerName = "",
+            ownerFace = "",
+            ownerMid = 0L,
+            play = 0L,
+            danmaku = 0L,
+            duration = 0,
+            pubdate = 0L,
+            extras = VideoItemExtras(
+                startPositionMs = seekMs,
+            ),
         ) else null
         context.startActivity(RouteIntents.create(context, Route.Video(
             resolvedBvid, aid, snapshot,
