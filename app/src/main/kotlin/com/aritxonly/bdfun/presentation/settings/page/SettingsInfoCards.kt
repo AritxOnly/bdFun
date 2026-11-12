@@ -65,6 +65,9 @@ private fun SettingsAboutCardRows1(runtime: SettingsPageRuntime) {
         runtime.navigation.onAbout(SettingsDestination.Project)
     }
     if (BuildConfig.DEBUG) {
+        TeakSettingsActionRow(title = "直播间（预览）", trailing = "调试") {
+            runtime.navigation.onAbout(SettingsDestination.LivePreview)
+        }
         TeakSettingsActionRow(title = "日志抓取", trailing = "调试") {
             runtime.navigation.onAbout(SettingsDestination.Logs)
         }

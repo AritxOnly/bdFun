@@ -49,15 +49,17 @@ internal fun DanmakuPanelTools(runtime: DanmakuPanelRuntime) {
         )
         if (runtime.ui.showKeywords) DanmakuKeywordEditor(runtime)
 
-        DmActionRow(
-            title = "当前弹幕列表",
-            trailing = "${danmakuItems.size}",
-            onClick = {
-                onInteract()
-                runtime.controller.toggleList()
-            },
-        )
-        if (runtime.ui.showList) DanmakuCurrentList(runtime)
+        if (!runtime.liveMode) {
+            DmActionRow(
+                title = "当前弹幕列表",
+                trailing = "${danmakuItems.size}",
+                onClick = {
+                    onInteract()
+                    runtime.controller.toggleList()
+                },
+            )
+            if (runtime.ui.showList) DanmakuCurrentList(runtime)
+        }
     }
 }
 

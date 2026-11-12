@@ -422,3 +422,7 @@ SessionIdentity包含UID与SessionState.revision，首页/动态由core/applicat
 ### 2026-11-12 空间资料JSON边界
 
 SpaceApi的space只负责原五个并发请求、原await顺序和条件获赞补查；成功响应经SpacePayloadsDto进入SpaceInfoMapper。VIP、充电、横幅和资料字段只在infra mapper组装，沿用原字段/默认值；获赞网络兜底仍在API，不把IO藏进mapper。parseSpaceVideo暂按既有薄解析入口注入，HTML处理保持旧Android边界，网页vlist真实成功样本未捕获时不得把结构探针记为真实接口验收。测试JSON记录来源/日期/截取方式，临时采样Activity/manifest必须移除并验证最终DEX无探针。
+
+### 2026-11-12 最新main直播集成
+
+直播以main 4c4e03b的界面/手势/弹幕协议为基准；HTTP与WebSocket/Brotli实现迁入infra:bili，纯直播实体进入core:model，读取/消息解码/连接经domain端口组装。页面业务状态使用application StateFlow，原TeakUI树只拆分与接线。DanmakuSettingsContent新增liveMode仅隐藏main已隐藏的直播不适用项，视频默认false。最终完成本步后构建默认签名release并按用户要求暂停目标；不继续其它迁移，也不重复已有全套测试。

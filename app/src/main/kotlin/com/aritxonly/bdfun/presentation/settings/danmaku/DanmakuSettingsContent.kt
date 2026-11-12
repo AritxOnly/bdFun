@@ -18,15 +18,16 @@ import androidx.compose.runtime.collectAsState
 internal class DanmakuPanelRuntime(
     val settings: SettingsBindings, val controller: DanmakuPanelStateHolder,
     val ui: DanmakuPanelUiState, val fullscreen: Boolean, val onInteract: () -> Unit, val items: List<DanmakuItem>,
+    val liveMode: Boolean,
 )
 
 @Composable
 fun DanmakuSettingsContent(fullscreen: Boolean, onInteract: () -> Unit,
-    danmakuItems: List<DanmakuItem> = emptyList(), modifier: Modifier = Modifier) {
+    danmakuItems: List<DanmakuItem> = emptyList(), modifier: Modifier = Modifier, liveMode: Boolean = false) {
     val settings = LocalSettingsBindings.current
     val controller = remember(settings) { DanmakuPanelStateHolder(settings.repository.danmaku) }
     val ui by controller.state.collectAsState()
-    val runtime = DanmakuPanelRuntime(settings, controller, ui, fullscreen, onInteract, danmakuItems)
+    val runtime = DanmakuPanelRuntime(settings, controller, ui, fullscreen, onInteract, danmakuItems, liveMode)
     Column(modifier = modifier.fillMaxWidth()) {
         DanmakuPanelSliders(runtime)
         Spacer(Modifier.height(8.dp))

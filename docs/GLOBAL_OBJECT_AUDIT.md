@@ -1,6 +1,6 @@
 # 全局 object 审计
 
-> 2026-11-12：P4-05 尚未完成。当前26个具名 object，目标仍为 <8，不能只排除纯工具或debug类型来制造达标。
+> 2026-11-12：P4-05 尚未完成。当前28个具名 object，目标仍为 <8，不能只排除纯工具或debug类型来制造达标。
 
 统计范围为 app 的 com/aritxonly/bdfun 与 core/infra/feature 生产 Kotlin；包含无状态 helper、协议常量和 debug 代码里的具名 object。按与此前31个相同的口径，不计 companion、sealed data object、匿名 object 表达式、TeakUI/内联供应商片段、测试和生成源码。这是声明清点，不是完整 Kotlin AST 或线程安全证明。
 
@@ -35,6 +35,11 @@
 | FeedVideoMapper | JSON→模型，无缓存 | 纯mapper收口候选；保留真实样本/缺字段测试 | [infra/bili/src/main/kotlin/com/aritxonly/bdfun/infra/bili/mapper/FeedVideoMapper.kt](../infra/bili/src/main/kotlin/com/aritxonly/bdfun/infra/bili/mapper/FeedVideoMapper.kt) |
 | VideoDetailMapper | JSON→模型，无缓存 | 纯mapper收口候选；保留真实样本/缺字段测试 | [infra/bili/src/main/kotlin/com/aritxonly/bdfun/infra/bili/mapper/VideoDetailMapper.kt](../infra/bili/src/main/kotlin/com/aritxonly/bdfun/infra/bili/mapper/VideoDetailMapper.kt) |
 
+| LiveMock | main直播只读占位房间/消息；注入页面容器，展示不回查全局数据 | 最终只读样本/作用域清单继续审计，不以改成companion躲过统计 | app/data/LiveRoom.kt |
+| DanmakuProtocol | main直播鉴权/心跳/压缩协议工具，迁入infra | 保留包长、解压深度/容量与损坏包隔离；最终纯工具审计 | infra/bili/live/DanmakuProtocol.kt |
+
 减少声明数量必须伴随职责收口与依赖接线，不用改成 companion 或排除目录躲过统计。无状态工具本身不等于泄漏；有状态对象必须证明生命周期/账号隔离/迟到回调，符合最终数量和依赖验收后才能勾 P4-05。
 
 后续同步核对 AppContainer Activity/页面/进程作用域、真实 Gradle 模块图和全部调用点；不要把本清点代替这些验收。
+
+直播合并后同口径由26增至28，新增上列两个main已有对象；消息mapper使用容器实例BiliLiveMessageDecoder。没有通过排除新增代码宣称P4-05达标。

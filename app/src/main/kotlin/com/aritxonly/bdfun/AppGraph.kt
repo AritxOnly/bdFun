@@ -14,6 +14,13 @@ import com.aritxonly.bdfun.data.VideoItem
 object AppGraph {
     private var container: com.aritxonly.bdfun.di.AppContainer? = null
 
+    internal val liveReads get() = checkNotNull(container) { "AppGraph 尚未初始化" }.liveReads
+    internal fun liveDanmakuConnection(scope: kotlinx.coroutines.CoroutineScope) =
+        checkNotNull(container) { "AppGraph 尚未初始化" }.liveDanmakuConnection(scope)
+    internal fun createLivePlayback(context: android.content.Context) = checkNotNull(container).createLivePlayback(context)
+    internal fun liveRoomState(id: Long, scope: kotlinx.coroutines.CoroutineScope,
+        connection: com.aritxonly.bdfun.core.domain.LiveDanmakuConnection, playback: com.aritxonly.bdfun.core.domain.LivePlayback) =
+        checkNotNull(container).liveRoomState(id, scope, connection, playback)
     val api: BiliApi get() = checkNotNull(container) { "AppGraph 尚未初始化" }.api
     val settings: SettingsStore get() = checkNotNull(container) { "AppGraph 尚未初始化" }.settings
     val sentHistory: com.aritxonly.bdfun.core.domain.SentHistoryRepository

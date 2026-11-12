@@ -30,19 +30,21 @@ internal fun DanmakuPanelFilters(runtime: DanmakuPanelRuntime) {
     DmGroup(title = "画面防挡") {
         DmTypeFilters(settings)
         Spacer(Modifier.height(6.dp))
-        DmSwitchRow(
-            title = "重复弹幕隐藏",
-            description = "大量内容相同的弹幕会被隐藏",
-            checked = settings.danmakuDedupe,
-            onInteract = onInteract,
-        ) { settings.danmakuDedupe = it }
+        if (!runtime.liveMode) {
+            DmSwitchRow(
+                title = "重复弹幕隐藏",
+                description = "大量内容相同的弹幕会被隐藏",
+                checked = settings.danmakuDedupe,
+                onInteract = onInteract,
+            ) { settings.danmakuDedupe = it }
 
-        DmSwitchRow(
-            title = "底部字幕区域防挡",
-            description = "底部弹幕会被隐藏",
-            checked = settings.danmakuSubtitleGuard,
-            onInteract = onInteract,
-        ) { settings.danmakuSubtitleGuard = it }
+            DmSwitchRow(
+                title = "底部字幕区域防挡",
+                description = "底部弹幕会被隐藏",
+                checked = settings.danmakuSubtitleGuard,
+                onInteract = onInteract,
+            ) { settings.danmakuSubtitleGuard = it }
+        }
     }
 }
 

@@ -430,3 +430,13 @@ main671d264的SpaceActivity bootstrap只在fetchedDynamics!=null时替换动态/
 ## 2026-11-12 · 空间资料mapper与真实公开响应
 
 SpaceApi仅组织原五并发请求、原await顺序和条件获赞补查，JSON字段组装移到SpacePayloadsDto/SpaceInfoMapper；保持全部23字段表达式、VIP现代/旧字段优先级、横幅顺序和充电回退。HTML/网页vlist沿用原parseSpaceVideo回调边界，未在缺少真实网页投稿成功响应时臆造字段。五份公开接口成功响应按来源说明进入纯JVM测试，额外变体明确为结构探针；临时采样入口/manifest和设备缓存均清理，最终APK不含入口或样本。
+
+## 2026-11-12 · main直播集成与阶段暂停
+
+以main 4c4e03b为本批直播基准，迁移不改HTTP参数/返回字段、WebSocket Cookie/鉴权/心跳/压缩限制，播放器继续使用原teak_player_view布局。主线程UI只接收不可变状态/回调/原生输出端口，业务顺序、同URL重载、失败保留旧流、首个业务包清占位和300条窗口按main保留。离开页面取消持有作用域并拒绝迟到结果，新增纯JVM测试覆盖此生命周期边界。
+
+LivePlayerChrome/布局/聊天/设置/手势/弹幕渲染按原节点拆分；remember与effect/pointerInput keys、阈值、尺寸、文案保持。设置读取改为同一SettingsBindings投影；liveMode仅隐藏main已隐藏的非直播项。保留main的本地发送回显，不新增账号写入接口。
+
+Brotli 0.1.2沿用main选择，集中版本表并仅由infra:bili声明，用于服务端v3压缩包；不用自写解码或移除支持，以免改变协议行为。infra:playback显式声明项目已有media3.ui（原PlayerView），不引入新版本或替换原生播放器。直播Mock和协议工具两个main对象进入全局审计，mapper改为容器持有实例，不伪造全局对象目标达标。
+
+用户要求本步结束后编译默认签名release并暂停；只跑直播定向测试和必需构建/守卫，不重复全套917项历史测试，也不把本阶段产物当作全量完成或最终飞书交付。

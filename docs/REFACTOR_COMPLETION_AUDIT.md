@@ -1,6 +1,6 @@
 # 全量重构验收审计
 
-> 2026-11-12：本表补充原任务卡，不将中间检查点视为全量完成。界面基准为 main `671d26416febc4db21bd95cffd5ff469f8dea805`；最终交付前还须更新 main 并复核。历史通过记录不代表当前最终产物已验收。
+> 2026-11-12：本表补充原任务卡，不将中间检查点视为全量完成。已集成 main `4c4e03bf767d457d49a82b5226b2215ebd7872ce`；直播按该版本保留，旧页历史定向对照基准为671d264，全部页面仍需最终复核。历史通过记录不代表当前最终产物已验收。
 
 P5 虽在原计划中标为可选，本次全量目标继续保留，不静默移出范围。旧尺寸扫描只覆盖具名块函数；现已增加Kotlin PSI扫描表达式/构造/lambda等，初始19条，空间mapper拆分后仍有17条真实超标，详见[KOTLIN_SIZE_AUDIT.md](KOTLIN_SIZE_AUDIT.md)。门槛尚未通过，模块边界另行审计。
 
@@ -43,7 +43,7 @@ P5 虽在原计划中标为可选，本次全量目标继续保留，不静默�
 | P4-02 其余三个 Bus 收敛 | 实现已接入，待完整验收 | 滚顶/页面 chrome/刷新等作用域状态 | 清选择/回顶部/消息刷新跨页面装机 |
 | P4-03 `AppGraph.pendingXxx` → 路由参数 | 实现未完全验收 | Route 契约/显式 Intent；pending 参数已迁 | 主入口已输出Route.Video并删除BiliLink；继续所有入口和缺参数错误验收 |
 | P4-04 `BackgroundPlayback` 单例 → `PlaybackController` | 实现已接入，局部验证 | infra/playback 控制器/服务/会话；系统媒体键原生验证 | 服务销毁重建/旋转/PiP/耳机/进度组合；展示 Media3 类型已改端口，旧装配/兼容入口仍待审计 |
-| P4-05 全局 `object` 审计 | 未完成 | 同口径 app/core/infra 现26个具名object，见 GLOBAL_OBJECT_AUDIT.md（包含纯工具/debug） | 逐一审计，按同一口径降至 <8；不可仅缩小统计口径 |
+| P4-05 全局 `object` 审计 | 未完成 | 同口径 app/core/infra 现28个具名object，见 GLOBAL_OBJECT_AUDIT.md（包含纯工具/debug） | 逐一审计，按同一口径降至 <8；不可仅缩小统计口径 |
 | P4-06 `AppContainer` 引入作用域 | 未完成 | AppContainer 已集中创建依赖与部分页面工厂 | 首页/动态资源槽按UID+revision失效；Compose保留identity；个人/媒体库晚回调与重建key已补revision。空间已改每Activity ViewModel与账号revision，关闭/取消竞态和Store隔离测试通过；消息/进程缓存/其他Activity统一获取继续审计；不能代表所有控制器/获取方式均完成 |
 | P5-01 抽 `:infra:bili` | 模块已建立，待依赖验收 | infra/bili 实际 Gradle 模块，不依赖 app | P1 完整验收与最终依赖图 |
 | P5-02 抽 `:feature:home` | 模块已建立，待完整验收 | 实际feature:home独立assembleDebug、16项原测试；页面/状态移入；Gradle生产图无环/禁止反向依赖 | P4-05前置仍未过；共享卡片过渡注入，完整首页main UI/交互验收 |
@@ -53,7 +53,7 @@ P5 虽在原计划中标为可选，本次全量目标继续保留，不静默�
 
 ## 不可省略的最终门槛
 
-- Kotlin PSI尺寸已扫描910个自有生产文件/9519节点，17条超标仍待清零并接入严格门槛，详见KOTLIN_SIZE_AUDIT.md；依赖图与CI继续审计；播放器原生输出/会话类型已改端口；其余原生装配桥接移出纯展示、旧诊断钩子注入，清理旧兼容入口。当前守卫不是 Kotlin 编译器，字符串插值内的引用及旧 ui 的完整依赖仍须补足。
+- Kotlin PSI尺寸已扫描952个自有生产文件/10174节点，17条超标仍待清零并接入严格门槛，详见KOTLIN_SIZE_AUDIT.md；依赖图与CI继续审计；播放器原生输出/会话类型已改端口；其余原生装配桥接移出纯展示、旧诊断钩子注入，清理旧兼容入口。当前守卫不是 Kotlin 编译器，字符串插值内的引用及旧 ui 的完整依赖仍须补足。
 - 全部全局 object、缓存、页面/进程/账号作用域审计；账号快速切换及迟到请求隔离。
 - 所有页面以同 main 数据、主题、字号、窗口尺寸对照 TeakUI；只通过局部页不代表全站完全一致。
 - 视频、播放器、评论完整行为回归，含旋转、画中画、后台、媒体通知/耳机、恢复进度、进程回收和断网。
@@ -61,3 +61,9 @@ P5 虽在原计划中标为可选，本次全量目标继续保留，不静默�
 - 保留可回滚提交/产物、完整发布说明；上述完成后才按既有授权发送飞书。
 
 详细分批证据见 [REFACTOR_VALIDATION.md](REFACTOR_VALIDATION.md)，行为保留与迁移决定见 [REFACTOR_DECISIONS.md](REFACTOR_DECISIONS.md)。
+
+## 2026-11-12直播阶段检查点
+
+- main 4c4e03b已接入当前迁移：HTTP/JSON/WebSocket/Brotli进入infra:bili，实体与端口进入core，页面业务状态为纯StateFlow，原生Media3输出进入infra:playback，直播展示拆为小组件。
+- 本次只执行5项直播状态定向测试，全部通过；checkLayering和debug/release构建通过，release含R8/lint并通过APK v2签名验证。当前无正式keystore，按默认配置回退Android Debug证书。APK为本阶段产物，后续源代码变化后必须重新构建，不能作为全量验收完成证据。
+- 直播新增尺寸超标0；原17项仍在；全局具名object同口径28。全量待办继续保留。按用户要求，在本步及release完成后暂停目标，不继续其他迁移。

@@ -15,6 +15,7 @@ dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:model"))
     implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
     implementation(libs.androidx.media)
     implementation(libs.androidx.core)
     implementation(libs.coil.core)

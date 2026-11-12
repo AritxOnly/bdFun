@@ -32,6 +32,7 @@ private fun openSettingsDestination(context: ComponentActivity, destination: Set
         SettingsDestination.Credits -> TeakNavigator.openCredits(context)
         SettingsDestination.Project -> openSettingsWebLink(context, "https://github.com/QxTeak/bdFun")
         SettingsDestination.Logs -> openLogs(context)
+        SettingsDestination.LivePreview -> TeakNavigator.openLiveRoom(context)
     }
 }
 

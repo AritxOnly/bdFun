@@ -23,5 +23,6 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.json.jvm)
     implementation(libs.okhttp)
+    implementation(libs.brotli.dec)
     implementation(libs.coroutines.android)
 }

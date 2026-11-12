@@ -135,4 +135,9 @@ object TeakNavigator {
             commentTarget = targetRpid, seekMs = seekMs,
         )))
     }
+    /** roomId为0时沿用main的热门房间/本地占位回退。 */
+    fun openLiveRoom(context: Context, roomId: Long = 0L) {
+        context.startActivity(Intent(context, LiveRoomActivity::class.java)
+            .putExtra(LiveRoomActivity.EXTRA_ROOM_ID, roomId))
+    }
 }

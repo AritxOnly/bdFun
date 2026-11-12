@@ -19,6 +19,7 @@ kyantShapes = "1.2.0"
 material3 = "1.5.0-alpha22"
 
 [libraries]
+brotli-dec = { module = "org.brotli:dec", version = "0.1.2" }
 kotlin-compiler-embeddable = { module = "org.jetbrains.kotlin:kotlin-compiler-embeddable", version.ref = "kotlin" }
 coil-core = { module = "io.coil-kt:coil", version.ref = "coil" }
 androidx-core = { module = "androidx.core:core", version.ref = "androidxCore" }

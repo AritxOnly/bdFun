@@ -513,3 +513,13 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - `/tmp/bdfun-space-mapper-fidelity.py/.log` 11组完整源码token核对通过：五请求/全部参数/async-await、条件获赞完整表达式/回调、全部23字段、VIP优先级、充电回退、SpaceInfo原始vlist数量/顺序/关注默认值、两个横幅函数、mapper无IO、临时入口清理。脚本首轮将mapSpaceInfo误当SpaceInfo构造器，修正为整标识符匹配后通过，没有改业务代码来迎合验证器。
 - 最终APK `/tmp/bdfun-space-mapper-debug.apk` 实际装机（`/tmp/bdfun-space-mapper-runtime.log`）：经原视频头像进入公开空间，显示小猪P_/LV6/十年大会员，动态Tab可进入，crash为空，无关注动作；最终force-stop。本轮动态bootstrap count=0/end=false/error=null，符合此前恢复的首轮失败保留可重试规则，不能解释为真实接口空列表或动态成功验收。
 - PSI现910文件/9519节点/17条超标，space()原119行函数及其lambda两项已消除；真实严格任务仍以17项失败（`/tmp/bdfun-space-mapper-strict.log`，6s），不是尺寸全量通过。剩余消息长解析、debug日志长函数、12个长构造、其余模块/作用域/共享UI/全局对象与最终交付继续按完成审计。
+
+## 2026-11-12 · main直播集成、release与暂停检查点
+
+- 集成main 4c4e03b的直播页面、播放器、弹幕长连接与设置入口。原始文件基准保留于/tmp/bdfun-live-main-4c4e03b。直播HTTP/JSON、WebSocket和Brotli移入infra:bili，纯模型和读取/解码/连接/播放端口进入core，页面业务状态接入LiveRoomStateHolder，Media3/PlayerView进入infra:playback；Activity仅装配，UI按原树拆分。TeakUI和danmaku-engine生产文件未改。
+- `:app:testDebugUnitTest --tests '*LiveRoomStateHolderTest'`成功（/tmp/bdfun-live-targeted.log，1m），5项/0失败/0错误/0跳过：房间回退与请求顺序；同URL重载即使prepare失败仍清消息/恢复标记；重载失败保留旧流/清晰度/消息；首个不支持业务包清占位、忽略非业务包与300条窗口；关闭后迟到响应不能发布且只释放一次。没有改旧断言或重跑此前917项全套记录。
+- `:tools:kotlin-audit:reportKotlinSizes checkLayering :app:assembleDebug :app:assembleRelease`成功（/tmp/bdfun-live-release.log，9m54s）。源码规则19项、实际模块图规则7项通过；PSI为952文件/10174节点，直播新增违规0，全仓原17项仍在，report退出0不代表严格尺寸通过。初编因infra缺media3.ui失败，显式补齐项目已有PlayerView依赖后通过。
+- /tmp/bdfun-live-fidelity.py与.log核对22个原始/展开UI完整函数体token，包含文案、修饰、聊天行、输入装饰、手势图标、头部与两个设置面板，均与main 4c4e03b保持。布局/控件参数与remember/effect/pointerInput keys按原源拆分；此处不宣称全部直播截图逐像素或完整行为验收。
+- 最终debug APK安装成功。R8并行期间首次启动被系统记为INITIALIZATION FAILURE/start timeout，crash buffer为空；构建结束后正常冷启动6106ms，显示真实推荐信息流，并经“我的”进入设置。私有直播Activity不能从shell直接启动，未为测试暴露组件或添加临时入口。直播实际推流/弹幕与所有面板的装机验收留在后续完整验收，本次不冒充已通过；未进行账号写入、未修改设置，最后force-stop。
+- release APK：app/build/outputs/apk/release/app-release.apk；包名com.aritxonly.bdfun，versionCode500，13,028,097字节；SHA-256 `8d559893b268fc154493c505a06a1fdc3aecd663aa40f9a4e7369184a623b903`。R8/lint/validateSigningRelease成功，apksigner verify验证APK v2签名通过。无keystore.properties，沿用默认Android Debug证书回退，未覆写包名/签名；不是正式发布签名。本次仅要求release编译与阶段暂停，不宣称release完整装机验收或最终交付完成。
+- 全量待办仍有17个尺寸节点、28个具名object、其余作用域/共享UI/feature:video/CI及全部视觉/播放器/评论回归。保存检查点后按用户明确要求暂停目标，不继续其余迁移；PR保持草稿。

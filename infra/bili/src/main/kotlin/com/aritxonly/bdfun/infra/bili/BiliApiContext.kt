@@ -77,6 +77,8 @@ internal class BiliApiContext(
         .cookieJar(cookieJar)
         .build()
 
+    val webSocketClient = HttpClients.base.newBuilder().cookieJar(cookieJar).build()
+
     internal val http = com.aritxonly.bdfun.infra.bili.BiliHttpClient(
         client = client,
         debug = debug,

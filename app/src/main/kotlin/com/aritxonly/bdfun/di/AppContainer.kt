@@ -37,6 +37,21 @@ internal class AppContainer(
     }
     val loginStatus: LoginStatus = LoginStatus { api.isLoggedIn }
     val videoLinkResolver: VideoLinkResolver = com.aritxonly.bdfun.infra.bili.BiliVideoLinkResolver()
+    val liveReads by lazy {
+        com.aritxonly.bdfun.feature.live.application.LiveReadAccess(
+            com.aritxonly.bdfun.infra.bili.BiliLiveRepository(api), loginStatus,
+            com.aritxonly.bdfun.infra.bili.mapper.BiliLiveMessageDecoder())
+    }
+    fun liveDanmakuConnection(scope: CoroutineScope): LiveDanmakuConnection =
+        com.aritxonly.bdfun.infra.bili.live.BiliLiveConnection(
+            com.aritxonly.bdfun.infra.bili.live.LiveDanmakuClient(scope, webSocketFactory = api.webSocketClient))
+    fun createLivePlayback(context: Context): com.aritxonly.bdfun.feature.live.presentation.LivePlaybackRuntime =
+        com.aritxonly.bdfun.playback.AndroidLivePlaybackRuntime(
+            com.aritxonly.bdfun.infra.playback.Media3LivePlayback(context.applicationContext, com.aritxonly.bdfun.R.layout.teak_player_view))
+    fun liveRoomState(id: Long, scope: CoroutineScope, connection: LiveDanmakuConnection, playback: LivePlayback) =
+        com.aritxonly.bdfun.feature.live.application.LiveRoomStateHolder(id, com.aritxonly.bdfun.data.LiveMock.room,
+            liveReads, connection, playback, scope,
+            { if (loginStatus.isLoggedIn()) session.value?.mid ?: 0L else 0L }, log = { LogCollector.record("LIVE", it) })
     val accountRepository: AccountRepository = BiliAccountRepository(api::nav, api::qrGenerate, api::qrPoll, api::logout)
     fun relationFeedStateHolder(mid: Long, fans: Boolean, frequent: Boolean) =
         com.aritxonly.bdfun.feature.relations.application.RelationFeedStateHolder(
