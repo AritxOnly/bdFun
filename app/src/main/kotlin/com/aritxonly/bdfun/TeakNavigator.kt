@@ -2,6 +2,8 @@ package com.aritxonly.bdfun
 
 import android.content.Context
 import android.content.Intent
+import com.aritxonly.bdfun.core.navigation.Route
+import com.aritxonly.bdfun.navigation.RouteIntents
 import com.aritxonly.bdfun.data.VideoItem
 import com.aritxonly.bdfun.ui.showToast
 
@@ -39,13 +41,9 @@ object TeakNavigator {
 
     fun openPrivateChat(context: Context, session: com.aritxonly.bdfun.data.MessageSession) {
         context.startActivity(
-            Intent(context, PrivateChatActivity::class.java)
-                .putExtra("talker_id", session.talkerId)
-                .putExtra("session_type", session.sessionType)
-                .putExtra("name", session.name)
-                .putExtra("avatar", session.avatar)
-                .putExtra("unread", session.unread)
-                .putExtra("max_seqno", session.maxSeqno),
+            com.aritxonly.bdfun.navigation.RouteIntents.create(context,
+                com.aritxonly.bdfun.core.navigation.Route.PrivateChat(session.talkerId, session.sessionType,
+                    session.name, session.avatar, session.unread, session.maxSeqno)),
         )
     }
 
@@ -83,29 +81,21 @@ object TeakNavigator {
 
     fun openSpace(context: Context, mid: Long) {
         if (mid <= 0) return
-        AppGraph.pendingSpaceMid.value = mid
-        context.startActivity(Intent(context, SpaceActivity::class.java))
+        context.startActivity(RouteIntents.create(context, Route.Space(mid)))
     }
 
     fun openDynamic(context: Context, dynamic: com.aritxonly.bdfun.data.DynamicItem) {
-        AppGraph.pendingDynamic.value = dynamic
-        context.startActivity(Intent(context, DynamicDetailActivity::class.java))
+        context.startActivity(RouteIntents.create(context, Route.Dynamic(dynamic.id, dynamic)))
     }
 
     fun openVideo(context: Context, video: VideoItem, fromVideoPage: Boolean = false) {
-        AppGraph.pendingVideo.value = video
-        context.startActivity(
-            Intent(context, VideoActivity::class.java)
-                .putExtra("fromVideoPage", fromVideoPage),
-        )
+        context.startActivity(RouteIntents.create(context,
+            Route.Video(video.bvid, video.aid, video, fromVideoPage)))
     }
 
     /** 只有 BV 号时直接开播放页，由 VideoActivity 自己拉详情。 */
     fun openVideoByBvid(context: Context, bvid: String) {
-        AppGraph.pendingVideo.value = null
-        context.startActivity(
-            Intent(context, VideoActivity::class.java).putExtra("bvid", bvid),
-        )
+        context.startActivity(RouteIntents.create(context, Route.Video(bvid = bvid)))
     }
 
     /**
@@ -136,34 +126,13 @@ object TeakNavigator {
             context.showToast("这条消息没有可打开的视频")
             return
         }
-        com.aritxonly.bdfun.ui.VideoPageBus.requestComment(
-            root = rootRpid.takeIf { it > 0L } ?: targetRpid,
-            target = targetRpid,
-            seekMs = seekMs,
-        )
-        if (resolvedBvid.isNotBlank()) {
-            AppGraph.pendingVideo.value = VideoItem(
-                bvid = resolvedBvid,
-                aid = aid,
-                title = title,
-                cover = "",
-                ownerName = "",
-                ownerFace = "",
-                ownerMid = 0L,
-                play = 0L,
-                danmaku = 0L,
-                duration = 0,
-                pubdate = 0L,
-                startPositionMs = seekMs,
-            )
-        } else {
-            // 64 位 av 号：先清掉上一支视频，让 VideoActivity 按 aid 异步换 BV。
-            AppGraph.pendingVideo.value = null
-        }
-        context.startActivity(
-            Intent(context, VideoActivity::class.java)
-                .putExtra("aid", aid)
-                .apply { if (resolvedBvid.isNotBlank()) putExtra("bvid", resolvedBvid) },
-        )
+        val snapshot = if (resolvedBvid.isNotBlank()) VideoItem(
+            resolvedBvid, aid, title, "", "", "", 0L, 0L, 0L, 0, 0L, startPositionMs = seekMs,
+        ) else null
+        context.startActivity(RouteIntents.create(context, Route.Video(
+            resolvedBvid, aid, snapshot,
+            commentRoot = rootRpid.takeIf { it > 0L } ?: targetRpid,
+            commentTarget = targetRpid, seekMs = seekMs,
+        )))
     }
 }

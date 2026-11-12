@@ -73,7 +73,7 @@ internal suspend fun BiliApiContext.enrichHistoryStats(items: List<HistoryItem>)
             missing.forEach { bvid ->
                 launch {
                     limiter.withPermit {
-                        runCatching {
+                        cancellableCatching {
                             val root = rawRequest(
                                 "/x/web-interface/view",
                                 mapOf("bvid" to bvid),

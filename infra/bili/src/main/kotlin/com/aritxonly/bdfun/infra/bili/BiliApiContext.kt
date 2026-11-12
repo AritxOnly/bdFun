@@ -101,6 +101,7 @@ internal class BiliApiContext(
             http = http,
             beforeRequest = { ensureBuvid() },
             signQuery = wbiSigner::signQuery,
+            refreshSigningKeys = { wbiSigner.forceRefresh() },
             encode = ::encode,
             debug = debug,
             apiBase = API,

@@ -11,7 +11,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
+import com.aritxonly.bdfun.core.application.PlaybackController
+import com.aritxonly.bdfun.core.application.PlaybackSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import com.aritxonly.bdfun.AppGraph
 import com.aritxonly.bdfun.data.BiliApi
@@ -37,7 +38,13 @@ import kotlinx.coroutines.launch
  *
  * 用 token 区分不同播放器：旧 Activity 退场晚于新 Activity 创建时，不能把新状态清掉。
  */
-object BackgroundPlayback {
+internal val BackgroundPlayback get() = AppGraph.backgroundPlayback
+
+internal class BackgroundPlaybackStateHolder(
+    private val session: com.aritxonly.bdfun.core.application.PlaybackSessionStateHolder,
+    private val processScope: CoroutineScope,
+    private val queue: com.aritxonly.bdfun.feature.video.application.BackgroundQueueLoader,
+) : com.aritxonly.bdfun.core.application.BackgroundDiscPlayback {
 
     interface Actions {
         fun next()
@@ -49,22 +56,31 @@ object BackgroundPlayback {
         fun exit()
     }
 
-    var active by mutableStateOf(false)
-        private set
-
-    var video by mutableStateOf<VideoItem?>(null)
-    var title by mutableStateOf("")
-    var author by mutableStateOf("")
-    var cover by mutableStateOf("")
-    var playing by mutableStateOf(false)
-    var detached by mutableStateOf(false)
-        private set
-
-    @Volatile
-    var positionMs: Long = 0L
-
-    @Volatile
-    var durationMs: Long = 0L
+    override val state get() = session.state
+    private var snapshot by mutableStateOf(session.state.value)
+    init { processScope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+        session.state.collect { snapshot = session.state.value }
+    } }
+    private fun sync() { snapshot = session.state.value }
+    val fullscreen get() = snapshot.fullscreen
+    internal fun updateFullscreen(owner: Any, value: Boolean) { session.setFullscreen(owner, value); sync() }
+    val active get() = snapshot.active
+    val detached get() = snapshot.detached
+    override val playing get() = snapshot.playback.playing
+    override val positionMs get() = snapshot.playback.positionMs
+    override val durationMs get() = snapshot.playback.durationMs
+    override var video: VideoItem?
+        get() = snapshot.video
+        set(value) { session.updateMetadata(value, title, author, cover); sync() }
+    override var title: String
+        get() = snapshot.title
+        set(value) { session.updateMetadata(video, value, author, cover); sync() }
+    override var author: String
+        get() = snapshot.author
+        set(value) { session.updateMetadata(video, title, value, cover); sync() }
+    override var cover: String
+        get() = snapshot.cover
+        set(value) { session.updateMetadata(video, title, author, value); sync() }
 
     private var detail: VideoDetail? = null
     private var currentCid: Long = 0L
@@ -74,8 +90,7 @@ object BackgroundPlayback {
     private var actions: Actions? = null
     private var appContext: Context? = null
 
-    private var handOffRequested = false
-    private var detachedPlayer: ExoPlayer? = null
+    private var detachedPlayer: PlaybackController? = null
     private var detachedScope: CoroutineScope? = null
 
     /**
@@ -86,22 +101,22 @@ object BackgroundPlayback {
         Thread(r, "bdFun-player-teardown").apply { isDaemon = true }
     }
 
-    internal fun attach(token: Any, actions: Actions) {
+    internal fun attach(token: Any, playback: PlaybackController, actions: Actions) {
         this.token = token
         this.actions = actions
-        active = true
-        detached = false
-        handOffRequested = false
+        session.attach(token, playback)
+        sync()
     }
 
     internal fun detach(token: Any) {
         if (this.token !== token) return
         this.token = null
-        if (detached || handOffRequested) {
-            // 播放器已经交给后台，或者正在交接：保留唱片和元数据。
+        if (detached || session.state.value.handOffRequested) {
+            session.detach(token)
             actions = null
             return
         }
+        session.detach(token)
         clearState()
     }
 
@@ -124,41 +139,35 @@ object BackgroundPlayback {
         this.qualityId = qualityId
     }
 
-    internal fun updatePlaying(value: Boolean) {
-        playing = value
-    }
-
     /** 视频页按返回时调用：先标记“要交棒”，随后正常 finish 让系统播一镜到底退出动画。 */
     fun requestHandOff() {
-        handOffRequested = true
+        session.requestHandOff(); sync()
     }
 
     fun cancelHandOff() {
-        handOffRequested = false
+        session.cancelHandOff(); sync()
     }
 
-    internal fun shouldHandOff(): Boolean = handOffRequested
+    internal fun shouldHandOff(): Boolean = session.state.value.handOffRequested
 
     /** 把仍在使用中的 ExoPlayer 交给后台。必须在 exo.release() 之前调用。 */
-    internal fun adopt(exo: ExoPlayer, context: Context) {
+    internal fun adopt(exo: PlaybackController, context: Context) {
         if (detached) return
-        detached = true
-        handOffRequested = false
+        session.adopt(exo); sync()
+        session.cancelHandOff(); sync()
         actions = null
         appContext = context.applicationContext
         detachedPlayer = exo
-        exo.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                playing = isPlaying
-            }
-        })
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         detachedScope = scope
         scope.launch {
             while (isActive) {
-                positionMs = exo.currentPosition.coerceAtLeast(0L)
-                durationMs = exo.duration.coerceAtLeast(0L)
-                playing = exo.isPlaying
+                val playback = exo.refresh()
+                if (com.aritxonly.bdfun.BuildConfig.DEBUG) {
+                    com.aritxonly.bdfun.data.LogCollector.record("BGP_STATE",
+                        "id=${System.identityHashCode(exo)} position=${playback.positionMs} " +
+                            "playing=${playback.playing} speed=${playback.speed}")
+                }
                 delay(500L)
             }
         }
@@ -182,7 +191,7 @@ object BackgroundPlayback {
         runCatching { ctx.stopService(Intent(ctx, BackgroundPlaybackService::class.java)) }
     }
 
-    fun next() {
+    override fun next() {
         if (detached) {
             skipDetached(1)
         } else {
@@ -190,7 +199,7 @@ object BackgroundPlayback {
         }
     }
 
-    fun previous() {
+    override fun previous() {
         if (detached) {
             skipDetached(-1)
         } else {
@@ -198,31 +207,29 @@ object BackgroundPlayback {
         }
     }
 
-    fun togglePlayPause() {
+    override fun togglePlayPause() {
         val exo = detachedPlayer
         if (detached && exo != null) {
-            if (exo.isPlaying) exo.pause() else exo.play()
-            playing = exo.playWhenReady
+            if (exo.refresh().playing) exo.pause() else exo.play()
         } else {
             actions?.togglePlayPause()
         }
     }
 
-    fun boostStart() {
+    override fun boostStart() {
         if (detached) {
             detachedPlayer?.let { exo ->
-                if (!exo.isPlaying) return
-                exo.setPlaybackSpeed(AppGraph.settings.boostDefaultSpeed)
-                playing = true
+                if (!exo.refresh().playing) return
+                exo.setSpeed(AppGraph.settings.boostDefaultSpeed)
             }
         } else {
             actions?.boostStart()
         }
     }
 
-    fun boostEnd() {
+    override fun boostEnd() {
         if (detached) {
-            detachedPlayer?.setPlaybackSpeed(AppGraph.settings.defaultPlaybackSpeed)
+            detachedPlayer?.setSpeed(AppGraph.settings.defaultPlaybackSpeed)
         } else {
             actions?.boostEnd()
         }
@@ -237,11 +244,10 @@ object BackgroundPlayback {
         } else {
             actions?.seekTo(target)
         }
-        positionMs = target
     }
 
     /** 上滑退出：停掉后台播放器和常驻通知。 */
-    fun exit() {
+    override fun exit() {
         com.aritxonly.bdfun.data.FreezeWatchdog.log(
             "BGP",
             "exit() detached=$detached actions=${actions != null}",
@@ -263,10 +269,9 @@ object BackgroundPlayback {
         val scope = detachedScope
         val ctx = appContext
         // 先只做不阻塞的事：把界面状态清掉，重活全部交给后台线程。
-        detached = false
         detachedPlayer = null
         detachedScope = null
-        handOffRequested = false
+        session.cancelHandOff(); sync()
         clearState()
         com.aritxonly.bdfun.data.FreezeWatchdog.log(
             "BGP",
@@ -282,7 +287,7 @@ object BackgroundPlayback {
         teardownExecutor.execute {
             val t1 = SystemClock.elapsedRealtime()
             scope?.cancel()
-            runCatching { exo?.stop() }
+            runCatching { exo?.pause() }
             com.aritxonly.bdfun.data.FreezeWatchdog.log(
                 "BGP",
                 "teardown: stop done in ${SystemClock.elapsedRealtime() - t1}ms",
@@ -303,21 +308,14 @@ object BackgroundPlayback {
     }
 
     private fun clearState() {
+        queue.invalidate()
         token = null
         actions = null
-        active = false
-        detached = false
-        handOffRequested = false
-        video = null
-        playing = false
-        title = ""
-        author = ""
-        cover = ""
+        session.clear()
+        sync()
         detail = null
         currentCid = 0L
         qualityId = 0
-        positionMs = 0L
-        durationMs = 0L
     }
 
     private fun skipDetached(delta: Int) {
@@ -325,66 +323,20 @@ object BackgroundPlayback {
         val d = detail ?: return
         val scope = detachedScope ?: return
         scope.launch {
-            val pages = d.backgroundPages()
-            val index = pages.indexOfFirst { it.cid == currentCid }
-            if (index < 0) return@launch
-            val target = pages.getOrNull(index + delta) ?: return@launch
-            val episode = d.episodes.firstOrNull { it.cid == target.cid }
-            var useDetail = d
-            if (episode != null && episode.bvid.isNotBlank() && episode.bvid != d.bvid) {
-                useDetail = runCatching { AppGraph.api.view(episode.bvid) }.getOrNull()
-                    ?: return@launch
-                detail = useDetail
-                video = useDetail.toVideoItem()
-            }
-            val info = runCatching {
-                AppGraph.api.playInfo(
-                    useDetail,
-                    qualityId,
-                    target.cid,
-                    target.duration,
-                    codecPreference = AppGraph.settings.codecPreference,
-                    cdnService = AppGraph.settings.cdnService,
-                )
-            }.getOrNull() ?: return@launch
-            val audioUrl = info.audioUrl
-                ?: info.fallbackUrl
-                ?: info.qualities.firstOrNull()?.videoUrl
-                ?: return@launch
-            val http = DefaultHttpDataSource.Factory()
-                .setUserAgent(BiliApi.UA)
-                .setDefaultRequestProperties(
-                    mapOf("Referer" to "https://www.bilibili.com/video/${useDetail.bvid}/"),
-                )
-            val dataSource = DefaultDataSource.Factory(appContext ?: return@launch, http)
-            val source = ProgressiveMediaSource.Factory(dataSource)
-                .createMediaSource(MediaItem.fromUri(audioUrl))
-            exo.setMediaSource(source)
-            exo.prepare()
-            exo.play()
-            currentCid = target.cid
-            positionMs = 0L
-            durationMs = target.duration * 1000L
-            title = useDetail.title
-            author = useDetail.ownerName
-            cover = useDetail.cover
-            video = useDetail.toVideoItem(currentCid)
-            playing = true
+            val track = queue.skip(d, currentCid, delta, qualityId,
+                AppGraph.settings.codecPreference, AppGraph.settings.cdnService) ?: return@launch
+            if (detachedPlayer !== exo || !detached) return@launch
+            exo.prepare(PlaybackSource(
+                videoUrl = track.audioUrl, userAgent = BiliApi.UA,
+                headers = mapOf("Referer" to "https://www.bilibili.com/video/${track.detail.bvid}/"),
+            ))
+            detail = track.detail
+            currentCid = track.cid
+            title = track.detail.title
+            author = track.detail.ownerName
+            cover = track.detail.cover
+            video = track.detail.toVideoItem(currentCid)
         }
-    }
-
-    private fun VideoDetail.backgroundPages(): List<VideoPage> {
-        val episodePages = episodes.mapIndexed { index, episode ->
-            VideoPage(
-                cid = episode.cid,
-                page = index + 1,
-                part = episode.title,
-                duration = episode.duration,
-            )
-        }
-        if (pages.size > 1) return (pages + episodePages).distinctBy { it.cid }
-        if (episodePages.size > 1) return episodePages
-        return pages
     }
 
     private fun VideoDetail.toVideoItem(cid: Long = this.cid): VideoItem = VideoItem(

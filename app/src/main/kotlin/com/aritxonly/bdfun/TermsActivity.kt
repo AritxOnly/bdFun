@@ -5,7 +5,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.aritxonly.bdfun.data.SettingsStore
 import com.aritxonly.bdfun.ui.OnboardingScreen
 import com.aritxonly.bdfun.ui.TeakBareTheme
 
@@ -32,7 +31,6 @@ class TermsActivity : ComponentActivity() {
         setContent {
             TeakBareTheme(settings = settings) { _, _ ->
                 OnboardingScreen(
-                    settings = settings,
                     onAccept = {
                         settings.onboardingAcked = true
                         settings.termsAckedVersion = BuildConfig.VERSION_NAME

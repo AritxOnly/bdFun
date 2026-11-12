@@ -102,7 +102,7 @@ internal suspend fun BiliApiContext.playInfo(
     // 失败再退回普通接口。反过来的话，普通接口有时只回 480P 但不报错，
     // 4K 就会被悄悄吞掉。
     var signedError: Throwable? = null
-    var root = runCatching {
+    var root = cancellableCatching {
         rawRequest("/x/player/wbi/playurl", params, signed = true)
     }.onFailure { signedError = it }.getOrNull()
     val usedSigned = root != null
@@ -143,7 +143,7 @@ internal suspend fun BiliApiContext.playInfo(
         // 以前固定 480P，4K 解码一出错就整段变糊，看起来像“4K 没用”。
         var fallbackUrl = ""
         for (qn in listOf("80", "64", "32")) {
-            val fallbackData = runCatching {
+            val fallbackData = cancellableCatching {
                 dataRequest(
                     "/x/player/playurl",
                     mapOf(
@@ -184,7 +184,7 @@ internal suspend fun BiliApiContext.related(bvid: String): List<VideoItem> = wit
  */
 
 internal suspend fun BiliApiContext.danmaku(cid: Long, durationSec: Int = 0): List<DanmakuItem> = withContext(Dispatchers.IO) {
-    val segItems = runCatching { danmakuSegments(cid, durationSec) }.getOrDefault(emptyList())
+    val segItems = cancellableCatching { danmakuSegments(cid, durationSec) }.getOrDefault(emptyList())
     if (segItems.isNotEmpty()) return@withContext segItems
     danmakuXml(cid)
 }
@@ -200,13 +200,13 @@ internal suspend fun BiliApiContext.danmakuSegments(cid: Long, durationSec: Int)
     val parsed = kotlinx.coroutines.coroutineScope {
         (1..segments).map { index ->
             async {
-                runCatching { fetchDanmakuSegment(cid, index) }.getOrNull()
+                cancellableCatching { fetchDanmakuSegment(cid, index) }.getOrNull()
             }
         }.awaitAll()
     }.filterNotNull()
     val result = ArrayList<DanmakuItem>(1024)
     for (bytes in parsed) {
-        val elems = runCatching {
+        val elems = cancellableCatching {
             com.android.purebilibili.danmaku.parser.DanmakuProto.parse(bytes)
         }.getOrDefault(emptyList())
         for (elem in elems) {
@@ -267,14 +267,14 @@ internal suspend fun BiliApiContext.danmakuXml(cid: Long): List<DanmakuItem> = w
 internal suspend fun BiliApiContext.sponsorSegments(bvid: String): List<SponsorSegment> = withContext(Dispatchers.IO) {
     if (bvid.isBlank()) return@withContext emptyList()
     sponsorSegments.get(bvid)?.let { return@withContext it }
-    val result = runCatching {
+    val result = cancellableCatching {
         val request = Request.Builder()
             .url("https://www.bsbsb.top/api/skipSegments?videoID=$bvid")
             .header("User-Agent", UA)
             .get()
             .build()
         val text = http.await(request).use { response ->
-            if (!response.isSuccessful) return@runCatching emptyList()
+            if (!response.isSuccessful) return@cancellableCatching emptyList()
             response.body?.string().orEmpty()
         }
         val array = JSONArray(text)

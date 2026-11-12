@@ -11,6 +11,7 @@ class BiliRequestGateway(
     private val http: BiliHttpClient,
     private val beforeRequest: suspend () -> Unit,
     private val signQuery: suspend (MutableMap<String, String>) -> String,
+    private val refreshSigningKeys: suspend () -> Unit,
     private val encode: (String) -> String,
     private val debug: Boolean,
     private val apiBase: String,
@@ -54,6 +55,19 @@ class BiliRequestGateway(
         headers: Map<String, String> = emptyMap(),
     ): JSONObject = withContext(Dispatchers.IO) {
         beforeRequest()
+        recoverSignedRead(
+            signed = signed,
+            method = method,
+            request = { executeRequest(path, params, signed, base, method, referer, tolerateEmptyBody, userAgent, headers) },
+            denied = { it.optInt("code", 0) == -403 },
+            refresh = refreshSigningKeys,
+        )
+    }
+
+    private suspend fun executeRequest(
+        path: String, params: Map<String, String>, signed: Boolean, base: String, method: String,
+        referer: String?, tolerateEmptyBody: Boolean, userAgent: String?, headers: Map<String, String>,
+    ): JSONObject {
         val actualParams = params.toMutableMap()
         var url = "$base$path"
         if (signed) {
@@ -80,7 +94,7 @@ class BiliRequestGateway(
         val request = builder.build()
         if (debug) android.util.Log.d("BiliApi", "request ${request.url.encodedPath}")
 
-        http.execute(request, method, tolerateEmptyBody)
+        return http.execute(request, method, tolerateEmptyBody)
     }
 
     suspend fun postRequest(

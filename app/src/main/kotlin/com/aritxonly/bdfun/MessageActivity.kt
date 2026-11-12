@@ -1,5 +1,8 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.ui.ActivityPageOptions
+import com.aritxonly.bdfun.ui.ActivityPageSlots
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -12,18 +15,21 @@ class MessageActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         AppGraph.ensure(applicationContext)
-        val api = AppGraph.api
         val settings = AppGraph.settings
         setContent {
             TeakActivityScaffold(
                 settings = settings,
                 onBack = { finish() },
-                title = "消息",
-                topBarActions = {
+                options = ActivityPageOptions(
+                    title = "消息",
+                ),
+                slots = ActivityPageSlots(
+                    topBarActions = {
                     MessageTopActions()
                 },
+                ),
             ) {
-                MessageScreenRoute(api, this)
+                MessageScreenRoute(this)
             }
         }
     }

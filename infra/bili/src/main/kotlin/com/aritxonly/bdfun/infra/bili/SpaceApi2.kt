@@ -65,7 +65,7 @@ import com.aritxonly.bdfun.infra.bili.BiliParameters.parseDurationText
 import com.aritxonly.bdfun.infra.bili.BiliParameters.qualityLabel
 
 internal suspend fun BiliApiContext.spaceVideos(mid: Long, page: Int): List<VideoItem> = withContext(Dispatchers.IO) {
-    runCatching {
+    cancellableCatching {
         val data = dataRequest(
             "/x/space/wbi/arc/search",
             mapOf(
@@ -91,7 +91,7 @@ internal suspend fun BiliApiContext.spaceVideos(mid: Long, page: Int): List<Vide
 
 internal suspend fun BiliApiContext.spaceArticles(mid: Long, page: Int): List<SpaceArticle> =
     withContext(Dispatchers.IO) {
-        runCatching {
+        cancellableCatching {
             val data = dataRequest(
                 "/x/space/wbi/article",
                 mapOf(
@@ -127,7 +127,7 @@ internal suspend fun BiliApiContext.spaceArticles(mid: Long, page: Int): List<Sp
 
 internal suspend fun BiliApiContext.spaceBangumi(mid: Long, page: Int): List<SpaceBangumi> =
     withContext(Dispatchers.IO) {
-        runCatching {
+        cancellableCatching {
             val data = dataRequest(
                 "/x/space/bangumi",
                 mapOf(
@@ -155,7 +155,7 @@ internal suspend fun BiliApiContext.spaceBangumi(mid: Long, page: Int): List<Spa
 /** UP 主小店：mall.bilibili.com 的 App 签名 POST 接口，先取第一页 8 个。 */
 
 internal suspend fun BiliApiContext.spaceShop(mid: Long): List<SpaceShopItem> = withContext(Dispatchers.IO) {
-    runCatching {
+    cancellableCatching {
         val extras = mutableMapOf(
             "actionKey" to "appkey",
             "build" to "8430300",
@@ -183,8 +183,8 @@ internal suspend fun BiliApiContext.spaceShop(mid: Long): List<SpaceShopItem> = 
             .header("Origin", "https://mall.bilibili.com")
             .build()
         val root = http.executeOnce(request, tolerateEmptyBody = true)
-        if (root.optInt("code", 0) != 0) return@runCatching emptyList()
-        val data = root.optJSONObject("data") ?: return@runCatching emptyList()
+        if (root.optInt("code", 0) != 0) return@cancellableCatching emptyList()
+        val data = root.optJSONObject("data") ?: return@cancellableCatching emptyList()
         data.optJSONArray("data").objects().mapNotNull { item ->
             val title = item.s("title")
             if (title.isBlank()) return@mapNotNull null
@@ -223,7 +223,7 @@ internal suspend fun BiliApiContext.spaceShop(mid: Long): List<SpaceShopItem> = 
  */
 
 internal suspend fun BiliApiContext.userBrief(mid: Long): Pair<String, String>? = withContext(Dispatchers.IO) {
-    runCatching {
+    cancellableCatching {
         val data = dataRequest(
             "/x/space/wbi/acc/info",
             mapOf("mid" to mid.toString()),
@@ -235,7 +235,7 @@ internal suspend fun BiliApiContext.userBrief(mid: Long): Pair<String, String>? 
 }
 
 internal suspend fun BiliApiContext.userIpLocation(mid: Long): String = withContext(Dispatchers.IO) {
-    runCatching {
+    cancellableCatching {
         val data = dataRequest(
             "/x/space/wbi/acc/info",
             mapOf(

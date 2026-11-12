@@ -174,9 +174,9 @@ internal suspend fun BiliApiContext.addCommentByOid(
 /** 上传评论图片，返回可直接塞进 `pictures` 的 JSON；失败返回 null。 */
 
 internal suspend fun BiliApiContext.uploadCommentImage(uri: android.net.Uri): String? = withContext(Dispatchers.IO) {
-    runCatching {
+    cancellableCatching {
         val resolver = appContext.contentResolver
-        val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching null
+        val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return@cancellableCatching null
         val mime = resolver.getType(uri) ?: "image/jpeg"
         val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
         val width = bitmap?.width ?: 0
@@ -201,11 +201,11 @@ internal suspend fun BiliApiContext.uploadCommentImage(uri: android.net.Uri): St
             val text = response.body?.string().orEmpty()
             if (text.isBlank()) return@use null
             JSONObject(text)
-        } ?: return@runCatching null
-        if (json.optInt("code", 0) != 0) return@runCatching null
-        val data = json.optJSONObject("data") ?: return@runCatching null
+        } ?: return@cancellableCatching null
+        if (json.optInt("code", 0) != 0) return@cancellableCatching null
+        val data = json.optJSONObject("data") ?: return@cancellableCatching null
         val url = data.s("image_url").ifBlank { data.s("url") }
-        if (url.isBlank()) return@runCatching null
+        if (url.isBlank()) return@cancellableCatching null
         JSONObject().apply {
             put("img_src", url)
             put("img_width", width)
@@ -297,7 +297,7 @@ internal suspend fun BiliApiContext.blockUser(mid: Long): Boolean = withContext(
 /** 评论表情面板（需要登录；失败时返回空列表，界面回退到系统 emoji）。 */
 
 internal suspend fun BiliApiContext.replyEmotes(): List<EmoteItem> = withContext(Dispatchers.IO) {
-    runCatching {
+    cancellableCatching {
         val data = dataRequest(
             "/x/emote/user/panel/web",
             mapOf("business" to "reply"),

@@ -26,6 +26,8 @@ kotlin {
 }
 
 dependencies {
+    testImplementation(libs.kotlin.test.junit)
+    testImplementation(libs.robolectric)
     implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.collection:collection:1.5.0")
     implementation(libs.coroutines.android)

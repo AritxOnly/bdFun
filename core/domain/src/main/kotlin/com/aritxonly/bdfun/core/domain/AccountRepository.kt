@@ -12,3 +12,6 @@ interface AccountRepository {
     suspend fun pollQr(key: String): Outcome<QrPoll>
     fun logout()
 }
+
+/** 即时登录凭据判断；资料尚未加载时也不能等同于未登录。 */
+fun interface LoginStatus { fun isLoggedIn(): Boolean }

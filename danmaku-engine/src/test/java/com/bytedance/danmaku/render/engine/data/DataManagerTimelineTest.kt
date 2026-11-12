@@ -8,6 +8,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [33], manifest = org.robolectric.annotation.Config.NONE)
 class DataManagerTimelineTest {
     private fun text(time: Long) = object : DanmakuData() {
         init { showAtTime = time; layerType = LAYER_TYPE_SCROLL }

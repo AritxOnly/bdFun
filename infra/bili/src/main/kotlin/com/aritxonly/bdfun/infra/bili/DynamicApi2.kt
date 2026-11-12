@@ -91,7 +91,7 @@ internal suspend fun BiliApiContext.dynamicComments(id: String, page: Int = 1): 
 
 internal suspend fun BiliApiContext.sendDynamicComment(id: String, message: String): Boolean =
     withContext(Dispatchers.IO) {
-        runCatching {
+        cancellableCatching {
             postRequest(
                 "/x/v2/reply/add",
                 mapOf(

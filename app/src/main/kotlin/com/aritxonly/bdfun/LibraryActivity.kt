@@ -1,5 +1,8 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.ui.ActivityPageOptions
+import com.aritxonly.bdfun.ui.ActivityPageSlots
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -17,25 +20,28 @@ class LibraryActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         AppGraph.ensure(applicationContext)
-        val api = AppGraph.api
         val settings = AppGraph.settings
         setContent {
             val menuState = remember { TeakMorphMenuState() }
             TeakActivityScaffold(
                 settings = settings,
                 onBack = { finish() },
-                title = "收藏",
-                topBarActions = { LibraryTopActions(menuState) },
-                overlay = {
+                options = ActivityPageOptions(
+                    title = "收藏",
+                ),
+                slots = ActivityPageSlots(
+                    topBarActions = { LibraryTopActions(menuState) },
+                    overlay = {
                     LibraryBatchOverlay()
                 },
-                menuOverlay = {
+                    menuOverlay = {
                     TeakMorphMenuHost(menuState) { dismiss ->
                         LibraryMorphMenuContent(dismiss)
                     }
                 },
+                ),
             ) {
-                LibraryScreenRoute(api, this)
+                LibraryScreenRoute(this)
             }
         }
     }

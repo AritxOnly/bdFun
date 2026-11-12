@@ -1,0 +1,22 @@
+package com.aritxonly.bdfun.ui
+
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+
+internal data class CommentScreenRequest(
+    val aid: Long, val upMid: Long, val title: String, val bvid: String = "",
+    /** 动态用 type=17 + id_str，视频用 type=1 + aid。 */
+    val commentOid: String = aid.toString(), val commentType: Int = 1,
+    val focusRootRpid: Long = 0L, val focusTargetRpid: Long = 0L,
+)
+internal data class CommentScreenLayout(
+    val bare: Boolean = false, val topInset: Dp = 0.dp, val bottomPadding: Dp = 96.dp,
+    val trackBackProgress: Boolean = false, val showLoading: Boolean = true,
+    val threadPlayerBottom: Dp? = null, val threadPaneWidth: Dp? = null,
+    val playerFullscreen: Boolean = false,
+)
+internal typealias CommentScreenHeader = LazyListScope.() -> Unit
+
+/** 评论区统一字号：固定为原来的「110%」档，不再提供调节。 */
+internal const val COMMENT_FONT_SCALE = 1.1f

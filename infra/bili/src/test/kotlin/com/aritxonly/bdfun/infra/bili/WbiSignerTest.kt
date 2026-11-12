@@ -93,4 +93,22 @@ class WbiSignerTest {
         assertTrue(query.startsWith("a=clean&wts=1700000000&z=last&w_rid="))
         assertEquals("99cf0187199be6c09e097c2821aee153", query.substringAfter("w_rid="))
     }
+    @Test fun forcedRefreshBypassesFreshSnapshot() = runBlocking {
+        var calls = 0
+        val signer = signer { calls++; pair }
+        val previous = signer.keys()
+        signer.forceRefresh()
+        assertNotSame(previous, signer.keys())
+        assertEquals(2, calls)
+    }
+
+    @Test fun failedForcedRefreshRestoresPreviousSnapshot() = runBlocking {
+        var fail = false
+        val signer = signer { if (fail) throw IllegalStateException("offline") else pair }
+        val previous = signer.keys()
+        fail = true
+        try { signer.forceRefresh(); fail("刷新必须报告失败") } catch (_: BiliException) { }
+        assertSame(previous, signer.keys())
+    }
+
 }

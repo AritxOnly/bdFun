@@ -22,10 +22,14 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun MessageResumeEffect(onResume: suspend () -> Unit) {
+    MessageResumeEffect(rememberCoroutineScope(), onResume)
+}
+
+@Composable
+internal fun MessageResumeEffect(scope: kotlinx.coroutines.CoroutineScope, onResume: suspend () -> Unit) {
     val owner = LocalLifecycleOwner.current
     val current by rememberUpdatedState(onResume)
-    val scope = rememberCoroutineScope()
-    DisposableEffect(owner) {
+    DisposableEffect(owner, scope) {
         var first = true
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {

@@ -60,7 +60,7 @@ class LogActivity : ComponentActivity() {
             TeakActivityScaffold(
                 settings = settings,
                 onBack = { finish() },
-                title = "日志抓取",
+                options = com.aritxonly.bdfun.ui.ActivityPageOptions(title = "日志抓取"),
             ) {
                 LogScreen()
             }

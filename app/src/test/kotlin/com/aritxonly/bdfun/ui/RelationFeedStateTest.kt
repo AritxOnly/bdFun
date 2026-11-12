@@ -6,6 +6,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class RelationFeedStateTest {
+    private fun RelationFeedState(load: suspend (Int) -> RelationPage) =
+        com.aritxonly.bdfun.feature.relations.application.RelationFeedStateHolder(
+            object : com.aritxonly.bdfun.core.domain.RelationRepository {
+                override suspend fun users(mid: Long, fans: Boolean, page: Int, frequent: Boolean): com.aritxonly.bdfun.core.common.Outcome<RelationPage> = try {
+                    com.aritxonly.bdfun.core.common.Outcome.Success(load(page))
+                } catch (cancel: CancellationException) { throw cancel }
+                catch (failure: Exception) { com.aritxonly.bdfun.core.common.Outcome.Failure(com.aritxonly.bdfun.core.common.AppError.Unknown(failure.message ?: "加载失败，请重试")) }
+                override suspend fun attribute(mid: Long): com.aritxonly.bdfun.core.common.Outcome<Int?> = error("unused")
+                override suspend fun follow(mid: Long, followed: Boolean): com.aritxonly.bdfun.core.common.Outcome<Unit> = error("unused")
+            }, 1L, false, false, null, { null }, { false })
     private fun user(id: Long) = RelationUser(id, "user$id", "", "", 0)
     @Test fun failedNextPageRetriesSameCursorAndDeduplicatesOverlappingUsers() = runBlocking {
         val calls = mutableListOf<Int>()

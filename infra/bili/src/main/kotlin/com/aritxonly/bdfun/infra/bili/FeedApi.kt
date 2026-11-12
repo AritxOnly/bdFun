@@ -145,7 +145,7 @@ internal suspend fun BiliApiContext.appRecommend(freshIndex: Int): List<VideoIte
     )
     val out = data.optJSONArray("items").objects().mapNotNull { raw ->
         val args = raw.optJSONObject("args")
-            ?: runCatching { JSONObject(raw.optString("args")) }.getOrNull()
+            ?: cancellableCatching { JSONObject(raw.optString("args")) }.getOrNull()
             ?: JSONObject()
         val player = raw.optJSONObject("player_args")
         val cardGoto = raw.s("card_goto")

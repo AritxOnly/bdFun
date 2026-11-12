@@ -1,0 +1,261 @@
+{
+  "code": 0,
+  "message": "OK",
+  "ttl": 1,
+  "data": {
+    "card": {
+      "vip": {
+        "vipType": 2,
+        "vipDueDate": 1854028800000,
+        "dueRemark": "",
+        "accessStatus": 0,
+        "vipStatus": 1,
+        "vipStatusWarn": "",
+        "themeType": 0,
+        "label": {
+          "path": "",
+          "text": "十年大会员",
+          "label_theme": "ten_annual_vip",
+          "text_color": "#FFFFFF",
+          "bg_style": 1,
+          "bg_color": "#FB7299",
+          "border_color": "",
+          "image": "https://i0.hdslb.com/bfs/vip/802418ff03911645648b63aa193ba67997b5a0bc.png",
+          "label_id": -22,
+          "label_goto": "https://big.bilibili.com/mobile/index?navhide=1&from_spmid=vipicon"
+        }
+      }
+    },
+    "images": {
+      "imgUrl": "https://i2.hdslb.com/bfs/space/dfb53c567f1c794cc68d89bdc11c060e3f157c54.jpg",
+      "night_imgurl": "https://i0.hdslb.com/bfs/space/dfb53c567f1c794cc68d89bdc11c060e3f157c54.jpg",
+      "collection_top_simple": {
+        "top": {
+          "result": [
+            {
+              "cover": "https://i0.hdslb.com/bfs/garb/open/3fe5aa4c74e1d1bdfd09fe1e5aa451a0db9d685b.png",
+              "item": {
+                "image": null,
+                "animation": {
+                  "location": "0-0-1079-1079",
+                  "height": 1863
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "elec": {
+      "show": true,
+      "total": 426,
+      "count": 426,
+      "elec_num": 0,
+      "list": [
+        {
+          "pay_mid": 1002402202,
+          "rank": 1,
+          "trend_type": 0,
+          "message": "",
+          "mid": 2283296,
+          "vip_info": null,
+          "uname": "学袜",
+          "avatar": "https://i1.hdslb.com/bfs/face/1f3dc6c5d9dd1cf2e5fa66f5bb41b0101206b5c2.webp"
+        },
+        {
+          "pay_mid": 77563766,
+          "rank": 2,
+          "trend_type": 0,
+          "message": "",
+          "mid": 2283296,
+          "vip_info": null,
+          "uname": "路过的洛骑",
+          "avatar": "https://i2.hdslb.com/bfs/face/b0a9b49b707a4c72eb8b8b4e64937f5a976e75c4.jpg"
+        },
+        {
+          "pay_mid": 1880058635,
+          "rank": 3,
+          "trend_type": 0,
+          "message": "",
+          "mid": 2283296,
+          "vip_info": null,
+          "uname": "Imogenlove",
+          "avatar": "https://i2.hdslb.com/bfs/face/f8892a7320ac64b80f746388db4bacb3a9d1891e.jpg"
+        },
+        {
+          "pay_mid": 1723419,
+          "rank": 4,
+          "trend_type": 0,
+          "message": "",
+          "mid": 2283296,
+          "vip_info": null,
+          "uname": "秋云渐淡",
+          "avatar": "http://i0.hdslb.com/bfs/face/0a3058deff469441fe06fbe43f812a6d190a5213.jpg"
+        }
+      ],
+      "elec_set": {
+        "elec_theme": 0,
+        "rmb_rate": 1,
+        "integrity_rate": 1,
+        "round_mode": 0,
+        "elec_list": [
+          {
+            "title": "2 B币",
+            "elec_num": 20,
+            "is_customize": 0,
+            "bp_num": "2",
+            "min_bp": "0",
+            "max_bp": "0",
+            "bp_num_fen": 200,
+            "is_default": 1
+          },
+          {
+            "title": "6 B币",
+            "elec_num": 60,
+            "is_customize": 0,
+            "bp_num": "6",
+            "min_bp": "0",
+            "max_bp": "0",
+            "bp_num_fen": 600
+          },
+          {
+            "title": "45 B币",
+            "elec_num": 450,
+            "is_customize": 0,
+            "bp_num": "45",
+            "min_bp": "0",
+            "max_bp": "0",
+            "bp_num_fen": 4500
+          },
+          {
+            "title": "88 B币",
+            "elec_num": 880,
+            "is_customize": 0,
+            "bp_num": "88",
+            "min_bp": "0",
+            "max_bp": "0",
+            "bp_num_fen": 8800
+          },
+          {
+            "title": "自定义",
+            "elec_num": 0,
+            "is_customize": 1,
+            "min_elec": 20,
+            "max_elec": 99990,
+            "bp_num": "0",
+            "min_bp": "2",
+            "max_bp": "9999.9",
+            "min_bp_fen": 200,
+            "max_bp_fen": 999990
+          }
+        ],
+        "battery_item_desc": ""
+      },
+      "state": 2,
+      "upower_title": "充电",
+      "upower_jump_url": "https://www.bilibili.com/h5/upower/index?mid=2283296&navhide=1&prePage=space",
+      "upower_icon_url": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+      "upower_state": -1,
+      "upower_button_map": {
+        "-1": {
+          "title": "充电",
+          "icon": {
+            "10": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "100": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "110": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "120": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "130": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "140": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "150": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "20": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "30": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "40": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "50": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "60": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "70": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "80": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "90": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png"
+          },
+          "jump_url": "https://www.bilibili.com/h5/upower/index?mid=2283296&navhide=1&prePage=space",
+          "jump_url_web": "https://member.bilibili.com/mall/upower-pay?mid=2283296&prePage=space",
+          "jump_show_type": 2,
+          "jump_url_hd": "https://www.bilibili.com/h5/upower/index?mid=2283296&navhide=1&prePage=space"
+        },
+        "0": {
+          "title": "充电",
+          "icon": {
+            "10": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "100": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "110": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "120": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "130": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "140": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "150": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "20": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "30": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "40": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "50": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "60": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "70": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "80": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "90": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png"
+          },
+          "jump_url": "https://www.bilibili.com/h5/upower/index?mid=2283296&navhide=1&prePage=space",
+          "jump_url_web": "https://member.bilibili.com/mall/upower-pay?mid=2283296&prePage=space",
+          "jump_show_type": 2,
+          "jump_url_hd": "https://www.bilibili.com/h5/upower/index?mid=2283296&navhide=1&prePage=space"
+        },
+        "1": {
+          "title": "充电中",
+          "icon": {
+            "10": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "100": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "110": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "120": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "130": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "140": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "150": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "20": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "30": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "40": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "50": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "60": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "70": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "80": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "90": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png"
+          },
+          "jump_url": "https://www.bilibili.com/h5/upower/detail?mid=2283296&navhide=1&prePage=space",
+          "jump_url_web": "https://member.bilibili.com/mall/upower-pay/detail?mid=2283296&prePage=space",
+          "jump_show_type": 2,
+          "jump_url_hd": "https://www.bilibili.com/h5/upower/detail?mid=2283296&navhide=1&prePage=space"
+        },
+        "2": {
+          "title": "充电",
+          "icon": {
+            "10": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "100": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "110": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "120": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "130": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "140": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "150": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "20": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "30": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "40": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "50": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "60": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "70": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "80": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png",
+            "90": "https://i0.hdslb.com/bfs/garb/item/33e2e72d9a0c855f036b4cb55448f44af67a0635.png"
+          },
+          "jump_url": "https://www.bilibili.com/h5/upower/index?mid=2283296&navhide=1&prePage=space",
+          "jump_url_web": "https://member.bilibili.com/mall/upower-pay?mid=2283296&prePage=space",
+          "jump_show_type": 2,
+          "jump_url_hd": "https://www.bilibili.com/h5/upower/index?mid=2283296&navhide=1&prePage=space"
+        }
+      },
+      "rank_title": "人为TA充电",
+      "rank_url": "https://www.bilibili.com/h5/upower/charge-rank-list?mid=2283296&navhide=1&source=1"
+    }
+  }
+}

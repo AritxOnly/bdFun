@@ -65,12 +65,12 @@ import com.aritxonly.bdfun.infra.bili.BiliParameters.parseDurationText
 import com.aritxonly.bdfun.infra.bili.BiliParameters.qualityLabel
 
 internal suspend fun BiliApiContext.favoriteFolderIds(aid: Long): Set<Long> = withContext(Dispatchers.IO) {
-    runCatching {
+    cancellableCatching {
         val root = rawRequest(
             "/x/v3/fav/resource/ids",
             mapOf("rid" to aid.toString(), "type" to "2"),
         )
-        if (root.optInt("code", 0) != 0) return@runCatching emptySet()
+        if (root.optInt("code", 0) != 0) return@cancellableCatching emptySet()
         val data = root.optJSONArray("data") ?: root.optJSONObject("data")?.optJSONArray("list")
         val out = mutableSetOf<Long>()
         data?.let { arr ->
@@ -129,7 +129,7 @@ internal suspend fun BiliApiContext.removeFavoriteAll(aid: Long, folderIds: Coll
 /** 添加到稍后再看。 */
 
 internal suspend fun BiliApiContext.addWatchLater(aid: Long): Boolean = withContext(Dispatchers.IO) {
-    runCatching {
+    cancellableCatching {
         postRequest(
             "/x/v2/history/toview/add",
             mapOf("aid" to aid.toString(), "csrf" to csrf),
@@ -141,7 +141,7 @@ internal suspend fun BiliApiContext.addWatchLater(aid: Long): Boolean = withCont
 
 internal suspend fun BiliApiContext.deleteHistory(aid: Long): Boolean = withContext(Dispatchers.IO) {
     if (aid <= 0) return@withContext false
-    runCatching {
+    cancellableCatching {
         postRequest(
             "/x/v2/history/delete",
             mapOf("kid" to "archive_$aid", "csrf" to csrf),
@@ -152,7 +152,7 @@ internal suspend fun BiliApiContext.deleteHistory(aid: Long): Boolean = withCont
 /** 从稍后再看移除：接口要 aid。 */
 
 internal suspend fun BiliApiContext.deleteWatchLater(aid: Long): Boolean = withContext(Dispatchers.IO) {
-    runCatching {
+    cancellableCatching {
         postRequest(
             "/x/v2/history/toview/del",
             mapOf("aid" to aid.toString(), "csrf" to csrf),
@@ -195,7 +195,7 @@ internal suspend fun BiliApiContext.followUser(mid: Long, follow: Boolean): Bool
 
 internal suspend fun BiliApiContext.relation(mid: Long): Int? = withContext(Dispatchers.IO) {
     if (!isLoggedIn || mid <= 0) return@withContext null
-    runCatching {
+    cancellableCatching {
         dataRequest("/x/relation", mapOf("fid" to mid.toString()))
             .optInt("attribute", 0)
     }.getOrNull()
@@ -211,7 +211,7 @@ internal suspend fun BiliApiContext.relationUsers(mid: Long, fans: Boolean, page
         val raw = data.optJSONArray("list").objects()
         val ids = raw.map { it.l("mid") }.filter { it > 0 }.distinct()
         // 'attribute' in another person's following list describes THEIR relationship.
-        val relations = if (isLoggedIn && ids.isNotEmpty()) runCatching {
+        val relations = if (isLoggedIn && ids.isNotEmpty()) cancellableCatching {
             dataRequest("/x/relation/relations", mapOf("fids" to ids.joinToString(",")))
         }.getOrElse { error ->
             if (error is kotlinx.coroutines.CancellationException) throw error
@@ -293,7 +293,7 @@ internal suspend fun BiliApiContext.cloudResumePositionMs(
     durationSec: Int = 0,
 ): Long = withContext(Dispatchers.IO) {
     if (aid <= 0 || cid <= 0 || !isLoggedIn) return@withContext 0L
-    val data = runCatching {
+    val data = cancellableCatching {
         dataRequest(
             "/x/player/v2",
             mapOf("aid" to aid.toString(), "cid" to cid.toString()),
@@ -319,7 +319,7 @@ internal suspend fun BiliApiContext.reportHistory(
     progressSec: Long,
 ): Boolean = withContext(Dispatchers.IO) {
     if (aid <= 0 || cid <= 0 || !isLoggedIn) return@withContext false
-    runCatching {
+    cancellableCatching {
         postRequest(
             "/x/click-interface/web/heartbeat",
             mapOf(

@@ -1,15 +1,16 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.ui.ActivityPageOptions
+import com.aritxonly.bdfun.ui.ActivityPageSlots
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import com.aritxonly.bdfun.data.BiliApi
 import com.aritxonly.bdfun.ui.LibraryBatchOverlay
 import com.aritxonly.bdfun.ui.LibraryMorphMenuContent
-import com.aritxonly.bdfun.ui.LibraryScreen
 import com.aritxonly.bdfun.ui.LibraryTopActions
 import com.aritxonly.bdfun.ui.TeakActivityScaffold
 import com.aritxonly.teak.common.navigation.TeakMorphMenuHost
@@ -20,39 +21,29 @@ class WatchLaterActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         AppGraph.ensure(applicationContext)
-        val api = AppGraph.api
         val settings = AppGraph.settings
         setContent {
             val menuState = remember { TeakMorphMenuState() }
             TeakActivityScaffold(
                 settings = settings,
                 onBack = { finish() },
-                title = "稍后再看",
-                topBarActions = { LibraryTopActions(menuState) },
-                overlay = {
+                options = ActivityPageOptions(
+                    title = "稍后再看",
+                ),
+                slots = ActivityPageSlots(
+                    topBarActions = { LibraryTopActions(menuState) },
+                    overlay = {
                     LibraryBatchOverlay()
                 },
-                menuOverlay = {
+                    menuOverlay = {
                     TeakMorphMenuHost(menuState) { dismiss ->
                         LibraryMorphMenuContent(dismiss)
                     }
                 },
+                ),
             ) {
-                WatchLaterActivityRoute(api, this)
+                LibraryScreenRoute(this, 2, "稍后再看")
             }
         }
     }
-}
-
-@Composable
-internal fun WatchLaterActivityRoute(api: BiliApi, context: android.content.Context) {
-    LibraryScreen(
-        api = api,
-        loggedIn = AppGraph.session.value != null,
-        onNeedLogin = { TeakNavigator.openLogin(context) },
-        onBack = { (context as? android.app.Activity)?.finish() },
-        onOpenVideo = { TeakNavigator.openVideo(context, it) },
-        fixedMode = 2,
-        title = "稍后再看",
-    )
 }

@@ -74,7 +74,7 @@ internal fun BiliApiContext.jsonStrings(array: JSONArray?): List<String> {
 /** 给 CDN 设置测速用一个固定公开视频流。 */
 
 internal suspend fun BiliApiContext.cdnSampleUrl(): String? = withContext(Dispatchers.IO) {
-    val data = runCatching {
+    val data = cancellableCatching {
         dataRequest(
             "/x/player/playurl",
             mapOf(
@@ -104,7 +104,7 @@ internal suspend fun BiliApiContext.cdnSampleUrl(): String? = withContext(Dispat
 
 internal fun BiliApiContext.decodeDanmakuBytes(bytes: ByteArray): String {
     if (bytes.isEmpty()) return ""
-    val decompressed = runCatching {
+    val decompressed = cancellableCatching {
         when {
             bytes.size > 2 && bytes[0] == 0x1f.toByte() && bytes[1] == 0x8b.toByte() -> {
                 GZIPInputStream(ByteArrayInputStream(bytes)).use { it.readBytes() }
@@ -127,7 +127,7 @@ internal fun BiliApiContext.decodeDanmakuBytes(bytes: ByteArray): String {
 internal fun BiliApiContext.parseDanmakuXml(xml: String): List<DanmakuItem> {
     if (xml.isBlank()) return emptyList()
     val result = ArrayList<DanmakuItem>(512)
-    runCatching {
+    cancellableCatching {
         val parser = org.xmlpull.v1.XmlPullParserFactory.newInstance().newPullParser()
         parser.setInput(java.io.StringReader(xml))
         var event = parser.eventType

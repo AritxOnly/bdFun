@@ -62,7 +62,7 @@ gradlew.bat :danmaku-engine:test
 | `infra/bili/` | HTTP/签名/业务分片/mapper/仓储实现 | 已从 app 迁入，原入口转发 |
 | `infra/storage/` | 旧设置文件适配、搜索历史 JSON 编码 | 原存储格式兼容 |
 | `app/.../feature/settings/` | 五组纯 StateFlow 控制器与逐字段 UI 投影 | 81 字段测试、升级比对通过 |
-| `tools/` | 核心层依赖检查、固定 Miuix 快照准备脚本 | Python 3 |
+| `tools/` | 源码/模块依赖检查、Kotlin PSI尺寸审计、固定 Miuix 快照准备脚本 | Python 3 |
 | `docs/` | 架构审查、对齐文档、来源说明 | |
 
 ### 现状规模（2026-11 实测，别当永久事实）
@@ -216,6 +216,7 @@ gradlew.bat :app:assembleDebug            # 最终必须过
 | 文件 | 内容 |
 |---|---|
 | `docs/ARCHITECTURE_REVIEW.md` | 现状审查、新旧架构对比图、文件去向表、验收标准 |
+| `docs/KOTLIN_SIZE_AUDIT.md` | Kotlin PSI完整尺寸基线、实际超标清单与严格任务 |
 | `docs/MIGRATION_TODO.md` | 可领取的迁移任务清单（编号、前置、验收） |
 | `docs/DEADLINER_GLASS_SYNC.md` | 玻璃材质与 Deadliner 的同步约定 |
 | `docs/HYPERPILI_DYNAMIC_ALIGNMENT.md` | 动态页与上游实现的对齐说明 |
@@ -241,3 +242,183 @@ gradlew.bat :app:assembleDebug            # 最终必须过
 | 日期 | 变更 | 作者 |
 |---|---|---|
 | 2026-11-11 | 初版：现状盘点、目标分层、依赖规则、约定、已知坑 | 架构审查 |
+
+### 2026-11-11 状态迁移检查点
+
+首页、动态、消息、媒体库、空间的纯状态容器位于 `app/.../feature/*/application`；旧 `ui` 渲染入口仍在迁移，后续业务逻辑应进入状态容器和 core/domain 仓储接口。登录态由 core/application/SessionStateHolder 管理，AppGraph.session 仅为兼容 Compose 投影。分页必须传播协程取消并在 finally 释放 busy/loading；账号切换使旧请求失效。弹幕测试现需 kotlin-test-junit 与 Robolectric 4.17（仅测试运行时），不允许用 Android stub 默认值掩盖测试异常。
+
+### 2026-11-11 视频、评论与显式路由检查点
+
+视频只读/互动/播放选择/元数据状态位于 feature/video/application，评论分页与写操作位于 feature/comment/application。视频/动态/空间入口使用 core/navigation/Route 与 Intent 快照，禁止恢复 AppGraph.pendingXxx。VideoPageBus 等全局页面状态已改为 core/application/VideoPageStateHolder + 页面 CompositionLocal 投影；局部旧名称只是页面实例别名。跨播放器暂停使用 AppContainer 的 PlaybackPauseRegistry，不能改成只暂停当前最后注册实例。CommentLikeStore 按账号清理、容量 300，Compose 投影按 rpid 更新。ExoPlayer/BackgroundPlayback 尚未统一，剩余大文件与其他 Bus 仍需迁移；不要将本检查点误报为全量完成。
+
+### 2026-11-11 播放控制与页面壳检查点
+
+:infra:playback 已建立，Media3 构建/播放源准备、系统媒体会话与前台通知实现位于该模块。core/application 的 PlaybackController/PlaybackSessionStateHolder 是前后台的共享传输与状态契约，后台兼容 getter 指向 AppContainer 实例；禁止重新在 UI 维护独立真实进度或新建 ExoPlayer 后台副本。结束事件确认必须跨轮询保持，长生命周期协程读取播放状态要用可观察 delegate 或控制器最新快照，不能捕获一次性的 val 副本。三个其他页面 Bus 已改为 PageChromeStateHolder/页面壳投影。播放器与详情主函数、剩余缓存/状态、模块化及完整装机回归尚未完成。
+
+### 2026-11-11 队列、刷新率与表情缓存检查点
+
+播放队列现由 AppContainer 的 PlaybackQueueStateHolder 持有，旧 VideoPlayQueue 只是 getter。SmartRefresh 已改每窗口 StateHolder，规则在 core/domain/RefreshRatePolicy，勿恢复全局窗口引用；fullscreen 提示按播放 owner 隔离。共享表情使用 core/application/EmoteStore 与 core/domain/EmoteRepository，取消必须解锁，账号变化拒绝旧响应。主评论文件已拆至 400 行以内，但主函数/楼中楼及视频主函数仍需继续拆，不可将文件达标当作全量完成。
+
+### 2026-11-11 播放跟踪与进度检查点
+
+播放器历史与空降请求走 PlaybackTrackingStateHolder 及领域仓储；VideoPlayer 不再直接请求 AppGraph.api。旧 PlaybackProgressStore 只委托 AppContainer，实际 Android 适配在 infra/storage/AndroidPlaybackProgressRepository，必须保持 playback_progress/p_ 与 CSV 兼容；校验与淘汰在 PlaybackProgressPolicy。VideoDetailPager 与 VideoDetailEffects 已拆出，瞬时开关在 VideoDetailUiStateHolder；VideoScreen 仍超长，不能据此结束迁移。
+
+### 2026-11-12 播放器拆分检查点
+
+详情初始化/页面元信息/动作适配/弹层/遮罩位于 ui/video；播放器组合期状态集中在 ui/player/VideoPlayerUiState，生命周期、系统媒体、控件显隐、错误回退、播放源与进度绑定分别在 Player*Effects/PlayerMediaBridge。搬迁时保留 effect key 和动态状态委托，尤其长期协程不可捕获过期速度、bvid 或媒体会话。完整迁移与最终装机验收仍未完成。
+
+### 2026-11-12 播放器组合契约检查点
+
+VideoPlayer 为短组装入口；PlayerObservedStateHolder 为共享只读投影，事件闭包应持有 State 委托，不捕获一次组合的 playing/position/duration 值。半屏控件使用 InlineChromeState/Actions，更多面板使用 HalfMoreState/QuickActions/SettingsActions；保持状态与动作分组，避免重新展开长入参。SponsorSegmentPolicy 位于 core/domain，经 PlaybackTrackingStateHolder 使用，当前 bvid 的已关闭提示仍随视频作用域重置。完整迁移及最终验收尚未结束。
+
+### 2026-11-12 详情与 Activity 壳检查点
+
+VideoScreen 为短组装入口（VideoScreenRequest/Presentation/Events），状态创建与 effect 绑定在 ui/video/VideoScreenStateHolders、VideoScreenEffects，窗口几何与播放器动作在 VideoPlayerViewport、VideoDetailPlayerWindow/Actions。BV/AV 入口由 feature/video/application/VideoEntryStateHolder 和 core/domain/VideoEntryRepository 处理，infra/bili 复用原读取，快照优先与失败关闭保持。VideoActivity 只保留原生窗口/生命周期，通过 VideoActivityHostActions 接入 Compose 页面壳；tabs 仍为原 TeakPagerTabs。不要把推荐入场进度挪入懒列表或全屏分支。全部迁移及最终 main/播放/release 验收仍未完成。
+
+### 2026-11-12 详情展示与主壳检查点
+
+详情元信息、简介测量/绘制、互动按压、合集/条目与推荐尾部分别位于 ui/video 的小组件和 StateHolder；合集展开按 title/条目数重建，滚动和坐标仍是页面组合范围，不能挪入 AnimatedVisibility。主界面消息角标走 MessageBadgeStateHolder，按账号创建并由原 STARTED 生命周期轮询。主题、底栏与主 tab 组装在 presentation/shell，底栏/唱片动画在可见性分支外创建。App.kt 主函数与其余页面尚需拆分，全部验收仍未完成。
+
+### 2026-11-12 主壳短入口与搜索检查点
+
+BdFunApp 只组装 MainShellTheme/State、TeakTheme 和 MainScaffold，显式分组对象在 presentation/shell；主壳文本与显隐是原页面生命周期的 StateHolder。搜索网络与结果状态由 feature/search/application/SearchStateHolder 管理，经 core/domain/SearchRepository 与 infra/bili 接入；SearchFilterState 位于 core/domain，UI 在 ui/search。保持原防抖、用户先于视频、loadedOnce 与原错误原文；appliedFilters 原先未被菜单写回的行为本轮保留，不能借迁移修复。其余页面与最终全量验收尚未完成。
+
+### 2026-11-12 空间展示检查点
+
+SpaceActivity 只保留原生壳，SpaceScreen 与展示/滚动/动作/effect 在 presentation/space。main 671d264 实际为四个主 tab，投稿含子分类。compact/wide 四份列表与头部/选择状态保持原作用域，不要挪入加载或宽屏分支；chrome 进度必须在组合期读取后投影。分页使用 SpaceStateHolder.nextPage 在滚动事件时读当前 StateFlow，不能捕获首次页码/忙碌值；原第四页 bangumi 分支本轮保持。最终全量验收尚未完成。
+
+### 2026-11-12 私信迁移检查点
+
+私信业务状态在 feature/message/application/PrivateChatStateHolder，经 core/domain/PrivateChatRepository 与 infra/bili 接口实现接入。页面/账号各有控制器与子任务，退出或切换使旧请求失效；保留图片先发、文字失败重试不重复图片、草稿相等才清空等原规则。presentation/message/chat 只渲染与派发，Route.PrivateChat 显式传参并兼容旧 Intent 字段。游客运行检查不代表登录后真实收发通过，最终全量验收仍未完成。
+
+### 2026-11-12 消息中心与首页展示检查点
+
+消息中心和通知页展示在 presentation/message（保留旧包名），账号变化重建控制器并取消对应子任务；离开用 close/revision 拒收旧结果。页脚在 application 读取当前游标与重试状态，消息打开优先级在 MessageOpenTarget。首页展示与复用卡片在 presentation/home，HomePullSession 保留原阻尼/阈值/缓动与 remember(state) 几何捕获，不要在拆分中改动布局或合并两种卡片。旧 ui/MessageScreen.kt、ui/HomeScreen.kt 已删除。最终全量验收尚未完成。
+
+### 2026-11-12 动态展示与详情检查点
+
+动态展示在 presentation/dynamic，旧 ui/DynamicScreen.kt 已删除；DynamicCard 使用 actions/presentation 契约，主卡与转发卡的大图状态必须独立。大图变换决策在 feature/dynamic/application，保留原 pager 手势交接阈值与关闭时序。动态详情经 DynamicDetailRepository 和 DynamicDetailStateHolder 接入，保留与列表不同的原点赞并发/回退规则。账号替换时容器关闭旧动态控制器，页面动作按 state 取消；InlineVideoPlayer/InlineVideoCache、评论回复条及最终全量验收尚未完成。
+
+### 2026-11-12 内嵌预览检查点
+
+内嵌预览经 InlineVideoRepository / BiliInlineVideoRepository 和 feature/dynamic/application/InlineVideoStateHolder 接入；原静态 InlineVideoCache 已删除，仓储保留 BV 单键、各 12 项上限、原淘汰与晚采样设置规则。原生实现为 infra/playback/Media3InlinePlaybackController，经 app 装配 TextureView 绑定；不要复用详情的 Builder 改掉默认缓冲/音频焦点，也不要改变 preferred→64→最后一项的原选择顺序。动态账号 slot 的所有清理走 releaseDynamicSlot，先 close 再取消投影。临时预览测试页已删除，最终登录动态/全量 main 对照及发布仍未完成。
+
+### 2026-11-12 评论回复条与评论页入口检查点
+
+评论回复条状态在 feature/comment/application/CommentComposerStateHolder；CommentImageRepository 的图片字符串是原上传编码后的不透明载荷，展示层不解析。失败上传保留旧载荷、发送执行时读取图片、成功清当前草稿等均为 main 的既有时序，不可顺手替换为私信规则。原 ui/CommentReplyBar.kt、ui/CommentScreen.kt 已删除，展示分别位于 presentation/comment/composer 和 page；入口使用 request/layout 契约。分页触发必须读取当前 StateFlow，避免长期 effect 捕获初次 loading。页面/账号生命周期仍需全量审计；全部逐页 main 对照和 release 交付尚未完成。
+
+### 2026-11-12 评论作用域与楼中楼检查点
+
+评论列表/动作/楼中楼控制器均有 close 与迟到结果守卫；展示在账号、CommentLikeStore.generationState、页面及原查询/根楼 key 下持有控制器和子任务。替换时先 close 再 cancel。共享点赞关闭回退必须只执行一次，不能让晚到的取消回退覆盖新页面快照，也不能跨账号代数。楼中楼展示在 presentation/comment/thread，旧 ui/CommentThreadSheet.kt 和 ui/comment/CommentThreadDialog.kt 已删除；原窗口位置、布局节点、渐变和动画不改。CommentRow/折叠回复等剩余长函数及最终全量验收仍需继续。
+
+### 2026-11-12 评论行与图片展示检查点
+
+评论行/前两条折叠回复在 presentation/comment/row；CommentRow 使用 item/disliked/actions 三个参数，行级点赞仍按 rpid 订阅，长按 bounds 在原行范围的展示 StateHolder 中。图片缩略图与原大图手势在 presentation/comment/images；每个 pager 页独立记忆 scale/pan，不改 1.01、12px 和 1..4 阈值。楼中楼回复输入已迁到 presentation/comment/thread。旧 ui/comment/CommentRow.kt、CommentReplyPreview.kt、CommentImages.kt、CommentThreadComposer.kt 已删除。评论展示局部源码尺寸已达标，完整行为/像素验收和全量迁移仍未完成。
+
+### 2026-11-12 引导页检查点
+
+引导状态在 feature/onboarding/application/OnboardingStateHolder，只依赖现有 AppearanceSettings/GeneralSettings 与设置变更信号；保存恢复只传 step 整数，勾选/条款/方向为本次会话状态。TermsActivity 的 manifest 自行处理旋转，所以普通旋转保留全部状态，Activity 重建才重置临时状态；不要把两者混为一谈。打开条款立即标记已查看，继续仅由 accepted 控制，不新增完整阅读或滚动门槛。六项设置沿用原仓储约束，色彩/界面风格仍限制 0..1；主题全局投影在展示适配器按原顺序更新。展示位于 presentation/onboarding，旧 ui/OnboardingScreen.kt 已删除；呼吸动画保持在 graphicsLayer 内读取 State，避免逐帧整页重组。全量迁移/main 像素验收与 release 交付仍未完成。
+
+### 2026-11-12 媒体库与个人页检查点
+
+媒体库与个人页展示位于 presentation/library、presentation/mine，业务状态位于 feature/library/application、feature/mine/application。页面不直接调用网络；媒体库操作每个请求前后核对账号归属，取消/关闭不得继续批量循环。个人页单账号资料缓存由 AppContainer 持有，五分钟从请求开始计时，失败字段回退到初始资料，账号变更清理。本机发送记录实现已迁入 infra:storage，旧 data 包仅留类型别名，禁止另写存储副本。上述为迁移检查点，登录后 UI/main 逐页对照与最终 release 验收仍未完成。
+
+### 2026-11-12 设置展示依赖检查点
+
+SettingsStore 只负责 Android 装配，展示层使用 feature/settings/presentation/SettingsBindings 的原逐字段投影，禁止在控件里新建 SettingsStore。Activity/TeakBareTheme 提供 LocalSettingsBindings；弹幕面板的草稿和展开状态在 DanmakuPanelStateHolder，18 字段重置策略复用于旧兼容入口。面板内容在 presentation/settings/danmaku；其离线布局对照通过不代表实际播放器的全屏旋转/画中画/后台行为已验收。
+
+### 2026-11-12 设置页拆分检查点
+
+设置页区块位于 presentation/settings/page，CDN 观察与选项文本在 feature/settings/application/CdnSettingsStateHolder；数据来自 core/domain/CdnSettingsSource，当前 AppContainer 通过 CdnSettingsAdapter 接线既有测速实现。展示层不得回查 CdnAutoSelector 或 AppGraph.api；保留 400ms 轮询、Map 改变才重采选项、主题 260ms 延迟和原文件格式。外链及关于页路由由 SettingsScreenRoute 装配。
+
+### 2026-11-12 后台唱片迁移检查点
+
+后台唱片展示在 presentation/player/disc，播放输入通过 core/application/BackgroundDiscPlayback 显式注入并观察 StateFlow；位置计算显式接收 SettingsBindings。纯方向/阈值策略在 DiscGesturePolicy，保持横向同幅对角优先、32dp 触发、8dp 触摸阈值、380ms 长按与抬手结束倍速。静态玻璃和旋转层必须保持兄弟节点，退出手动补间先注册，再注册 280ms 停播放效果。既有 500ms 后台刷新只在 debug 附加 BGP_STATE 诊断，release 不写该日志；其三敏感路径的最终回归仍必须做。
+
+唱片显示投影只允许 cover/playing 驱动重组，进度、缓冲和其它会话元数据不应触发重绘；点击时仍通过端口晚读取 video/position。独立 main 基准工作区 /tmp/bdfun-main-fidelity-671 与 APK /tmp/bdfun-main-671-debug.apk 可复用于后续同环境对照，当前主工作区和模拟器均已回到重构版本；最终验收仍需再次刷新 origin/main。
+
+### 2026-11-12 富文本与表情检查点
+
+富文本/表情展示在 presentation/text；命中区间与表情面板快照在 core/application，视频 token 与跳转识别在 core/domain，短链 HTTP 与标题请求在 infra:bili。UI 通过 LocalRichTextDependencies 显式取得绑定，不再从全局 EmoteCache/BiliLinkTitles 请求网络。保留链接→表情→提及优先级、裸 BV 首次 indexOf、纯文本快捷路径忽略 prefix、表情双括号 pick、面板 ensure 后单次快照等原规则。标题成功/失败共享 4096 项 LRU，账号变化清空并拒绝迟到结果；取消不缓存为失败。新加载不应逐个发布并行标题，仍等整批完成再发布。全量验收与 release 交付未完成。
+
+### 2026-11-12 扫码登录检查点
+
+扫码请求与轮询在 feature/login/application/QrLoginStateHolder，仓储在 infra:bili，展示在 presentation/login。初次加载/刷新均隐藏 bitmap，刷新失败保留旧 polling key；每次轮询先等 1500ms，Waiting/网络错误不覆盖已有扫描提示。二维码生成失败保留空串与缺失消息的差别。页面 close 与 key 更换均使迟到结果无效；成功即使 profile 为 null 也必须回调。二维码生成与系统相册写入仍是原 Android 展示代码，不更改尺寸/压缩/路径/权限行为。
+
+### 2026-11-12 自动 CDN 边界检查点
+
+自动测速实例由 AppContainer 持有；选择/并发与 HTTP 在 infra:bili，cdn_auto 的旧 SharedPreferences 格式在 infra:storage，domain 仅保留端口。禁止恢复全局 CdnAutoSelector 或在设置展示里构造测速客户端。两轮取慢、四路并行、一小时严格小于缓存 TTL、force 忽略缓存、失败保留既有最佳节点都沿用原规则。无结果会清空本轮分数但不清最佳节点，无法识别的缓存 bestId 仍可能视为 fresh；不要在迁移任务里悄悄修改。
+
+### 2026-11-12 关注/粉丝页检查点
+
+RelationActivity 仅组装入口；展示在 presentation/relations，纯分页/关系动作在 feature/relations/application，仓储在 infra:bili。失败刷新保留旧行与原游标，重复页停止自动翻页；未知关系的一次点击只重查状态，不能连带执行关注。展示订单 frequent 用 StateHolder + Saver 保留原 rememberSaveable 行为；controller 更换仅重建子协程作用域，不重建整个 Teak 页面/列表。账号和 close 在每次请求前后核对，取消释放 loading/busy，迟到结果不弹成功提示。
+
+### 2026-11-12 离线缓存迁移约束
+
+离线缓存将由 core/application 的进程下载队列持有不可变 StateFlow；domain 只定义传输/文件存储端口，HTTP 在 infra:bili，旧 video_cache/items JSON 与文件路径在 infra:storage。缓存按当前 P 的 bvid/cid/quality 标识，必须有音轨才入队；视频/音频依次下载，进度发布 220ms、持久化 5000ms，阶段上限 0.98/0.99，完成才 1。删除或同 id 重下必须使旧任务失效，旧回调/旧 finally 不得复活条目或清掉新任务。迁移不改变目录/文件名/JSON 字段/本地 URI 和 UI 布局。
+
+### 2026-11-12 离线缓存检查点
+
+离线缓存已按上述边界接入：presentation/cache 显式接收 core/application 队列，VideoDetailLoadEffects/视频动作/CacheService 共享 AppContainer 的同一实例；旧 VideoCacheManager 和 ui/CacheScreen 已删除。缓存文件 URI/播放投影在应用层通过存储端口取得，UI 不直接触碰 File/Uri/JSON/OkHttp。20 字段旧格式与中断/丢失回退已离线测试，四状态/删除/空页与固定 main 原渲染同数据内容区域逐像素一致；本地生成两轨的真实下载、落盘及离线起播已装机验证。任何临时验证 Activity/manifest 必须清理并重建 APK 后再交付；本批已按此清理，完整全量验收仍未完成。
+
+### 2026-11-12 顶栏与弹幕控件拆分约束
+
+首页顶栏拆分只分组输入与抽取现有组合片段，不新增布局包裹。保持 wide>=600dp 与折叠屏判定、宽度 45%/280..480dp、160ms 两端 Crossfade、搜索结果覆层拦截点击以及原 FocusRequester/键盘 effect key。弹幕输入保留 IME inset 跟随、关闭冻结 bottom、首帧后渐显、80ms 聚焦和 200ms 延迟移除，不能为拆分改变发送参数/文案或外部 close token 规则。
+
+### 2026-11-12 顶栏与弹幕控件检查点
+
+HomeTopBar 位于 presentation/shell/homebar，输入分为 content/search/actions；全部 15 个旧调用值原样保留，searchReveal 仍不新增视觉用途。弹幕原生 View 桥接位于 presentation/player/danmaku；过滤策略在 core/domain，保持先过滤、原输入去重、最后时间排序，mode 2/3 不视为 blockScroll，白色比较不掩码。半屏输入业务状态在 feature/video/application/DanmakuInputStateHolder，Compose 状态仅留展示 StateHolder；取消释放 busy 并传播，关闭后不响应迟到成功。全屏输入的既有发送调度仍需后续应用层审计，不因本批半屏完成而标为全部输入完成。danmaku-engine 生产代码未改。
+
+### 2026-11-12 剩余尺寸清理约束
+
+Activity 外壳长参数按 options/disc/slots 分组，旧默认值和每个调用表达式原样保留；分组本身不改变 chrome、采集层、覆盖层顺序。菜单图标只抽取 DrawScope 分支，不新增 Canvas 或改变路径坐标/描边。卡片滑动保持原积分顺序、8ms 间隔、选页预测和指针 effect key；缓冲点与开屏动画只拆状态/绘制/时序，不改动画常量。本机发送记录保持首次进入快照，不改成实时订阅。
+
+### 2026-11-12 尺寸清理检查点
+
+Activity 外壳改为 settings/onBack/options/disc/slots/pageState/content 七项输入，19 处 main/debug 调用与 17 个原默认值已逐值对照；debug LogActivity 是正常接线修改，不是临时探针。菜单七种图标仍在一个 Canvas 的同一 DrawScope 绘制。开屏与缓冲点状态集中在展示 StateHolder；原动画时序、色板 getter 和绘图不改。发送记录只在进入时通过 SentHistoryRepository 取快照，筛选/计数/视频跳转在 feature/sent/application；存储仍为原 sent_history，500 条上限不变。SwipeCardPager 保留积分/指针 key/选页回调捕获规则和 pageCount 缩小时原小位移回弹行为。app 初步命名块函数尺寸已无超标，完整 PSI/表达式/其它模块审计仍需继续。
+
+### 2026-11-12 基础设施长函数拆分约束
+
+动态 JSON 解析只拆内容/图片、视频、直播推荐与最终装配，保持原字段优先级、空对象行为及转发仅一层；不得根据类型名补猜字段。通知只提取媒体会话更新，保持 artwork 请求与读取顺序、metadata→playbackState 顺序、按钮 requestCode/Action、compact 三键和原速度字段 1f；该字段不是实际倍速证据。测试捕获公开响应必须不含账户 Cookie，宿主风控失败不当成接口字段定义。
+
+### 2026-11-12 全量验收与边界补强检查点
+
+完整收尾按 docs/REFACTOR_COMPLETION_AUDIT.md 的 44 张任务卡和最终门槛执行；包目录不等于 feature Gradle 模块，命名块函数尺寸通过不等于全量完成。动态解析与播放通知长函数已拆，原字段优先级和通知读取顺序保持。动态新增结构探针不是真实接口样本；匿名采样 412 不可计为成功。
+
+全屏弹幕草稿/样式/发送在 feature/video/application 的纯 StateFlow；保留文本点击时读取、样式协程开始读取、普通失败仍收起且不清草稿。取消传播，关闭后忽略迟到完成；展示收集状态，不再用 Compose 状态执行业务发送。架构守卫增加完全限定名与 app/presentation 扫描，17 个反例/正例接入 Gradle；旧展示只明确暂留 LogCollector/LiveCounters 诊断例外，仍待注入，旧 ui 原生桥接和模块图也仍待审计。
+
+### 2026-11-12 播放器平台接缝
+
+播放器展示通过 feature/video/presentation 的 VideoPlaybackPlatform/VideoOutput 与 core/application 的 ForegroundMediaSession 访问平台能力；Media3、PlayerView XML 绑定、响度音效、视频轨道切换与媒体会话创建由 app/playback 装配适配。接口按播放器组合实例创建，不能变成全局缓存；原 XML、resize mode、三分之一纹理截图、600mB 响度增益及 effect key/释放时机都须保持。
+
+### 2026-11-12 视频读取缓存作用域
+
+视频详情与推荐的读取缓存由 AppContainer 持有 VideoReadCache，页面领取带账号 mid/revision 的访问句柄；页面结束关闭，真正退出仅按原规则清当前 bvid 推荐，旋转不清条目。旧账号/已关闭页面不得读写或清理新缓存。保留详情6条插入顺序、推荐12条 HashMap 原淘汰规则和空推荐不覆盖；不要换成 LRU。自动选档由纯 AutomaticVideoQualitySelector 配合 NetworkBandwidthSource，Android 仅提供原 Kbps，阈值与1024换算不改。Session资料刷新改变身份/失效时也须推进 revision，避免快速 A→B→A 复活旧句柄。
+
+### 2026-11-12 外部/剪贴板视频入口
+
+MainActivity 的链接去重与解析调度进入 core/application/IncomingVideoLinkStateHolder，产出 core/navigation/Route.Video；domain定义VideoLinkResolver，infra:bili保持旧BV识别/四跳短链/5秒/UA/静默未解析规则。主入口不再直接读取BiliApi或调用网络实现。保留紧邻原始链接去重（失败也记住）、剪贴板先记录再识别、不同请求并行按完成顺序打开、旋转后重新初始化；关闭页面或协程取消不得迟到导航。不要扩大av/时间点等旧入口支持范围。
+
+### 2026-11-12 视频页设置契约
+
+SettingsBindings 以原逐字段 Compose 投影实现 SettingsRepository，分组访问也返回该投影，保持观察/同步读写；repository 属性仍返回纯控制器，application继续注入纯控制器，不能把Compose投影传入业务层。VideoPagePresentationState显式接收设置契约，播放器/详情/弹幕开关从页面依赖读取，不回查AppGraph.settings；手势按DOWN读取、生命周期/退出/发送回调按原时刻读取，不更改effect/remember/pointerInput keys。删除无调用的DanmakuSettings全局代理，portraitGuard固定false与重置字段范围仍保持原规则。
+
+### 2026-11-12 首页实际模块边界
+
+feature:home拥有首页状态/反馈、Compose投影、网格/下拉/分页/错误/操作面板。纯状态仅依赖core接口。app仅通过createHomeFeedState与HomeScreenRoute装配；共享视频卡片也被空间/媒体库复用，保持在app的presentation/video/card过渡位置，通过HomePresentationHost的卡片/加载/宽屏网格能力接入，禁止feature反向依赖app或其他feature。原一镜到底anchor、卡片/加载渲染、布局尺寸/keys不改。共享UI下沉P3-07、P4作用域与全局对象前置验收仍未完成；此接线不代表P5-02或全量已验收。
+
+### 2026-11-12 账号revision资源归属
+
+SessionIdentity包含UID与SessionState.revision，首页/动态由core/application/SessionResourceSlot持有，获取时同步核对并释放过期状态，不能仅依赖异步Session collector或UID相同。Compose登录投影也保留identity，使A→B→A被StateFlow合并时读value的页面仍失效重组；同账号资料刷新/暂时网络错误不改变identity。个人页/媒体库工厂捕获identity并作为状态重建key；首页资源释放同时关闭纯控制器、拒绝迟到响应/反馈并取消原scope。其余空间/消息/缓存/Activity作用域仍按P4-06继续审计，不得以此宣称全部完成。
+
+### 2026-11-12 空间页面状态归属
+
+空间控制器按Activity的ViewModelStore持有，配置重建保留同页状态，真正退出由onCleared释放；同一个UP的两个页面不能共享可变状态，也不按mid批量删除别的页面缓存。账号归属继续使用UID+revision资源槽，SpaceStateHolder每次请求前后校验归属与协程取消、关闭后释放busy/loading且不接受迟到响应。Activity显式向SpaceScreen传入session/controller，展示不再从AppGraph按mid取进程缓存。保留原五请求并发、字段兜底、Tab/分页/头部布局；未授权不进行真实关注等账号写操作。
+
+### 2026-11-12 Kotlin语法树尺寸审计
+
+开发工具tools/kotlin-audit使用与项目锁定版本相同的kotlin-compiler-embeddable，仅进入工具JVM，不加入app/APK；模块图守卫禁止app依赖tools模块。审计自有app main/debug及core/infra/feature生产Kotlin，具名/匿名函数、表达式体、lambda（含lazy/初始化/字符串插值内代码）、访问器、主/次构造器、init块、函数类型和显式context输入参数都按语法树定位；解析失败不得当成通过。report任务只供定位，严格check任务才是门槛；在现存超标项收口前不可用report退出0宣称尺寸达标，也不能排除构造器/表达式来制造通过。TeakUI、弹幕引擎和内联供应商源码保持原边界。
+
+### 2026-11-12 空间资料JSON边界
+
+SpaceApi的space只负责原五个并发请求、原await顺序和条件获赞补查；成功响应经SpacePayloadsDto进入SpaceInfoMapper。VIP、充电、横幅和资料字段只在infra mapper组装，沿用原字段/默认值；获赞网络兜底仍在API，不把IO藏进mapper。parseSpaceVideo暂按既有薄解析入口注入，HTML处理保持旧Android边界，网页vlist真实成功样本未捕获时不得把结构探针记为真实接口验收。测试JSON记录来源/日期/截取方式，临时采样Activity/manifest必须移除并验证最终DEX无探针。

@@ -7,9 +7,9 @@ val CdnServices get() = com.aritxonly.bdfun.infra.bili.CdnServices
 internal fun isMcdnResource(url: String) = com.aritxonly.bdfun.infra.bili.isMcdnResource(url)
 
 fun cdnServiceById(id: String): CdnService {
-    if (id == CdnAutoSelector.ID) {
+    if (id == com.aritxonly.bdfun.core.model.settings.SettingsDefaults.AUTO_CDN_ID) {
         // 自动模式还没测出结果时先用备用地址，拿到测速结果后再切到最佳节点。
-        return CdnAutoSelector.currentService() ?: CdnServices.first()
+        return com.aritxonly.bdfun.AppGraph.currentAutomaticCdn() ?: CdnServices.first()
     }
     return CdnServices.firstOrNull { it.id == id } ?: CdnServices.first()
 }

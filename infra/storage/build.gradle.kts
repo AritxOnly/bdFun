@@ -15,3 +15,8 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.json.jvm)
 }
+
+dependencies {
+    implementation(project(":core:navigation"))
+    implementation(project(":core:model"))
+}

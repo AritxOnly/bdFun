@@ -12,6 +12,8 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import com.aritxonly.bdfun.AppGraph
+import com.aritxonly.bdfun.core.model.cache.CacheStatus
 import com.aritxonly.bdfun.CacheActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,13 +24,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-/** 缓存下载的前台服务：只负责保活 + 通知进度，真正的下载在 VideoCacheManager 里。 */
+/** 缓存下载的前台服务：只负责保活 + 通知进度，下载队列由进程容器持有。 */
 class CacheService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var ticker: Job? = null
 
     override fun onCreate() {
         super.onCreate()
+        AppGraph.ensure(applicationContext)
         createChannel()
         val notification = buildNotification()
         runCatching {
@@ -42,7 +45,7 @@ class CacheService : Service() {
         ticker = scope.launch {
             while (isActive) {
                 delay(1000)
-                if (!VideoCacheManager.hasActive()) {
+                if (!AppGraph.videoCache.hasActive()) {
                     stopSelf()
                     break
                 }
@@ -55,7 +58,7 @@ class CacheService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (!VideoCacheManager.hasActive()) stopSelf()
+        if (!AppGraph.videoCache.hasActive()) stopSelf()
         return START_NOT_STICKY
     }
 
@@ -71,7 +74,7 @@ class CacheService : Service() {
     }
 
     private fun buildNotification(): android.app.Notification {
-        val active = VideoCacheManager.items.filter {
+        val active = AppGraph.videoCache.items.filter {
             it.status == CacheStatus.Queued || it.status == CacheStatus.Downloading
         }
         val progress = when {

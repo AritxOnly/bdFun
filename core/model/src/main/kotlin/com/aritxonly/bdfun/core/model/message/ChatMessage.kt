@@ -9,4 +9,5 @@ data class ChatMessage(
     val imageUrl: String = "",
     val isMine: Boolean = false,
     val sequence: Long = 0L,
+    val sharedVideo: SharedVideoInfo? = null,
 )

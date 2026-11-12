@@ -260,7 +260,7 @@ internal suspend fun BiliApiContext.enrichMessageVideos(
                 async {
                     val bvid = resolvedBvid(item)
                     val cached = synchronized(messageVideoCache) { messageVideoCache[bvid] }
-                    val brief = cached ?: runCatching {
+                    val brief = cached ?: cancellableCatching {
                         val detail = view(bvid)
                         MessageVideoBrief(detail.cover, detail.ownerMid).also {
                             synchronized(messageVideoCache) {

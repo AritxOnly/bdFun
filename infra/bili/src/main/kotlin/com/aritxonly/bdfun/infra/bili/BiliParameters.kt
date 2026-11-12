@@ -33,18 +33,8 @@ internal object BiliParameters {
             return digest.joinToString("") { "%02x".format(it.toInt() and 0xff) }
         }
 
-        fun image(url: String, width: Int = 0): String {
-            if (url.isBlank()) return ""
-            var result = when {
-                url.startsWith("//") -> "https:$url"
-                url.startsWith("http://") -> "https://${url.removePrefix("http://")}"
-                else -> url
-            }
-            if (width > 0 && !result.contains("@")) {
-                result += "@${width}w_${(width * 9 / 16)}h_1c.webp"
-            }
-            return result
-        }
+        fun image(url: String, width: Int = 0): String =
+            com.aritxonly.bdfun.core.common.biliImageUrl(url, width)
 
         fun avatar(url: String, size: Int): String {
             if (url.isBlank()) return ""

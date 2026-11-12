@@ -6,6 +6,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [33], manifest = org.robolectric.annotation.Config.NONE)
 class DanmakuMode9ParserTest {
     @Test
     fun `mode 9 compiles a scene and can seek into its animation without affecting mode 7`() {

@@ -65,7 +65,7 @@ import com.aritxonly.bdfun.infra.bili.BiliParameters.parseDurationText
 import com.aritxonly.bdfun.infra.bili.BiliParameters.qualityLabel
 
 internal suspend fun BiliApiContext.upVideoCount(mid: Long): Long = withContext(Dispatchers.IO) {
-    runCatching {
+    cancellableCatching {
         val data = dataRequest("/x/space/navnum", mapOf("mid" to mid.toString()))
         data.l("video")
     }.getOrDefault(0L)
@@ -74,13 +74,13 @@ internal suspend fun BiliApiContext.upVideoCount(mid: Long): Long = withContext(
 /** 当前同时观看人数：返回 (数字, 展示文案)。 */
 
 internal suspend fun BiliApiContext.userLikes(mid: Long): Long = withContext(Dispatchers.IO) {
-    runCatching {
+    cancellableCatching {
         dataRequest("/x/space/upstat", mapOf("mid" to mid.toString())).l("likes")
     }.getOrDefault(0L)
 }
 
 internal suspend fun BiliApiContext.spaceAppPayload(mid: Long): JSONObject? = withContext(Dispatchers.IO) {
-    runCatching {
+    cancellableCatching {
         // app.bilibili.com 不吃网页 WBI 签名，必须按 App 规则加 appkey/ts/sign，
         // 否则只会返回 -400「请求错误」，头图永远空白。这里和 PiliPlus 的请求一致。
         val params = mutableMapOf(
@@ -106,33 +106,11 @@ internal suspend fun BiliApiContext.spaceAppPayload(mid: Long): JSONObject? = wi
     }.getOrNull()
 }
 
-internal fun BiliApiContext.spaceBannerCandidates(payload: JSONObject?, info: JSONObject): List<String> {
-    val images = payload?.optJSONObject("images")
-    val first = images?.optJSONObject("collection_top_simple")?.optJSONObject("top")
-        ?.optJSONArray("result")?.optJSONObject(0)
-    val collection = first?.optJSONObject("item")?.optJSONObject("image")?.s("default_image").orEmpty()
-    val web = info.s("top_photo").ifBlank { info.optJSONObject("card")?.s("top_photo").orEmpty() }
-        .ifBlank { info.optJSONObject("space")?.s("top_photo").orEmpty() }
-    // The App endpoint can return its default pink dressing even when a custom web banner exists.
-    return orderedSpaceBanners(collection, first?.s("cover").orEmpty(), web,
-        images?.s("imgUrl").orEmpty(), images?.s("night_imgurl").orEmpty()).map(::image)
-}
-
-internal fun BiliApiContext.spaceBannerAlignment(payload: JSONObject?): Float {
-    val item = payload?.optJSONObject("images")?.optJSONObject("collection_top_simple")
-        ?.optJSONObject("top")?.optJSONArray("result")?.optJSONObject(0)?.optJSONObject("item")
-    val image = item?.optJSONObject("image") ?: item?.optJSONObject("animation")
-    return spaceBannerAlignment(image?.s("location").orEmpty(), image?.optDouble("height", 0.0) ?: 0.0)
-}
-
 /** 为 TA 充电的人数：使用 PiliPlus 同款 App 聚合接口的 elec.total。 */
 
 internal suspend fun BiliApiContext.spaceChargeCount(mid: Long): Long = withContext(Dispatchers.IO) {
     val payload = spaceAppPayload(mid) ?: return@withContext 0L
-    val elec = payload.optJSONObject("elec")
-    elec?.l("total")?.takeIf { it > 0L }
-        ?: elec?.optJSONArray("list")?.length()?.toLong()?.takeIf { it > 0L }
-        ?: 0L
+    readSpaceCharge(payload)
 }
 
 internal suspend fun BiliApiContext.space(mid: Long): SpaceInfo = withContext(Dispatchers.IO) {
@@ -153,12 +131,12 @@ internal suspend fun BiliApiContext.space(mid: Long): SpaceInfo = withContext(Di
         )
     }
     val statDeferred = async {
-        runCatching {
+        cancellableCatching {
             dataRequest("/x/relation/stat", mapOf("vmid" to mid.toString()))
         }.getOrNull()
     }
     val videosDeferred = async {
-        runCatching {
+        cancellableCatching {
             dataRequest(
                 "/x/space/wbi/arc/search",
                 mapOf(
@@ -178,7 +156,7 @@ internal suspend fun BiliApiContext.space(mid: Long): SpaceInfo = withContext(Di
         }.getOrNull()
     }
     val navDeferred = async {
-        runCatching {
+        cancellableCatching {
             dataRequest("/x/space/navnum", mapOf("mid" to mid.toString()))
         }.getOrNull()
     }
@@ -190,73 +168,20 @@ internal suspend fun BiliApiContext.space(mid: Long): SpaceInfo = withContext(Di
     val videos = videosDeferred.await()
     val nav = navDeferred.await()
     val appSpace = appSpaceDeferred.await()
-    val medal = info.optJSONObject("fans_medal")?.optJSONObject("medal")
-    val official = info.optJSONObject("official")
-    // 和 PiliPlus 一样只认 App 聚合接口的 card.vip。
-    // PiliPlus 的 Vip.fromJson 是 status 优先、vipStatus 兜底，type 优先、vipType 兜底。
-    val cardVip = appSpace?.optJSONObject("card")?.optJSONObject("vip")
-    val vipStatus = cardVip?.optInt("status", 0)
-        ?.takeIf { it > 0 }
-        ?: (cardVip?.optInt("vipStatus", 0) ?: 0)
-    val vipLabelObj = cardVip?.optJSONObject("label")
-    val vipTheme = vipLabelObj?.s("label_theme").orEmpty()
-    val vipType = cardVip?.optInt("type", 0)
-        ?.takeIf { it > 0 }
-        ?: (cardVip?.optInt("vipType", 0) ?: 0)
-    val vipLabel = vipLabelObj?.s("text").orEmpty().ifBlank {
-        when {
-            vipTheme.contains("hundred", ignoreCase = true) -> "百年大会员"
-            vipTheme.contains("ten_year", ignoreCase = true) -> "十年大会员"
-            vipTheme.contains("ten", ignoreCase = true) -> "十年大会员"
-            vipTheme.contains("annual", ignoreCase = true) -> "年度大会员"
-            vipType == 2 -> "年度大会员"
-            vipStatus == 1 -> "大会员"
-            else -> ""
-        }
+    val likes = resolveSpaceLikes(info, nav) {
+        dataRequest("/x/space/upstat", mapOf("mid" to mid.toString())).l("likes")
     }
-    val elec = appSpace?.optJSONObject("elec")
-    val charge = elec?.l("total")?.takeIf { it > 0L }
-        ?: elec?.optJSONArray("list")?.length()?.toLong()?.takeIf { it > 0L }
-        ?: 0L
-    val vlist = videos?.optJSONObject("list")?.optJSONArray("vlist").objects().orEmpty()
-    SpaceInfo(
-        profile = UserProfile(
-            mid = info.l("mid"),
-            name = info.s("name"),
-            face = avatar(info.s("face"), 200),
-            sign = info.s("sign"),
-            level = info.optInt("level", 0),
-            coins = 0.0,
-            vip = vipStatus == 1,
-            vipLabel = vipLabel,
-            follower = stat?.l("follower") ?: 0,
-            following = stat?.l("following") ?: 0,
-            likes = info.optLong("likes", 0L).takeIf { it > 0L }
-                ?: runCatching {
-                    dataRequest("/x/space/upstat", mapOf("mid" to mid.toString())).l("likes")
-                }.getOrDefault(0L).takeIf { it > 0L }
-                ?: nav?.l("likes") ?: 0L,
-            banner = spaceBannerCandidates(appSpace, info).firstOrNull().orEmpty(),
-            bannerFallbacks = spaceBannerCandidates(appSpace, info).drop(1),
-            bannerAlignmentY = spaceBannerAlignment(appSpace),
-            officialTitle = official?.s("title").orEmpty(),
-            officialDesc = official?.s("desc").orEmpty(),
-            officialType = official?.optInt("type", 0) ?: 0,
-            fansMedalName = medal?.s("medal_name").orEmpty(),
-            fansMedalLevel = medal?.optInt("level", 0) ?: 0,
-            fansMedalColor = medal?.optInt("medal_color", 0) ?: 0,
-            chargingCount = charge,
-            levelExp = info.optLong("level_exp", 0L),
-            nextLevelExp = info.optLong("next_level_exp", 0L),
-        ),
-        videos = vlist.mapNotNull(this@space::parseSpaceVideo),
-        videoCount = nav?.optInt("video", 0) ?: vlist.size,
-        isFollowed = info.optBoolean("is_followed", false),
-    )
+    return@withContext mapSpaceInfo(SpacePayloadsDto(info, stat, videos, nav, appSpace),
+        likes, this@space::parseSpaceVideo)
 }
 
+internal suspend fun resolveSpaceLikes(info: JSONObject, nav: JSONObject?, fetchLikes: suspend () -> Long): Long =
+    info.optLong("likes", 0L).takeIf { it > 0L }
+        ?: cancellableCatching { fetchLikes() }.getOrDefault(0L).takeIf { it > 0L }
+        ?: nav?.l("likes") ?: 0L
+
 internal suspend fun BiliApiContext.spaceSeasonsSeries(mid: Long): List<SpaceSeason> = withContext(Dispatchers.IO) {
-    runCatching {
+    cancellableCatching {
         val data = dataRequest(
             "/x/polymer/web-space/seasons_series_list",
             mapOf(
@@ -307,7 +232,7 @@ internal suspend fun BiliApiContext.spaceCollectionArchives(
     mid: Long,
     collection: SpaceSeason,
 ): List<VideoItem> = withContext(Dispatchers.IO) {
-    runCatching {
+    cancellableCatching {
         val data = if (collection.isSeries) {
             dataRequest(
                 "/x/series/archives",

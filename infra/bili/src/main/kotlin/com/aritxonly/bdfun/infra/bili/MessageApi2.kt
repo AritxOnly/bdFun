@@ -88,7 +88,7 @@ internal suspend fun BiliApiContext.privateMessagePage(
     val items = data.optJSONArray("messages").objects().mapNotNull { message ->
         val type = message.optInt("msg_type", 1)
         val raw = message.s("content")
-        val content = runCatching { JSONObject(raw) }.getOrNull()
+        val content = cancellableCatching { JSONObject(raw) }.getOrNull()
         val withdrawn = message.optInt("msg_status") == 1
         val text = if (withdrawn) "消息已撤回" else when (type) {
             1 -> content?.s("content").orEmpty()
@@ -106,6 +106,7 @@ internal suspend fun BiliApiContext.privateMessagePage(
             timestamp = message.l("timestamp").takeIf { it > 0L }
                 ?: message.l("msg_time"),
             text = text,
+            sharedVideo = decodeSharedVideo(text),
             imageUrl = image,
             isMine = message.l("sender_uid") == own,
         )
@@ -138,7 +139,7 @@ internal suspend fun BiliApiContext.sendPrivateMessage(talkerId: Long, text: Str
             "csrf" to csrf,
             "csrf_token" to csrf,
         )
-        val root = runCatching {
+        val root = cancellableCatching {
             rawRequest(
                 "/web_im/v1/web_im/send_msg",
                 params,
@@ -267,7 +268,7 @@ internal suspend fun BiliApiContext.systemMessages(cursor: MessageCursor?): Mess
     if (code != 0) throw BiliException(code, apiMessage(code, root.optString("message")))
     val items = root.optJSONArray("data").objects().map {
         val raw = it.s("content")
-        val content = runCatching { JSONObject(raw).optString("web", raw) }.getOrDefault(raw)
+        val content = cancellableCatching { JSONObject(raw).optString("web", raw) }.getOrDefault(raw)
         MessageItem(id = it.s("id"), title = it.s("title"), content = content,
             time = 0L, name = "系统通知", avatar = "", source = it.s("time_at"), systemCursor = it.l("cursor"))
     }
@@ -325,7 +326,7 @@ internal fun BiliApiContext.parseMessageSession(message: JSONObject): MessageSes
 internal fun BiliApiContext.previewOfMessage(message: JSONObject): String {
     val type = message.optInt("msg_type", 0)
     val raw = message.optString("content")
-    val obj = runCatching { JSONObject(raw) }.getOrNull()
+    val obj = cancellableCatching { JSONObject(raw) }.getOrNull()
     return when (type) {
         2 -> "[图片]"
         306 -> obj?.s("content").orEmpty()

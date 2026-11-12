@@ -66,7 +66,7 @@ import com.aritxonly.bdfun.infra.bili.BiliParameters.qualityLabel
 
 internal suspend fun BiliApiContext.searchSuggest(term: String): List<String> = withContext(Dispatchers.IO) {
     if (term.isBlank()) return@withContext emptyList()
-    runCatching {
+    cancellableCatching {
         val root = rawRequest(
             "/main/suggest",
             mapOf(
@@ -93,7 +93,7 @@ internal suspend fun BiliApiContext.searchSuggest(term: String): List<String> = 
 
 internal suspend fun BiliApiContext.hotKeywords(): List<String> = withContext(Dispatchers.IO) {
     // 1) 搜索发现：data.trending.list[].keyword
-    val square = runCatching {
+    val square = cancellableCatching {
         val data = dataRequest(
             "/x/web-interface/search/square",
             mapOf("limit" to "10"),
@@ -113,13 +113,13 @@ internal suspend fun BiliApiContext.hotKeywords(): List<String> = withContext(Di
     if (square.isNotEmpty()) return@withContext square
 
     // 2) 热搜词接口
-    runCatching {
+    cancellableCatching {
         val root = rawRequest(
             path = "/main/hotword",
             params = emptyMap(),
             base = "https://s.search.bilibili.com",
         )
-        val array = root.optJSONArray("data") ?: return@runCatching emptyList<String>()
+        val array = root.optJSONArray("data") ?: return@cancellableCatching emptyList<String>()
         val result = ArrayList<String>(array.length())
         for (i in 0 until array.length()) {
             val item = array.optJSONObject(i) ?: continue
@@ -204,7 +204,7 @@ internal suspend fun BiliApiContext.searchUsers(keyword: String, page: Int = 1):
     }
 
 internal suspend fun BiliApiContext.hotSearch(): List<String> = withContext(Dispatchers.IO) {
-    val data = runCatching {
+    val data = cancellableCatching {
         dataRequest("/x/web-interface/search/square", mapOf("limit" to "10"))
     }.getOrNull() ?: return@withContext emptyList()
     data.optJSONObject("trending")?.optJSONArray("list").objects()

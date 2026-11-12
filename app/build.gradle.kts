@@ -103,7 +103,9 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":feature:home"))
     implementation(project(":infra:storage"))
+    implementation(project(":infra:playback"))
     implementation(project(":infra:bili"))
     implementation(project(":core:navigation"))
     implementation(project(":core:application"))
@@ -128,6 +130,7 @@ dependencies {
 
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel)
     implementation(libs.androidx.media)
     implementation(libs.coroutines.android)
 

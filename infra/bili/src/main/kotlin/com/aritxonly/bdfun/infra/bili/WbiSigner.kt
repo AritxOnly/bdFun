@@ -42,6 +42,19 @@ class WbiSigner(
         }
     }
 
+    suspend fun forceRefresh() {
+        val previous = snapshot
+        snapshot = null
+        try {
+            keys()
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (failure: Exception) {
+            if (snapshot == null) snapshot = previous
+            throw failure
+        }
+    }
+
     suspend fun signQuery(params: MutableMap<String, String>): String {
         val keys = keys()
         params["wts"] = (clock() / 1000).toString()

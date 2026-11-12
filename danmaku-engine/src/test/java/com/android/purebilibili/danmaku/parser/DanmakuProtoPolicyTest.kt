@@ -6,6 +6,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [33], manifest = org.robolectric.annotation.Config.NONE)
 class DanmakuProtoPolicyTest {
 
     @Test

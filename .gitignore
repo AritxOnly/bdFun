@@ -41,3 +41,7 @@ signing.properties
 
 # Pinned local composite dependency
 .local/
+
+# Python tooling caches
+__pycache__/
+*.py[cod]

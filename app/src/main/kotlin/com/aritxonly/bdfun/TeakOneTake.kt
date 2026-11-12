@@ -52,9 +52,9 @@ object TeakOneTake {
         fallback: () -> Unit,
     ) {
         openWith(context, anchor, radiusPx, foregroundColor, fallback) { activity, opts ->
-            AppGraph.pendingVideo.value = video
             activity.startActivity(
-                Intent(activity, VideoActivity::class.java),
+                com.aritxonly.bdfun.navigation.RouteIntents.create(activity,
+                    com.aritxonly.bdfun.core.navigation.Route.Video(video.bvid, video.aid, video)),
                 opts.toBundle(),
             )
         }
@@ -71,9 +71,9 @@ object TeakOneTake {
         fallback: () -> Unit,
     ) {
         openWith(context, anchor, radiusPx, foregroundColor, fallback) { activity, opts ->
-            AppGraph.pendingDynamic.value = dynamic
             activity.startActivity(
-                Intent(activity, DynamicDetailActivity::class.java),
+                com.aritxonly.bdfun.navigation.RouteIntents.create(activity,
+                    com.aritxonly.bdfun.core.navigation.Route.Dynamic(dynamic.id, dynamic)),
                 opts.toBundle(),
             )
         }

@@ -68,3 +68,8 @@ include(":core:navigation")
 include(":infra:bili")
 
 include(":infra:storage")
+
+include(":infra:playback")
+
+include(":feature:home")
+include(":tools:kotlin-audit")

@@ -12,4 +12,3 @@ object ScrollTopPages {
     )
     val all: Set<String> = entries.map { it.first }.toSet()
 }
-

@@ -90,7 +90,7 @@ internal suspend fun BiliApiContext.triple(aid: Long): Boolean = withContext(Dis
 
 internal suspend fun BiliApiContext.onlineTotal(aid: Long, cid: Long): Pair<Long, String> =
     withContext(Dispatchers.IO) {
-        runCatching {
+        cancellableCatching {
             val data = dataRequest(
                 "/x/player/online/total",
                 mapOf("aid" to aid.toString(), "cid" to cid.toString()),
@@ -100,12 +100,12 @@ internal suspend fun BiliApiContext.onlineTotal(aid: Long, cid: Long): Pair<Long
     }
 
 internal suspend fun BiliApiContext.subtitles(aid: Long, cid: Long): List<SubtitleTrack> = withContext(Dispatchers.IO) {
-    runCatching {
+    cancellableCatching {
         val data = dataRequest(
             "/x/player/v2",
             mapOf("aid" to aid.toString(), "cid" to cid.toString()),
         )
-        val subtitle = data.optJSONObject("subtitle") ?: return@runCatching emptyList()
+        val subtitle = data.optJSONObject("subtitle") ?: return@cancellableCatching emptyList()
         subtitle.optJSONArray("subtitles").objects().mapNotNull { item ->
             val url = item.s("subtitle_url")
                 .ifBlank { item.s("subtitle_url_v2") }
@@ -123,7 +123,7 @@ internal suspend fun BiliApiContext.subtitles(aid: Long, cid: Long): List<Subtit
 /** 下载并解析字幕 JSON（B 站字幕是 `body[]` 的 from/to/content）。 */
 
 internal suspend fun BiliApiContext.subtitleCues(url: String): List<SubtitleCue> = withContext(Dispatchers.IO) {
-    runCatching {
+    cancellableCatching {
         val request = Request.Builder()
             .url(if (url.startsWith("//")) "https:$url" else url)
             .header("User-Agent", UA)
@@ -131,7 +131,7 @@ internal suspend fun BiliApiContext.subtitleCues(url: String): List<SubtitleCue>
             .get()
             .build()
         val text = http.await(request).use { response ->
-            if (!response.isSuccessful) return@runCatching emptyList()
+            if (!response.isSuccessful) return@cancellableCatching emptyList()
             response.body?.string().orEmpty()
         }
         val root = JSONObject(text)
@@ -179,7 +179,7 @@ internal fun BiliApiContext.netInfo(): String {
         if (caps?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) == true) add("ethernet")
         if (caps?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) == true) add("vpn")
     }.joinToString("+").ifBlank { "none" }
-    val proxy = runCatching {
+    val proxy = cancellableCatching {
         java.net.ProxySelector.getDefault()
             ?.select(java.net.URI("https://api.bilibili.com"))
             ?.firstOrNull()

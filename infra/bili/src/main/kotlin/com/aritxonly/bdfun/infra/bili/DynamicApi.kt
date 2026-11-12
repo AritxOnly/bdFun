@@ -134,161 +134,13 @@ internal fun BiliApiContext.parseDynamicUpPage(data: JSONObject?): DynamicUpPage
     hasMore = data?.optBoolean("has_more", false) ?: false,
 )
 
-internal fun BiliApiContext.parseDynamicItem(item: JSONObject, allowOrig: Boolean = true): DynamicItem? {
-    val modules = item.optJSONObject("modules") ?: return null
-    val author = modules.optJSONObject("module_author") ?: return null
-    val dynamic = modules.optJSONObject("module_dynamic")
-    val desc = dynamic?.optJSONObject("desc")?.s("text").orEmpty()
-    val major = dynamic?.optJSONObject("major")
-    val archive = major?.optJSONObject("archive")
-    val opus = major?.optJSONObject("opus")
-    val article = major?.optJSONObject("article")
-    val common = major?.optJSONObject("common")
-    val pgc = major?.optJSONObject("pgc")
-    val live = major?.optJSONObject("live")
-    val liveRcmd = major?.optJSONObject("live_rcmd")
-        ?: major?.optJSONObject("subscription_new")?.optJSONObject("live_rcmd")
-    val liveInfo = liveRcmd?.s("content")?.takeIf { it.isNotBlank() }
-        ?.let { runCatching { JSONObject(it).optJSONObject("live_play_info") }.getOrNull() }
-    val liveRecommendation = liveInfo?.let {
-        DynamicLiveRecommendation(
-            roomId = it.l("room_id"), title = it.s("title"), cover = image(it.s("cover"), 720),
-            live = it.optInt("live_status") == 1, areaName = it.s("area_name"),
-            watched = it.optJSONObject("watched_show")?.s("text_large").orEmpty(),
-        )
-    }
-    val medialist = major?.optJSONObject("medialist")
-    val courses = major?.optJSONObject("courses")
-    val music = major?.optJSONObject("music")
-    val ugcSeason = major?.optJSONObject("ugc_season")
-    val video = archive?.let {
-        VideoItem(
-            bvid = it.s("bvid"),
-            aid = it.l("aid"),
-            title = it.s("title"),
-            cover = image(it.s("cover"), 480),
-            ownerName = author.s("name"),
-            ownerFace = avatar(author.s("face"), 120),
-            ownerMid = author.l("mid"),
-            play = parseCountText(it.optJSONObject("stat")?.optString("play").orEmpty()),
-            danmaku = parseCountText(it.optJSONObject("stat")?.optString("danmaku").orEmpty()),
-            duration = parseDurationText(it.s("duration_text")),
-            pubdate = 0,
-            cid = 0,
-        )
-    } ?: ugcSeason?.let {
-        VideoItem(
-            bvid = it.s("bvid"),
-            aid = it.l("aid"),
-            title = it.s("title"),
-            cover = image(it.s("cover"), 480),
-            ownerName = author.s("name"),
-            ownerFace = avatar(author.s("face"), 120),
-            ownerMid = author.l("mid"),
-            play = parseCountText(it.optJSONObject("stat")?.optString("play").orEmpty()),
-            danmaku = parseCountText(it.optJSONObject("stat")?.optString("danmaku").orEmpty()),
-            duration = parseDurationText(it.s("duration_text")),
-            pubdate = 0,
-            cid = 0,
-        )
-    }
-    // 图文 opus：feed 在 itemOpusStyle 下把标题 / 正文放在 major.opus 里，
-    // 只读 module_dynamic.desc 会出现“很多内容显示不出来”。
-    val opusSummary = opus?.optJSONObject("summary")?.s("text").orEmpty()
-    val title = opus?.s("title").orEmpty()
-        .ifBlank { article?.s("title").orEmpty() }
-        .ifBlank { common?.s("title").orEmpty() }
-        .ifBlank { live?.s("title").orEmpty() }
-        .ifBlank { medialist?.s("title").orEmpty() }
-        .ifBlank { courses?.s("title").orEmpty() }
-        .ifBlank { music?.s("title").orEmpty() }
-    val text = desc
-        .ifBlank { opusSummary }
-        .ifBlank { article?.s("desc").orEmpty() }
-        .ifBlank { common?.s("desc").orEmpty() }
-        .ifBlank { common?.s("summary").orEmpty() }
-        .ifBlank { pgc?.s("desc").orEmpty() }
-        .ifBlank { medialist?.s("desc").orEmpty() }
-        .ifBlank { music?.s("desc").orEmpty() }
-    val images = buildList {
-        major?.optJSONObject("draw")?.optJSONArray("items")?.objects()?.forEach {
-            it.s("src").takeIf(String::isNotBlank)?.let { src -> add(image(src, 720)) }
-        }
-        opus?.optJSONArray("pics")?.objects()?.forEach {
-            it.s("url").takeIf(String::isNotBlank)?.let { url -> add(image(url, 720)) }
-        }
-        article?.optJSONArray("covers")?.let { covers ->
-            for (i in 0 until covers.length()) {
-                val value = covers.opt(i)
-                val url = when (value) {
-                    is String -> value
-                    is JSONObject -> value.s("url")
-                    else -> ""
-                }
-                if (url.isNotBlank()) add(image(url, 720))
-            }
-        }
-        common?.s("cover").orEmpty().takeIf { it.isNotBlank() }?.let { add(image(it, 720)) }
-        live?.s("cover").orEmpty().takeIf { it.isNotBlank() }?.let { add(image(it, 720)) }
-        medialist?.s("cover").orEmpty().takeIf { it.isNotBlank() }?.let { add(image(it, 720)) }
-        courses?.s("cover").orEmpty().takeIf { it.isNotBlank() }?.let { add(image(it, 720)) }
-        music?.s("cover").orEmpty().takeIf { it.isNotBlank() }?.let { add(image(it, 720)) }
-    }.filter { it.isNotBlank() }.distinct()
-    val stat = modules.optJSONObject("module_stat")
-    val basic = item.optJSONObject("basic")
-    val orig = if (allowOrig) {
-        item.optJSONObject("orig")?.let { parseDynamicItem(it, allowOrig = false) }
-    } else {
-        null
-    }
-    return DynamicItem(
-        id = item.s("id_str"),
-        name = author.s("name"),
-        face = avatar(author.s("face"), 120),
-        mid = author.l("mid"),
-        time = author.s("pub_time"),
-        text = text,
-        images = images,
-        video = video,
-        like = stat?.optJSONObject("like")?.optInt("count", 0) ?: 0,
-        comment = stat?.optJSONObject("comment")?.optInt("count", 0) ?: 0,
-        forward = stat?.optJSONObject("forward")?.optInt("count", 0) ?: 0,
-        liked = stat?.optJSONObject("like")?.optBoolean("status", false) ?: false,
-        commentOid = basic?.s("comment_id_str").orEmpty()
-            .ifBlank { item.s("id_str") },
-        commentType = (basic?.optInt("comment_type", 17) ?: 17)
-            .takeIf { it > 0 } ?: 17,
-        title = title,
-        orig = orig,
-        authorVip = author.optJSONObject("vip")?.optInt("vipType", 0) == 2,
-        isCollection = !ugcSeason?.s("bvid").isNullOrBlank(),
-        pgcCover = pgc?.s("cover").orEmpty().takeIf { it.isNotBlank() }
-            ?.let { image(it, 720) }.orEmpty(),
-        pgcTitle = pgc?.s("title").orEmpty(),
-        pgcLabel = when (pgc?.optInt("sub_type", 0)) {
-            3 -> "纪录片"
-            1 -> "番剧"
-            2 -> "电影"
-            4 -> "国创"
-            5 -> "电视剧"
-            else -> "剧集"
-        },
-        moduleTag = modules.optJSONObject("module_tag")?.s("text").orEmpty(),
-        liveRecommendation = liveRecommendation,
-        ipLocation = author.s("pub_location_text")
-            .ifBlank { author.s("pub_location") }
-            .ifBlank { author.s("ip_location") }
-            .ifBlank { author.s("location") },
-    )
-}
-
 /**
  * 动态详情官方接口：feed 只给摘要时，打开详情用 detail 接口拿完整的
  * opus 正文 / 图片 / 转发内容。失败返回 null，由调用方回退到列表项。
  */
 
 internal suspend fun BiliApiContext.dynamicDetail(id: String): DynamicItem? = withContext(Dispatchers.IO) {
-    runCatching {
+    cancellableCatching {
         val data = dataRequest(
             "/x/polymer/web-dynamic/v1/detail",
             mapOf(
@@ -309,7 +161,7 @@ internal suspend fun BiliApiContext.dynamicDetail(id: String): DynamicItem? = wi
 /** 动态点赞 / 取消。新接口要求 csrf 放 URL、正文是 JSON（form 会 4100001）。 */
 
 internal suspend fun BiliApiContext.likeDynamic(id: String, like: Boolean): Boolean = withContext(Dispatchers.IO) {
-    runCatching {
+    cancellableCatching {
         ensureBuvid()
         val jsonBody = JSONObject()
             .put("dyn_id_str", id)

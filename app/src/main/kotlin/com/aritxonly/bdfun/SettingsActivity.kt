@@ -1,10 +1,11 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.ui.ActivityPageOptions
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.aritxonly.bdfun.ui.SettingsScreen
 import com.aritxonly.bdfun.ui.TeakActivityScaffold
 
 class SettingsActivity : ComponentActivity() {
@@ -14,17 +15,14 @@ class SettingsActivity : ComponentActivity() {
         AppGraph.ensure(applicationContext)
         val settings = AppGraph.settings
         setContent {
-            TeakActivityScaffold(settings = settings, onBack = { finish() }, title = "设置") {
-                SettingsScreen(
-                    settings = settings,
-                    onBack = { finish() },
-                    loggedIn = AppGraph.api.isLoggedIn,
-                    onLogout = {
-                        AppGraph.api.logout()
-                        AppGraph.session.value = null
-                        finish()
-                    },
-                )
+            TeakActivityScaffold(
+                settings = settings,
+                onBack = { finish() },
+                options = ActivityPageOptions(
+                    title = "设置",
+                ),
+            ) {
+                SettingsScreenRoute(this)
             }
         }
     }
