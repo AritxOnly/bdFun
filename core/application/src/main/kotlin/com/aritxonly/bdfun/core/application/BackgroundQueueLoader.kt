@@ -1,4 +1,4 @@
-package com.aritxonly.bdfun.feature.video.application
+package com.aritxonly.bdfun.core.application
 
 import com.aritxonly.bdfun.core.domain.videoPlaybackPages
 import com.aritxonly.bdfun.core.common.Outcome

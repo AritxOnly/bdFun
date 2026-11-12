@@ -500,3 +500,7 @@ VideoDetailEntry在feature:video拥有原状态观察/作用域/画质选择/效
 ### 2026-11-13 视频页面壳展示与效果归属
 
 VideoActivityPageStateHolder、VideoActivityHostActions中立契约、入口解析观察/队列/窗口回调效果位于feature:video；app继续创建原控制器并提供窗口/路由动作。VideoPageBody拥有原页面Box/渐变/评论背景，播放器底边必须在graphicsLayer内调用getter；评论内容仍由app跨feature槽提供。VideoPageOverlay拥有原输入/回复触摸遮罩和弹幕面板动画，VideoPageOverlayHost由同一页面状态直接实现，禁止复制reply/sender/panel状态。TeakUI动画已与原app体核对一致，原弹簧300/22、180ms回复渐变与所有阈值/对齐不改。
+
+### 2026-11-13 后台播放平台边界
+
+后台选集BackgroundQueueLoader是跨前后台应用逻辑，归core/application，原测试随实现迁移；infra禁止依赖feature:video。AndroidBackgroundPlayback在infra/playback持有原播放器/token/服务/释放线程，原服务类型、设置、UA和诊断由app显式提供。app BackgroundPlaybackStateHolder只保留原Compose投影：原收集时机与每次sync的同步更新必须保持，不能只改成异步Flow投影导致界面晚一拍。迁移不修改交接条件、后台500ms刷新、释放线程或动作/通知协议。

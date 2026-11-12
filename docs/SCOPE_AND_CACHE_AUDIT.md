@@ -74,3 +74,7 @@ VideoDetailEntry仍保留原bvid控制器/选择/元数据remember键和页面ui
 ### 2026-11-13 视频Activity页面壳迁移
 
 VideoActivityPageStateHolder仍在同一个Activity composition的remember创建，包含原consumedAutoNext/comments/danmakuInputOpen；没有改为进程状态或增加保存恢复。entry仍remember无键，初始化snapshot和解析Effect(Unit)保持；queue在原bvid与autoNext计数键下执行。OverlayHost由同一页面直接实现，panelBackdrop保持原mutableState引用；可组合槽仅提供原控件和本次布局，不入容器。
+
+### 2026-11-13 后台持有与UI投影
+
+进程容器仍lazy创建唯一BackgroundPlaybackStateHolder；它是AndroidBackgroundPlayback的Compose投影子类，原session/processScope实例、UNDISPATCHED收集及每个sync的同步更新保持。原token/actions/detachedPlayer/detachedScope、单线程teardownExecutor全部由infra实现持有，adopt仍新建原Main.immediate SupervisorJob并500ms刷新，停止仍先清UI/主线程pause再后台取消/释放/停服务。settings getter返回原SettingsStore投影实例；服务保持原组件及动作值。未改变容器close语义或额外启动服务。

@@ -547,3 +547,9 @@ P5-03将VideoDetailEntry、详情效果编排、页面弹幕发送绑定/后台�
 P5-03将页面瞬时状态、原生host中立契约及入口/队列/窗口回调效果归入feature:video。原remember/LaunchedEffect/BackHandler键、队列清理与next→openVideo→finish顺序保持；app仍负责实际窗口和路由，feature不引用Activity实现。实际页面Box/54dp渐变/评论覆盖背景及回复/弹幕输入触摸遮罩/弹幕面板动画迁入VideoPageBody/VideoPageOverlay，原共享控件通过槽装配，原节点顺序不变。
 
 页面直接实现OverlayHost，无state或位图副本。底边在graphicsLayer通过getter读取，原fade alpha/stops保持。动画使用已存在的TeakUI同体manual/spring函数，保留180ms、300/22与0.01/0.99等原阈值；没有创造新的全局状态或跨feature导入。
+
+### 2026-11-13 后台播放器平台实现归位
+
+P4-04/P5-03将原播放器持有/token/交接、500ms轮询、服务启动/停止及异步释放线程迁入infra/playback的AndroidBackgroundPlayback；app BackgroundPlaybackStateHolder只保留原Compose快照收集。protected snapshot/sync是投影接缝：app继续在每次原sync调用同步更新observable，原processScope的UNDISPATCHED收集不变，避免简单改异步Flow导致原即时UI读取变化。没有引入第二份播放业务状态。
+
+原服务类/动作、设置getter、UA和DEBUG诊断由app装配，不再直接引用AppGraph/BiliApi/BuildConfig/feature。20个持有/控制/生命周期函数体经端口正规化后逐字一致。跨前后台使用的BackgroundQueueLoader与4项原测试移到core/application，除包名外逐字一致；infra不反向依赖视频feature，不改播放来源或失败策略。

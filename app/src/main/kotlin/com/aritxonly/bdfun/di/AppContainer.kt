@@ -91,7 +91,8 @@ internal class AppContainer(
     private val playbackSession = com.aritxonly.bdfun.core.application.PlaybackSessionStateHolder(presentationScope)
     val backgroundPlayback by lazy {
         com.aritxonly.bdfun.ui.BackgroundPlaybackStateHolder(playbackSession, presentationScope,
-            com.aritxonly.bdfun.feature.video.application.BackgroundQueueLoader(videoRepository, videoPlaybackRepository))
+            com.aritxonly.bdfun.core.application.BackgroundQueueLoader(videoRepository, videoPlaybackRepository),
+            com.aritxonly.bdfun.playback.backgroundPlaybackPorts { settings })
     }
     val discDependencies by lazy {
         com.aritxonly.bdfun.ui.DiscDependencies(backgroundPlayback, com.aritxonly.bdfun.ui.DiscDiagnostics(

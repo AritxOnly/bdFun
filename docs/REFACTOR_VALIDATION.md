@@ -691,3 +691,10 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - `/tmp/bdfun-video-page-shell.log`首轮37s通过严格checkLayering、独立feature:video/app debug；1002生产文件/10625 PSI节点/0违规。纯机械迁移，无新业务规则，不追加镜像单测或重跑上批20项/全套。渐变体除显式底边getter外逐字一致；app与TeakUI manual/spring函数体一致，同包同文件名清点无JVM facade冲突。
 - `/tmp/bdfun-video-page-shell-runtime.log`首驱动失败：误点“弹”开关而非“点我发弹幕”，未建立输入前提；没有改产品迎合，finally已恢复设置/进度/方向。对照VideoPageTabs的实际onOpenInput/onToggleDanmaku接线修正点击后，`/tmp/bdfun-video-page-shell-corrected-runtime.log`通过当前APK：本包PLAYING 20,712ms→暂停/WM竖屏→原弹幕输入打开→空白触摸屏障关闭→评论tab原回复栏→正常退出本包会话释放→crash空。未输入或发送内容。查看`/tmp/bdfun-lifecycle-page-shell-input.png`，原输入栏和键盘显示。
 - 结束逐字恢复settings/playback_progress及各.bak字节或不存在状态、原WM/系统方向，force-stop。没有重复上批全屏/进度用例；实际后台交接、PiP返回、最终main/release/完整验收与交付继续。
+
+### 2026-11-13 后台原生持有迁入infra
+
+- `/tmp/bdfun-background-runtime-module.log`首轮40s通过严格checkLayering、core/application原BackgroundQueueLoaderTest4项和app debug；1005生产文件/10636 PSI节点/0违规。选集实现和测试除包名外逐字一致，20个原生持有/控制/生命周期函数体经平台配置替换后逐字一致；未引入依赖或重复全套。
+- `/tmp/bdfun-background-transfer-runtime.log`首轮已确认本包BdFunBackgroundPlayback PLAYING和真实foreground服务，但随后旧mResumedActivity字段匹配为空而失败；finally逐字恢复设置/进度并force-stop，不当整条通过。核对实际ResumedActivity/topResumedActivity格式后仅修驱动。
+- `/tmp/bdfun-background-transfer-corrected-runtime.log`当前APK通过：页面PLAYING 20,790ms→正常Back结束VideoActivity→原后台服务isForeground=true、同包BdFunBackgroundPlayback PLAYING 22,817ms→系统媒体pause PAUSED 26,676ms→play PLAYING 26,996ms→stop后本包会话和服务均消失→crash空。实际活动/服务/会话输出保存在/tmp/bdfun-background-transfer-{activities,services,sessions}.txt；已查看main截图，返回原首页。最后逐字恢复settings/playback_progress及各.bak字节/不存在状态并force-stop。没有点赞/关注/发送等交互。
+- 本批验证了真实正常退出交接、后台媒体控制及停止释放，未将其作为后台服务被系统销毁重建、PiP展开返回或全部旋转组合验收。最终main、必要完整回归、release和交付继续。
