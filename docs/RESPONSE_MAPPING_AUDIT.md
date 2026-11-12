@@ -10,8 +10,8 @@
 | 消息feed/会话/私信/系统/粉丝/未读 | MessageFeedMapper/MessagePageMapper/MessageSessionMapper/PrivateMessageMapper/MessageSupplementMapper/MessageUnreadMapper | 账号收发/管理/ack装机验收独立保留；请求编码仍在传输适配器 |
 | 动态正文/视频/直播卡片 | Dynamic*Mapper | DynamicApi的portal/up列表元信息 |
 | 空间主资料 | SpaceInfoMapper及真实样本 | SpaceApi/SpaceApi2的合集/投稿/文章/番剧/小店/brief等 |
-| 搜索 | SearchApi直接字段读取 | 建mapper，保留HTML解码/图片/时长及筛选语义 |
-| 媒体库/关系 | LibraryApi/LibraryApi2直接字段读取 | 历史/稍后看/收藏夹/视频/关系映射 |
+| 搜索 | SearchResponseMapper，匿名补全样本+3项回归 | 真实搜索/筛选装机验收独立保留；原HTML解码器显式输入 |
+| 媒体库/关系 | LibraryHistory/Collection/RelationMapper，4项回归；云续播规则入domain并有4项测试 | 真实账号/批量操作装机验收独立保留；补资料/缓存/请求仍在infra |
 | 账号 | AccountApi直接字段读取 | nav/QR响应业务模型映射；Cookie/签名仍为协议职责 |
 | 直播 | Socket消息已有BiliLiveMessageDecoder | LiveApi房间/画质/表情/播放信息映射 |
 

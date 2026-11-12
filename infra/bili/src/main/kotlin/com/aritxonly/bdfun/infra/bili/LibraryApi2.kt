@@ -77,9 +77,9 @@ internal suspend fun BiliApiContext.enrichHistoryStats(items: List<HistoryItem>)
                                 "/x/web-interface/view",
                                 mapOf("bvid" to bvid),
                             )
-                            val stat = root.optJSONObject("data")?.optJSONObject("stat")
+                            val stat = mapLibraryVideoStats(root)
                             if (stat != null) {
-                                putVideoStat(bvid, stat.l("view") to stat.l("danmaku"))
+                                putVideoStat(bvid, stat)
                             }
                         }
                     }
@@ -101,23 +101,7 @@ internal suspend fun BiliApiContext.enrichHistoryStats(items: List<HistoryItem>)
 
 internal suspend fun BiliApiContext.watchLater(): List<HistoryItem> = withContext(Dispatchers.IO) {
     val data = dataRequest("/x/v2/history/toview", emptyMap())
-    data.optJSONArray("list").objects().mapNotNull { item ->
-        val bvid = item.s("bvid")
-        if (bvid.isBlank()) return@mapNotNull null
-        val stat = item.optJSONObject("stat")
-        HistoryItem(
-            bvid = bvid,
-            title = item.s("title"),
-            cover = image(item.s("pic"), 420),
-            author = item.optJSONObject("owner")?.s("name").orEmpty(),
-            viewedAt = item.l("add_at"),
-            progress = item.optInt("progress", 0),
-            duration = item.optInt("duration", 0),
-            play = stat?.optInt("view", 0) ?: 0,
-            danmaku = stat?.optInt("danmaku", 0) ?: 0,
-            aid = item.l("aid"),
-        )
-    }
+    mapWatchLater(data)
 }
 
 internal suspend fun BiliApiContext.favoriteFolders(): List<FavoriteFolder> = withContext(Dispatchers.IO) {
@@ -125,14 +109,7 @@ internal suspend fun BiliApiContext.favoriteFolders(): List<FavoriteFolder> = wi
         "/x/v3/fav/folder/created/list-all",
         mapOf("up_mid" to mid.toString()),
     )
-    data.optJSONArray("list").objects().map { folder ->
-        FavoriteFolder(
-            id = folder.l("id"),
-            title = folder.s("title"),
-            count = folder.optInt("media_count", 0),
-            cover = image(folder.s("cover"), 300),
-        )
-    }
+    mapFavoriteFolders(data)
 }
 
 internal suspend fun BiliApiContext.favoriteVideos(folderId: Long): List<VideoItem> =
@@ -152,32 +129,12 @@ internal suspend fun BiliApiContext.favoriteVideosPage(folderId: Long, page: Int
                 "platform" to "web",
             ),
         )
-        val medias = data.optJSONArray("medias").objects()
-        val videos = medias.mapNotNull { media ->
-            val bvid = media.s("bvid")
-            if (bvid.isBlank()) return@mapNotNull null
-            val upper = media.optJSONObject("upper")
-            val cnt = media.optJSONObject("cnt_info")
-            VideoItem(
-                bvid = bvid,
-                aid = media.l("id"),
-                title = media.s("title"),
-                cover = image(media.s("cover"), 420),
-                ownerName = upper?.s("name").orEmpty(),
-                ownerFace = "",
-                ownerMid = upper?.l("mid") ?: 0,
-                play = cnt?.l("play") ?: 0,
-                danmaku = cnt?.l("danmaku") ?: 0,
-                duration = media.optInt("duration", 0),
-                pubdate = media.l("pubtime"),
-            )
-        }
-        videos to data.optBoolean("has_more", medias.size >= 40)
+        mapFavoriteVideos(data)
     }
 
 internal suspend fun BiliApiContext.relationStat(mid: Long): Pair<Long, Long> = withContext(Dispatchers.IO) {
     val data = dataRequest("/x/relation/stat", mapOf("vmid" to mid.toString()))
-    (data.l("following") to data.l("follower"))
+    mapRelationStat(data)
 }
 
 /** 用户获赞总数（官方空间统计）。 */
@@ -193,14 +150,7 @@ internal suspend fun BiliApiContext.followings(): List<FollowedUser> = withConte
             "order_type" to "attention",
         ),
     )
-    data.optJSONArray("list").objects().map { user ->
-        FollowedUser(
-            mid = user.l("mid"),
-            name = user.s("uname"),
-            face = avatar(user.s("face"), 160),
-            sign = user.s("sign"),
-        )
-    }
+    mapFollowings(data)
 }
 
 /** 视频字幕列表：`/x/player/v2` 的 `subtitle.subtitles`（含 AI 字幕）。 */

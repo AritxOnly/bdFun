@@ -70,21 +70,7 @@ internal suspend fun BiliApiContext.favoriteFolderIds(aid: Long): Set<Long> = wi
             mapOf("rid" to aid.toString(), "type" to "2"),
         )
         if (root.optInt("code", 0) != 0) return@cancellableCatching emptySet()
-        val data = root.optJSONArray("data") ?: root.optJSONObject("data")?.optJSONArray("list")
-        val out = mutableSetOf<Long>()
-        data?.let { arr ->
-            for (i in 0 until arr.length()) {
-                val item = arr.opt(i)
-                when (item) {
-                    is Number -> out.add(item.toLong())
-                    is JSONObject -> {
-                        val id = item.l("id").takeIf { it > 0 } ?: item.l("media_id")
-                        if (id > 0) out.add(id)
-                    }
-                }
-            }
-        }
-        out
+        mapFavoriteFolderIds(root)
     }.getOrDefault(emptySet())
 }
 
@@ -195,8 +181,7 @@ internal suspend fun BiliApiContext.followUser(mid: Long, follow: Boolean): Bool
 internal suspend fun BiliApiContext.relation(mid: Long): Int? = withContext(Dispatchers.IO) {
     if (!isLoggedIn || mid <= 0) return@withContext null
     cancellableCatching {
-        dataRequest("/x/relation", mapOf("fid" to mid.toString()))
-            .optInt("attribute", 0)
+        mapRelationAttribute(dataRequest("/x/relation", mapOf("fid" to mid.toString())))
     }.getOrNull()
 }
 
@@ -207,8 +192,7 @@ internal suspend fun BiliApiContext.relationUsers(mid: Long, fans: Boolean, page
         require(mid > 0 && page > 0)
         val data = dataRequest(if (fans) "/x/relation/fans" else "/x/relation/followings",
             relationListParams(mid, fans, page, frequent))
-        val raw = data.optJSONArray("list").objects()
-        val ids = raw.map { it.l("mid") }.filter { it > 0 }.distinct()
+        val ids = mapRelationTargetIds(data)
         // 'attribute' in another person's following list describes THEIR relationship.
         val relations = if (isLoggedIn && ids.isNotEmpty()) cancellableCatching {
             dataRequest("/x/relation/relations", mapOf("fids" to ids.joinToString(",")))
@@ -216,13 +200,7 @@ internal suspend fun BiliApiContext.relationUsers(mid: Long, fans: Boolean, page
             if (error is kotlinx.coroutines.CancellationException) throw error
             null
         } else null
-        val items = raw.mapNotNull { item ->
-            val id = item.l("mid").takeIf { it > 0 } ?: return@mapNotNull null
-            RelationUser(id, item.s("uname"), avatar(item.s("face"), 160), item.s("sign"),
-                if (!isLoggedIn) 0 else relations?.optJSONObject(id.toString())?.optInt("attribute", 0))
-        }
-        val total = data.optInt("total", 0)
-        RelationPage(items, total, relationNextPage(page, raw.size, total))
+        mapRelationPage(data, relations, { isLoggedIn }, page)
     }
 
 // ---------------------------------------------------------------- account
@@ -243,41 +221,9 @@ internal suspend fun BiliApiContext.historyPage(
             "ps" to "20",
         ),
     )
-    val items = data.optJSONArray("list").objects().mapNotNull { item ->
-        val history = item.optJSONObject("history") ?: return@mapNotNull null
-        val bvid = history.s("bvid")
-        if (bvid.isBlank()) return@mapNotNull null
-        val stat = item.optJSONObject("stat") ?: item.optJSONObject("videos")
-        HistoryItem(
-            bvid = bvid,
-            title = item.s("title"),
-            cover = image(item.s("cover"), 420),
-            author = item.s("author_name"),
-            viewedAt = item.l("view_at"),
-            progress = item.optInt("progress", 0),
-            duration = item.optInt("duration", 0),
-            play = stat?.optInt("view", 0) ?: 0,
-            danmaku = stat?.optInt("danmaku", 0) ?: 0,
-            aid = history.l("oid"),
-        )
-    }
-    val cursor = data.optJSONObject("cursor")
-    val cursorHasMore = cursor?.optBoolean("has_more", false) == true ||
-        cursor?.optInt("has_more", 0) == 1 ||
-        data.optBoolean("has_more", false)
-    log(
-        "HISTORY",
-        "page max=$maxCursor viewAt=$viewAtCursor items=${items.size} " +
-            "cursorMax=${cursor?.l("max")} cursorViewAt=${cursor?.l("view_at")} " +
-            "cursorHasMore=${cursor?.opt("has_more")}",
-    )
-    HistoryPage(
-        items = items,
-        max = cursor?.l("max") ?: 0L,
-        viewAt = cursor?.l("view_at") ?: items.lastOrNull()?.viewedAt ?: 0L,
-        business = cursor?.s("business").orEmpty(),
-        hasMore = cursorHasMore || items.size >= 30,
-    )
+    val mapped = mapHistoryPage(data)
+    log("HISTORY", "page max=$maxCursor viewAt=$viewAtCursor items=${mapped.items.size} " + describeHistoryCursor(data))
+    mapped
 }
 
 /**
@@ -298,13 +244,7 @@ internal suspend fun BiliApiContext.cloudResumePositionMs(
             mapOf("aid" to aid.toString(), "cid" to cid.toString()),
         )
     }.getOrNull() ?: return@withContext 0L
-    val lastCid = data.l("last_play_cid")
-    if (lastCid > 0 && lastCid != cid) return@withContext 0L
-    val raw = data.l("last_play_time")
-    if (raw <= 0) return@withContext 0L
-    // 接口有的版本给秒、有的给毫秒：按视频时长判断一下，避免差 1000 倍。
-    val ms = if (durationSec > 0 && raw <= durationSec * 2L) raw * 1000L else raw
-    ms.coerceAtLeast(0L)
+    resolveCloudResumePositionMs(data.l("last_play_cid"), cid, data.l("last_play_time"), durationSec)
 }
 
 /**

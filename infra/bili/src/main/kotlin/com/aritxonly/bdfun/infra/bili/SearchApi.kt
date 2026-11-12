@@ -75,16 +75,7 @@ internal suspend fun BiliApiContext.searchSuggest(term: String): List<String> = 
             ),
             base = "https://s.search.bilibili.com",
         )
-        root.optJSONObject("result")
-            ?.optJSONArray("tag")
-            .objects()
-            .mapNotNull { item ->
-                item.s("term")
-                    .ifBlank { cleanHtml(item.s("name")) }
-                    .takeIf { it.isNotBlank() }
-            }
-            .distinct()
-            .take(8)
+        mapSearchSuggestions(root, ::cleanHtml)
     }.getOrDefault(emptyList())
 }
 
@@ -98,15 +89,7 @@ internal suspend fun BiliApiContext.hotKeywords(): List<String> = withContext(Di
             mapOf("limit" to "10"),
             signed = true,
         )
-        val list = data.optJSONObject("trending")?.optJSONArray("list")
-        val out = ArrayList<String>()
-        if (list != null) {
-            for (i in 0 until list.length()) {
-                val word = list.optJSONObject(i)?.optString("keyword").orEmpty()
-                if (word.isNotBlank()) out.add(word)
-            }
-        }
-        out
+        mapSearchDiscovery(data)
     }.getOrDefault(emptyList())
 
     if (square.isNotEmpty()) return@withContext square
@@ -118,14 +101,7 @@ internal suspend fun BiliApiContext.hotKeywords(): List<String> = withContext(Di
             params = emptyMap(),
             base = "https://s.search.bilibili.com",
         )
-        val array = root.optJSONArray("data") ?: return@cancellableCatching emptyList<String>()
-        val result = ArrayList<String>(array.length())
-        for (i in 0 until array.length()) {
-            val item = array.optJSONObject(i) ?: continue
-            val word = item.optString("keyword").ifBlank { item.optString("name") }
-            if (word.isNotBlank()) result.add(word)
-        }
-        result
+        mapHotwordSearch(root)
     }.getOrDefault(emptyList())
 }
 
@@ -154,23 +130,7 @@ internal suspend fun BiliApiContext.search(
         params,
         signed = true,
     )
-    data.optJSONArray("result").objects().mapNotNull { item ->
-        val bvid = item.s("bvid")
-        if (bvid.isBlank()) return@mapNotNull null
-        VideoItem(
-            bvid = bvid,
-            aid = item.l("aid"),
-            title = cleanHtml(item.s("title")),
-            cover = image(item.s("pic"), 420),
-            ownerName = cleanHtml(item.s("author")),
-            ownerFace = "",
-            ownerMid = item.l("mid"),
-            play = item.s("play").toLongOrNull() ?: 0,
-            danmaku = item.s("danmaku").toLongOrNull() ?: 0,
-            duration = parseDurationText(item.s("duration")),
-            pubdate = item.l("pubdate"),
-        )
-    }
+    mapSearchVideos(data, ::cleanHtml)
 }
 
 /** 搜索用户（综合页 / 用户 Tab）。 */
@@ -187,26 +147,12 @@ internal suspend fun BiliApiContext.searchUsers(keyword: String, page: Int = 1):
             ),
             signed = true,
         )
-        data.optJSONArray("result").objects().mapNotNull { item ->
-            val mid = item.l("mid")
-            if (mid <= 0L) return@mapNotNull null
-            SearchUser(
-                mid = mid,
-                name = cleanHtml(item.s("uname")),
-                face = image(item.s("upic"), 160),
-                sign = cleanHtml(item.s("usign")),
-                fans = item.s("fans").toLongOrNull() ?: 0,
-                videos = item.s("videos").toLongOrNull() ?: 0,
-                level = item.optInt("level", 0),
-            )
-        }
+        mapSearchUsers(data, ::cleanHtml)
     }
 
 internal suspend fun BiliApiContext.hotSearch(): List<String> = withContext(Dispatchers.IO) {
     val data = cancellableCatching {
         dataRequest("/x/web-interface/search/square", mapOf("limit" to "10"))
     }.getOrNull() ?: return@withContext emptyList()
-    data.optJSONObject("trending")?.optJSONArray("list").objects()
-        ?.mapNotNull { it.s("keyword").takeIf(String::isNotBlank) }
-        .orEmpty()
+    mapHotSearch(data)
 }

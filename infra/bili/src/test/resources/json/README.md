@@ -13,3 +13,5 @@
 2026-11-13新增 `playurl-anonymous.json`：无Cookie/无access_key GET `/x/player/playurl?bvid=BV1orW46aEba&cid=43443290870&qn=127&fnval=4048&fnver=0&fourk=1`，使用公开浏览器UA/Referer。原始响应code=0，6个视频表示（id32/16各三种编码）、3个音频表示，timelength=98452；accept_quality包含64不代表响应实际提供64。原样保留匿名响应，播放URL签名自然过期，测试从不访问URL。测试中的空字段、snake_case、durl与非法accept元素属于显式构造的边界变体，不冒充额外真实响应。
 
 2026-11-13新增 `comments-anonymous.json`：无Cookie GET `/x/v2/reply?type=1&oid=117584544403664&pn=1&ps=20&sort=2`，公开浏览器UA/Referer，原始响应code=0、67,942字节，3条根评论及一级preview。page.count/acount当次均为253；本次迁移保留旧page>=count语义，不把字段重新解释为页数。CommentMapperTest中置顶重复项、第四preview、空字段/表情/@人是显式边界变体，不冒充额外真实返回；固定样本离线运行。
+
+2026-11-13新增 `search-suggest-anonymous.json`：无Cookie GET `https://s.search.bilibili.com/main/suggest`，term/highlight=灭霸、main_ver=v1；原始公开响应1,970字节、10条tag，mapper按原规则取8项。搜索其他分支与媒体库/关系字段使用显式构造回归，不冒充真实登录数据，未触发收藏/历史修改或关注操作。

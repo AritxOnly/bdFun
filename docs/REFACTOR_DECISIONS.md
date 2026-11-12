@@ -573,3 +573,11 @@ P1-04/P1-06将原递归parseComment移入mapper（除去context接收者外逐�
 P1-04/P1-08将feed分桶/游标字段、会话筛选/预览、私信消息、系统/粉丝及未读字段迁入mapper。API仍按原顺序请求、补资料/封面、调用原游标领域策略和执行ack。会话nextTs/more从未筛选的allSessions取得；followingOnly仍只认is_follow==1，不借旧注释扩展筛选。私信仍读取一次当时mid，撤回优先、空type1保留、未知类型raw回退、sequence排序及大整数/时间回退保持。
 
 9个发送/已读/管理操作体和系统首屏ack/continuation尾部逐字一致；parseMessageSession/previewOfMessage仅去掉context接收者。消息形状测试明确为原字段构造回归，未采集或伪造真实登录响应，未进行真实账号消息写入。未改富化并发上限/缓存或onEnriched兼容参数。
+
+### 2026-11-13 搜索、媒体库与关系响应
+
+P1-04/P1-09将搜索补全/热词/视频/用户与历史/稍后看/收藏夹/收藏视频/关系字段归入mapper；API保留原HTTP、HTML解码器、热词回退、资料补全与统计缓存时序。搜索字符串数字不换成人类计数解析；补全仍term优先、去重8项。
+
+历史保留cursor布尔/数字及顶层has_more、30映射条目兜底和缺cursor的viewAt回退；收藏按原始40个medias兜底，显式has_more覆盖；数字收藏夹id不新过滤、字符串id不新增支持。关系ids仍有效mid去重，个人relation字段读取保持资料查询后的事件时登录getter；分页按原始raw大小，普通followings不新增过滤。8个账号写/心跳方法体和搜索请求/筛选前缀逐字一致。
+
+P1-10云端续播原跨cid隔离与秒/毫秒阈值归core/domain，API保留aid/cid/登录守卫和请求。规则/阈值不改，4项纯JVM边界覆盖同P/跨P、零负数、两倍时长含边界及未知时长。

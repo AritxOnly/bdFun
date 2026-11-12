@@ -719,3 +719,9 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - `/tmp/bdfun-message-response-mappers.log`首轮19s通过checkLayering、7项MessageResponseMapperTest和3项既有MessageFeedMapperTest及app debug；1016生产文件/10645 PSI节点/0违规，10项测试0失败/错误/跳过。覆盖私信保留/排序/撤回/时间/ID/共享视频、会话群信息/原筛选/未筛选游标、预览类型、like双桶去重、系统/粉丝回退和未读类别。测试为原实现字段形状的显式构造回归，非真实登录账号响应。
 - 9个发送/ack/管理方法体与系统首屏确认/continuation尾部逐字一致；会话/预览读取仅换接收者/包。实际请求参数、mid读取时机、富化/ack及领域游标调用顺序保持。发送/置顶/免打扰/删除/真实已读未执行。
 - 按用户要求不重复起播、消息装机或全套；离线mapper通过不冒充消息收发/账号切换装机验收。其余映射职责清单见RESPONSE_MAPPING_AUDIT.md，最终必要行为、release和交付继续。
+
+### 2026-11-13 搜索/媒体库映射与云续播策略
+
+- `/tmp/bdfun-search-library-mappers.log`首轮28s通过checkLayering、core/domain CloudResumePolicyTest4项、infra SearchResponseMapperTest3/LibraryResponseMapperTest4及app debug，共11项/0失败/错误/跳过；1021生产文件/10669 PSI节点/0违规。没有重复播放器装机或全套。
+- 公开无Cookie搜索补全真实样本1,970字节、10tag，固定测试按原规则取8；字段构造分支明确为回归变体，不冒充登录响应。测试覆盖HTML边界/标识过滤/字符串计数、热词来源与重复、历史游标/统计/30项、收藏id形态/字段/原始40项、关系未筛选分页与事件时登录读取，以及原云续播阈值。
+- 8个收藏/稍后看/历史删除/关注/心跳操作体及搜索请求筛选前缀逐字一致，未执行账号写操作。实际热词回退/资料补全/缓存并发/请求次序保持。11项通过不代替真实账号批量操作/云端进度装机验收；最终必要回归、其余映射、release与交付继续。

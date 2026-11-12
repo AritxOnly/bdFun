@@ -516,3 +516,7 @@ VideoActivityPageStateHolder、VideoActivityHostActions中立契约、入口解�
 ### 2026-11-13 消息响应映射边界
 
 消息feed分桶/游标、会话/预览、私信、系统/新粉丝及未读字段读取进入infra:bili/mapper，API保留原请求、资料补全、ack和错误信封。followingOnly仍只认is_follow==1，nextTs必须来自未筛选的allSessions；私信仍按sequence排序、保留空白type1、撤回优先/未知type原文fallback，游标继续原领域策略。系统首屏ack和所有发送/已读/置顶/免打扰操作不得在mapper中执行或改时序。构造字段形状测试须标明不是实际登录响应。
+
+### 2026-11-13 搜索与媒体库响应边界
+
+搜索字段映射必须显式接入原HTML解码器，保留补全term优先/去重8项、热词请求回退顺序、视频/用户有效标识过滤及原字符串数字解析。媒体库mapper保留HistoryPage的cursor三种has_more形态与30项兜底、收藏视频按原始medias数量40项兜底、Number收藏夹id不额外过滤、关注列表不额外剔除0。关系查询ids来自原始有效mid去重，资料补全/已登录getter/请求顺序保持。云续播秒/毫秒判定原规则归core/domain并补纯JVM边界测试，不改阈值或跨P行为。
