@@ -63,7 +63,8 @@ internal fun VideoScreenLayout(
             presentation, events, inlineLayout, viewport, pageUi, actions, metadataController, scope,
         )
 
-        VideoCollapseOverlay(fullscreen, viewport.collapseProgress, playerBlockHeight, statusTop) {
+        VideoCollapseOverlay(fullscreen, viewport.collapseProgress, playerBlockHeight, statusTop,
+            com.aritxonly.bdfun.BrandPink, TeakIcon.PlayerPlay) {
             collapseState.restore()
             if (!playing) background.togglePlayPause()
         }

@@ -619,3 +619,10 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - `/tmp/bdfun-video-tail.log`：checkLayering、独立视频模块和app debug通过，34s；965文件/10459 PSI节点/0违规。9文件全部数值及中文文案字面量序列一致；VideoCollectionState与原HEAD逐字一致（仅core模型类型路径变化）。没有改变纯逻辑或追加重复单测。
 - `/tmp/bdfun-collection-runtime.log`首轮通过：安装当前debug/真实起播→详情滚动→合集展开后原单集标题渲染→收起恢复尾部→crash空/force-stop；没有点击单集、更改设置或账号写操作。截图`/tmp/bdfun-collection-open.png`已查看，原封面、时长、元信息和198dp局部列表保留。此用例没有覆盖选集/分P切换或完整生命周期。
 - 视频主布局/原生装配边界仍继续迁移，不把正文与尾部迁入模块等同整条视频链路或全量重构完成。最终release与交付仍待最终源码后执行。
+
+### 2026-11-13 视频主布局与tab
+
+- `/tmp/bdfun-video-layout.log`：checkLayering、独立视频/app debug及原4项VideoPaneLayoutTest通过，28s。`/tmp/bdfun-layout-runtime.log`：当前debug真实起播→原评论tab/真实评论数量头→返回简介/原标题/四个原tab和玻璃动作文字→crash空，结束force-stop；没有发送内容或改设置。`/tmp/bdfun-layout-comment.png`及`/tmp/bdfun-layout-return.png`已查看。该装机证据覆盖pager/tab源码，不声称旋转/PiP已回归。
+- 随后视口/收起遮罩与瞬时UiState进入同一模块；首次guard拒绝把含Compose Dp的视口测试放入application目录，迁入正确presentation目录后`/tmp/bdfun-video-layout-final.log`通过，36s：严格架构/独立模块/app debug、原4项分栏+3项视口共7项，0失败/错误。原测试字节一致，无新增镜像测试；CI定向列表增加这7项。
+- 主pager/视口/UiState除import/可见性外体逐字一致；收起遮罩除原强调色/资源显式传入外逐字一致；blockTouches只规范CRLF，其余函数体逐字一致。966生产文件/10465 PSI节点/0违规，阈值与扫描范围未变。
+- 前批e7158f7的[CI 43290018607](https://github.com/AritxOnly/bdFun/actions/runs/43290018607)成功，包含真实生产依赖负例；此前ac0147b的CI 43285143184也成功。本批新提交另行触发，不借用前批成功覆盖当前；剩余原生播放装配与完整验收/最终release继续。

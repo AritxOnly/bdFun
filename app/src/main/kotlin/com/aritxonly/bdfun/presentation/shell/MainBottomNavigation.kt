@@ -12,7 +12,7 @@ import com.aritxonly.teak.common.navigation.TeakFloatingTabItem
 import com.aritxonly.teak.common.theme.TeakUiStyle
 import com.aritxonly.bdfun.feature.settings.presentation.SettingsBindings
 import com.aritxonly.bdfun.core.model.video.VideoItem
-import com.aritxonly.bdfun.ui.blockTouches
+import com.aritxonly.teak.common.interaction.blockTouches
 
 @Composable
 internal fun androidx.compose.foundation.layout.BoxScope.MainBottomNavigation(

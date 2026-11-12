@@ -22,12 +22,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aritxonly.bdfun.BrandPink
 
 @Composable
-internal fun androidx.compose.foundation.layout.BoxScope.VideoCollapseOverlay(
+fun androidx.compose.foundation.layout.BoxScope.VideoCollapseOverlay(
     fullscreen: Boolean, collapseProgress: Float, playerBlockHeight: Dp, statusTop: Dp,
-    onRestorePlay: () -> Unit,
+    accentColor: Color, playIcon: Int, onRestorePlay: () -> Unit,
 ) {
         // 随着收起进度给整个播放器盖一层粉色遮罩；收满时完全不透明。
         // 遮罩高度就是播放器块高度，所以状态栏那一条也会一起变粉。
@@ -37,7 +36,7 @@ internal fun androidx.compose.foundation.layout.BoxScope.VideoCollapseOverlay(
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .height(playerBlockHeight)
-                    .background(BrandPink.copy(alpha = collapseProgress)),
+                    .background(accentColor.copy(alpha = collapseProgress)),
             )
         }
 
@@ -62,7 +61,7 @@ internal fun androidx.compose.foundation.layout.BoxScope.VideoCollapseOverlay(
                     contentAlignment = Alignment.Center,
                 ) {
                     // 和播放器控件同一个播放图标（TeakIcon.PlayerPlay），无底色、纯白。
-                    PlayGlyph(com.aritxonly.bdfun.ui.TeakIcon.PlayerPlay, tint = Color.White, size = 16.dp)
+                    PlayGlyph(playIcon, tint = Color.White, size = 16.dp)
                 }
                 Spacer(Modifier.width(7.dp))
                 Text(

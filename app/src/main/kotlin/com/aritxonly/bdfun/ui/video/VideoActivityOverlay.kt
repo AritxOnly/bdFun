@@ -20,7 +20,7 @@ import com.aritxonly.bdfun.ui.CommentReplyBar
 import com.aritxonly.bdfun.ui.DanmakuInputBar
 import com.aritxonly.bdfun.ui.DanmakuSettingsPanel
 import com.aritxonly.bdfun.ui.rememberSpringFloat
-import com.aritxonly.bdfun.ui.blockTouches
+import com.aritxonly.teak.common.interaction.blockTouches
 import com.aritxonly.bdfun.ui.rememberManualProgress
 
 @Composable

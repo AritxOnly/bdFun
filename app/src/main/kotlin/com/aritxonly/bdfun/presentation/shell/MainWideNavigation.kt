@@ -18,7 +18,7 @@ import com.aritxonly.teak.common.navigation.TeakFloatingTabBar
 import com.aritxonly.teak.common.navigation.TeakFloatingTabBarDefaults
 import com.aritxonly.teak.common.navigation.TeakFloatingTabItem
 import com.aritxonly.teak.common.navigation.TeakFloatingTabLayout
-import com.aritxonly.bdfun.ui.blockTouches
+import com.aritxonly.teak.common.interaction.blockTouches
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 
 @Composable

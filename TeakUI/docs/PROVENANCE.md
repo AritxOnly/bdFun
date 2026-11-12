@@ -112,3 +112,7 @@
 ### ResourceGlyph
 
 `common/icons/ResourceGlyph.kt`来自bdFun原`ui/TeakIcons.kt`的通用资源图片绘制，函数体、16dp默认尺寸、着色与contentDescription语义原样；只接收资源ID，不迁入业务图标目录或导航。
+
+### blockTouches
+
+`common/interaction/BlockTouches.kt`来自bdFun原`ui/ManualAnimation.kt`，除换行规范外函数体逐字保留。用于透明覆盖层阻挡触摸，不涉及视频、路由或业务状态。原页面调用同一实现。

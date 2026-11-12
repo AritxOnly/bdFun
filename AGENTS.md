@@ -460,3 +460,7 @@ app/ui/player/fullscreen原三份剩余展示已迁入feature:video。听视频�
 ### 2026-11-13 详情尾部展示模块归属
 
 分P/合集/相关推荐列表骨架进入feature:video；VideoDetailTailSlots提供原合集图片与跨空间/详情共享的视频行。合集198dp局部视口保留独立scroll/overscroll及原剩余速度拦截，它与宽屏重复外层不是同类问题，不并入整页滚动。
+
+### 2026-11-13 视频主布局模块归属
+
+详情pager、tab展示、分栏/视口/收起遮罩及瞬时UiState进入feature:video；app仅向tab传入原设置值和写入回调、原玻璃chip，保持TeakPagerTabs与原宽度/位置。分栏及视口既有7项测试随实现进入presentation测试，含Compose Dp的几何规则不属于application层。共享blockTouches原样进入TeakUI，所有旧调用改显式import。

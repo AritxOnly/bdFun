@@ -13,11 +13,3 @@ internal class VideoActivityPageStateHolder(initialAutoNext: Int) {
 }
 
 internal data class VideoActivityScene(val video: VideoItem, val commentRequest: Triple<Long, Long, Long>)
-
-internal data class VideoActivityLayout(
-    val paneLayout: VideoPaneLayout, val statusBarTop: Dp,
-    val fullscreen: Boolean, val pictureInPicture: Boolean,
-    val overlayAlpha: Float, val playerTopInset: Dp,
-) {
-    val splitPanes get() = paneLayout.isSplit && !fullscreen
-}

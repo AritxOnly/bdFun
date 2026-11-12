@@ -483,3 +483,9 @@ P5-03继续迁移14个既有展示文件，包括作者/统计/简介/互动、�
 ### 2026-11-13 详情尾部与合集迁移
 
 P5-03继续将原9个分P/合集/详情尾部文件迁入视频模块。VideoDetailTailSlots只接原封面策略与共享RelatedRow，不新增布局包装；RelatedRow在空间3种列表也使用，暂由app共享展示提供，不能让空间依赖视频feature。合集固定198dp内部列表、40ms展开后定位延迟、62/99/31dp估算与速度拦截体均保持。它是局部滚动视口，不能按宽屏重复容器问题一并删除。
+
+### 2026-11-13 视频主pager/tab及几何展示边界
+
+P5-03将主pager、VideoPaneLayout/ActivityLayout、Screen契约、视口/收起遮罩及瞬时UiState迁入视频模块。pager在全屏/PiP仍只隐藏不卸载，保留原尺寸冻结、beyondViewportPageCount=1、overscroll=null、collapseConnection与列表key/padding。tab仍为原TeakPagerTabs，原chip通过slot调用；app拥有原设置读写和scope启动切页动画。未更改原48/60dp tab宽度、52dp栏高或playerBottomPx位移。收起遮罩仅显式传入原BrandPink及PlayerPlay资源，绘制不变。
+
+跨多业务的blockTouches原样下沉现有TeakUI，不复制到视频模块；7项既有几何测试原样迁入presentation测试目录，不因为Dp依赖放宽application限制。

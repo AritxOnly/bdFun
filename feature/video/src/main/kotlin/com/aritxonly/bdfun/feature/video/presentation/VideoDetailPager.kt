@@ -1,6 +1,7 @@
 package com.aritxonly.bdfun.ui
 
 import com.aritxonly.teak.common.chrome.TrackTeakPageScroll
+import com.aritxonly.teak.common.interaction.blockTouches
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -29,7 +30,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
-internal data class VideoDetailPaneState(
+data class VideoDetailPaneState(
     val fullscreen: Boolean, val pictureInPicture: Boolean, val splitPanes: Boolean,
     val paneLayout: VideoPaneLayout, val playerBlockHeight: androidx.compose.ui.unit.Dp,
     val statusBarTop: androidx.compose.ui.unit.Dp,
@@ -38,7 +39,7 @@ private class PortraitPaneStateHolder { var size by mutableStateOf(androidx.comp
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-internal fun androidx.compose.foundation.layout.BoxScope.VideoDetailPager(
+fun androidx.compose.foundation.layout.BoxScope.VideoDetailPager(
     state: VideoDetailPaneState, pager: androidx.compose.foundation.pager.PagerState,
     collapseConnection: NestedScrollConnection, metadata: @Composable () -> Unit,
     tail: androidx.compose.foundation.lazy.LazyListScope.() -> Unit,

@@ -1,10 +1,10 @@
 package com.aritxonly.bdfun.ui
 
 import androidx.compose.ui.unit.Dp
-import com.aritxonly.bdfun.data.VideoDetail
-import com.aritxonly.bdfun.data.VideoItem
+import com.aritxonly.bdfun.core.model.video.VideoDetail
+import com.aritxonly.bdfun.core.model.video.VideoItem
 
-internal data class VideoScreenRequest(
+data class VideoScreenRequest(
     val video: VideoItem,
     val defaultQuality: Int = 80,
     val openedFromVideoPage: Boolean = false,
@@ -13,7 +13,7 @@ internal data class VideoScreenRequest(
     val initialSeekMs: Long = 0L,
 )
 
-internal data class VideoScreenPresentation(
+data class VideoScreenPresentation(
     val paneLayout: VideoPaneLayout,
     val statusBarTop: Dp,
     val pictureInPicture: Boolean = false,
@@ -21,7 +21,7 @@ internal data class VideoScreenPresentation(
     val autoRotate: Boolean = true,
 )
 
-internal class VideoScreenEvents(
+class VideoScreenEvents(
     val onOpenComments: (VideoDetail) -> Unit = {},
     val onBack: () -> Unit,
 )
