@@ -1,0 +1,36 @@
+package com.aritxonly.bdfun.ui
+
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import com.aritxonly.bdfun.BrandPink
+import com.aritxonly.bdfun.feature.video.presentation.VideoPlaybackPlatform
+
+/** 平台动作/资源按原页面装配；各getter与slot保留原条件分支中的读取时机。 */
+@Composable
+internal fun rememberPlayerRenderPorts(
+    playback: VideoPlaybackPlatform, media: VideoMediaInput, presentation: VideoPlayerPresentation,
+    actions: VideoPlayerActions, ui: VideoPlayerUiStateHolder,
+): PlayerRenderPorts {
+    val context = LocalContext.current
+    val page = LocalVideoPageState.current
+    val settings = page.settings
+    val fsActions = VideoFullscreenActionBindings(context, playback, presentation.fullscreenInfo, actions, ui, page).create()
+    return PlayerRenderPorts(
+        page = page,
+        gestures = PlayerGestureOptions({ settings.gestureBrightnessVolume }, { settings.boostDefaultSpeed },
+            { settings.gestureCenterFullscreen }, { settings.gestureBoostSwipe }),
+        fullscreenActions = fsActions,
+        picture = VideoPictureSettings(settings.progressBarMode, settings.hotDanmakuEnabled, BrandPink),
+        surface = rememberPlayerSurfaceSlots(),
+        buffering = { modifier -> TvBuffering(modifier = modifier, tvSize = 26.4.dp) },
+        cover = { cover, modifier -> InlinePlayerCover(cover, modifier) },
+        inlineAppearance = ::inlinePlayerAppearance,
+        fullscreenVisuals = {
+            val chrome = rememberFullscreenChromeAssembly()
+            PlayerFullscreenVisuals(chrome.appearance, chrome.slots, settings.danmakuOn, settings.backgroundPlay)
+        },
+        danmakuSender = { page.danmakuSender },
+        inlineMore = { PlayerInlineMore(playback, media, presentation, actions, fsActions, ui) },
+    )
+}

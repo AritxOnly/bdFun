@@ -651,3 +651,10 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - Observer原保存/移除监听/交接/释放顺序保持；Progress原轮询/节流/媒体投影键保持；MediaBridge原session创建、队列更新与bgToken绑定保持；Continuation原循环/连播/定时暂停分支保持。播放来源/重试规则只抽纯函数，6项测试包含空串/null、raw优先级、两标记优先fallback及错误分支。
 - `/tmp/bdfun-progress-resume-module-runtime.log`最终通过：当前debug会话暂停/两次系统快进→PAUSED 20,457ms→正常Back退出后原CSV记录20,457/98,416ms→force-stop冷进程重启→同视频恢复PAUSED 20,842ms，差385ms；crash空，最后逐字恢复settings.xml/playback_progress.xml及各.bak原字节或不存在状态，并force-stop。截图`/tmp/bdfun-progress-resume-module.png`已查看。未点赞/关注/发送等交互操作，正常播放历史上报仍沿用原实现。
 - 首次同Activity重复原始链接的重入未建立会话，崩溃缓冲为空；查main 4c4e03b MainActivity.kt:87-90确认原lastHandledLink去重，未改产品或降低播放/进度断言。最终改为冷进程重入，验证真实磁盘读取而非内存缓存。没有重跑上一批旋转/PiP全套；PiP展开返回、后台交接/服务重建及最终release/验收仍待完成。
+
+### 2026-11-13 根布局、手势与返回层级
+
+- `/tmp/bdfun-player-root-module.log`最终31s通过严格checkLayering、独立feature/app debug及4项既有PlayerGestureSessionTest（0失败/错误）；首轮仅缺原BackHandler所需Activity Compose，声明原catalog同版本后通过。手势会话与测试文件逐字一致；7个手势/覆盖/绑定文件的数值/中文文案字面量序列一致。删3个确认无调用的旧控件，没有新增镜像单测。
+- 首次装机初始起播失败，实际crash明确NoSuchMethodError PlayerLayoutKt.PlayerLayout，不能算驱动成功；确认同包同文件名冲突后将模块文件改名VideoPlayerLayout.kt。`/tmp/bdfun-player-root-facade.log`26s通过重新编译和架构，977文件/10512 PSI节点/0违规。未清全局缓存或重复全量测试。
+- `/tmp/bdfun-player-root-runtime.log`最终源码通过：真实起播/暂停稳定采集→WM竖屏/原手势点击显示控件→独占全屏→更多→第一次Back只关面板、原全屏chrome仍在→第二次Back简介→WM竖屏tab位置仍在作者之上（tab [97,787,168,850]，author [173,915,289,978]）→crash空。设置、.bak与WM/系统方向逐字/原值恢复，结束force-stop。没有点选面板设置或发送内容。
+- 截图`/tmp/bdfun-lifecycle-root-module-more.png`已查看，原面板/图标/布局保留；本轮不重复上一批进度/后台/PiP全套，不声称音量/亮度所有原生手势或PiP返回已验证。平台动作/共用弹幕与更多接线及最终整体验收继续。

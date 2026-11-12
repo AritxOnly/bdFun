@@ -23,5 +23,6 @@ dependencies {
     api(libs.coroutines.core)
     implementation(libs.coroutines.android)
     implementation(libs.androidx.core)
+    implementation(libs.androidx.activity.compose)
     testImplementation(libs.junit)
 }

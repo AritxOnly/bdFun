@@ -9,7 +9,7 @@ import androidx.compose.runtime.remember
 import com.aritxonly.bdfun.core.model.video.SponsorSegment
 import com.aritxonly.bdfun.feature.video.application.PlaybackTrackingStateHolder
 
-internal data class PlayerSponsorPresentation(val active: SponsorSegment?, val dismiss: (SponsorSegment) -> Unit)
+data class PlayerSponsorPresentation(val active: SponsorSegment?, val dismiss: (SponsorSegment) -> Unit)
 
 private class PlayerSponsorUiStateHolder {
     val dismissed = mutableStateOf<Set<String>>(emptySet())
@@ -17,14 +17,13 @@ private class PlayerSponsorUiStateHolder {
 }
 
 @Composable
-internal fun rememberPlayerSponsor(
-    bvid: String, tracking: PlaybackTrackingStateHolder, observed: PlayerObservedStateHolder,
+fun rememberPlayerSponsor(
+    bvid: String, tracking: PlaybackTrackingStateHolder, observed: PlayerObservedStateHolder, sponsorSkipEnabled: () -> Boolean,
 ): PlayerSponsorPresentation {
-    val settings = LocalVideoPageState.current.settings
     val state by tracking.state.collectAsState()
     val ui = remember(bvid) { PlayerSponsorUiStateHolder() }
     val dismissed by ui.dismissed
-    val enabled = settings.sponsorSkipEnabled
+    val enabled = sponsorSkipEnabled()
     LaunchedEffect(bvid, enabled) { tracking.loadSegments(bvid, enabled) }
     val positionMs by observed.positionMs
     val active = tracking.activeSegment(state, bvid, positionMs, dismissed)

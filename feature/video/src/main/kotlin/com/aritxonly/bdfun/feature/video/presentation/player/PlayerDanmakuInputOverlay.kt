@@ -12,13 +12,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
-import com.aritxonly.bdfun.data.DanmakuItem
+import com.aritxonly.bdfun.core.model.video.DanmakuItem
 
 @Composable
 internal fun BoxScope.PlayerDanmakuInputOverlay(
     fullscreen: Boolean, danmaku: List<DanmakuItem>, ui: VideoPlayerUiStateHolder,
+    sender: () -> (suspend (String, Int, Int, Int) -> Boolean)?,
 ) {
-    val page = LocalVideoPageState.current
     var fsInputOpen by ui.fsInputOpen
     // 全屏弹幕输入：点输入框后从底部弹出，和竖屏共用同一套发送器
     if (fullscreen && fsInputOpen) {
@@ -41,7 +41,7 @@ internal fun BoxScope.PlayerDanmakuInputOverlay(
         FullscreenDanmakuInput(
             onDismiss = { fsInputOpen = false },
             items = danmaku,
-            sender = { page.danmakuSender },
+            sender = sender,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth(),

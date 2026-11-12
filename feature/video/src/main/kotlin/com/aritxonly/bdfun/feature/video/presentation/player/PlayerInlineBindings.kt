@@ -18,7 +18,7 @@ internal fun PlayerInlineControls(
     presentation: VideoPlayerPresentation,
     actions: VideoPlayerActions,
     fsActions: FullscreenActions,
-    ui: VideoPlayerUiStateHolder,
+    ui: VideoPlayerUiStateHolder, ports: PlayerRenderPorts,
 ) {
     val playing by observed.playing
     val positionMs by observed.positionMs
@@ -56,7 +56,7 @@ internal fun PlayerInlineControls(
                     immersiveStatusBar = immersiveStatusBar,
                 ),
                 actions = inlineChromeActions(playback, observed, actions, fsActions, ui),
-                appearance = inlinePlayerAppearance(),
+                appearance = ports.inlineAppearance(),
             )
         }
     }
@@ -68,7 +68,7 @@ internal fun PlayerInlineAudio(
     playback: com.aritxonly.bdfun.core.application.PlaybackController,
     observed: PlayerObservedStateHolder,
     presentation: VideoPlayerPresentation,
-    ui: VideoPlayerUiStateHolder,
+    ui: VideoPlayerUiStateHolder, ports: PlayerRenderPorts,
 ) {
     val playing by observed.playing
     val positionMs by observed.positionMs
@@ -80,8 +80,8 @@ internal fun PlayerInlineAudio(
     // 半屏听视频：不进入全屏也能用，播放器区域换成音频模式。
     if (!fullscreen && fsAudioOnly) {
         HalfScreenAudioMode(
-            appearance = inlinePlayerAppearance(),
-            coverImage = { cover, modifier -> InlinePlayerCover(cover, modifier) },
+            appearance = ports.inlineAppearance(),
+            coverImage = ports.cover,
             title = fullscreenInfo.title,
             author = fullscreenInfo.author,
             cover = fullscreenInfo.cover,

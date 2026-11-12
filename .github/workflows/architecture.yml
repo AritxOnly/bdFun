@@ -40,4 +40,5 @@ jobs:
           --tests '*FullscreenDanmakuComposerStateTest'
           --tests '*VideoPaneLayoutTest'
           --tests '*VideoPlayerViewportTest'
+          --tests '*PlayerGestureSessionTest'
           --no-parallel --max-workers=2

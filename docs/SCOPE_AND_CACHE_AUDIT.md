@@ -58,3 +58,7 @@ PlayerPageHost由原VideoPagePresentationState直接实现，四项控制状态�
 ### 2026-11-13 挂接协议与退出进度
 
 ForegroundPlaybackAttachment仅抽出原attach/detach/fullscreen与Actions契约，旧token身份比较和状态变更体一致。PlayerExitHooks在页面组合remember(context,page)，adopt捕获当前Context并转发原后台实现；没有把Activity放入核心层或进程缓存。进度aid/cid/弹幕位置继续读写原页面投影，媒体会话仍按原title/author键创建释放，旧session释放只清理自己。正常退出保存后force-stop再重入已验证持久化读取，不代表未保存时杀进程、服务重建或所有退出组合都已验证。
+
+### 2026-11-13 根绘制与手势会话
+
+PlayerRenderPorts为当前组合装配，不加入AppContainer/静态缓存。手势callback及开关继续rememberUpdatedState，pointerInput(Unit)、PlayerTapStateHolder与coroutineScope仍属于原Modifier组合；识别会话与4项测试体逐字保留。发送器以getter取最新page.danmakuSender，图片/全屏资源仍在原条件分支调用槽，未提前冻结为初始值。

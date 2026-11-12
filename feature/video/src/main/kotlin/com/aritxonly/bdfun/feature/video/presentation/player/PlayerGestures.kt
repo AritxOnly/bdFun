@@ -44,8 +44,8 @@ internal data class GestureSwipeCallbacks(
 )
 
 @Composable
-internal fun Modifier.playerGestures(currentCallbacks: GestureCallbacks): Modifier {
-    val settings by rememberUpdatedState(LocalVideoPageState.current.settings)
+internal fun Modifier.playerGestures(currentCallbacks: GestureCallbacks, verticalGesturesEnabled: () -> Boolean): Modifier {
+    val setting by rememberUpdatedState(verticalGesturesEnabled)
     val taps = remember { PlayerTapStateHolder() }
     val scope = rememberCoroutineScope()
     // 保持 pointerInput(Unit) 的识别过程，事件触发时读取当前回调。
@@ -53,7 +53,7 @@ internal fun Modifier.playerGestures(currentCallbacks: GestureCallbacks): Modifi
     return pointerInput(Unit) {
         awaitEachGesture {
             detectPlayerGesture(awaitFirstDown(requireUnconsumed = false), scope, taps,
-                { settings.gestureBrightnessVolume }) { callbacks }
+                { setting() }) { callbacks }
         }
     }
 }

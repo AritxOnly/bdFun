@@ -19,7 +19,7 @@ internal fun playerInteractionModifier(
     playback: PlaybackController,
     ui: VideoPlayerUiStateHolder,
     fullscreen: Boolean,
-    page: VideoPagePresentationState,
+    page: PlayerPageHost, options: PlayerGestureOptions,
     onToggleFullscreen: () -> Unit,
 ): Modifier {
     val context = LocalContext.current
@@ -33,7 +33,8 @@ internal fun playerInteractionModifier(
     val locked by ui.fsLocked
     return if (panel == FullscreenPanel.None && !input && !audioOnly && !locked) {
         Modifier.playerGestures(
-            VideoPlayerGestureBindings(context, audio, playback, ui, page, controlTopPx, controlBottomPx, onToggleFullscreen).create(),
+            VideoPlayerGestureBindings(context, audio, playback, ui, page, options, controlTopPx, controlBottomPx, onToggleFullscreen).create(),
+            options.verticalGesturesEnabled,
         )
     } else {
         Modifier
@@ -45,14 +46,13 @@ private class VideoPlayerGestureBindings(
     private val audio: AudioManager,
     private val playback: PlaybackController,
     private val ui: VideoPlayerUiStateHolder,
-    private val page: VideoPagePresentationState,
+    private val page: PlayerPageHost, private val options: PlayerGestureOptions,
     private val controlTopPx: Float,
     private val controlBottomPx: Float,
     private val onToggleFullscreen: () -> Unit,
 ) {
-    private val settings get() = page.settings
     private val activity = context as? Activity
-    private val PlayerUiState get() = page.playerUi
+    private val PlayerUiState get() = page
     private val playing get() = playback.state.value.playing
     private var controlsVisible by ui.controlsVisible
     private var boostSpeed by ui.boostSpeed
@@ -80,7 +80,7 @@ private class VideoPlayerGestureBindings(
 
     private val onLongPressStart: () -> Unit = {
         if (playing) {
-            boostSpeed = settings.boostDefaultSpeed
+            boostSpeed = options.boostDefaultSpeed()
             // 先让播放器收到倍速，再触发界面状态，减少“先震动、后加速”的感觉。
             playback.setSpeed(boostSpeed)
             boosting = true
@@ -166,14 +166,14 @@ private class VideoPlayerGestureBindings(
                 position.y > height - controlBottomPx)
     }
 
-    private val centerSwipeEnabled: Boolean = settings.gestureCenterFullscreen
+    private val centerSwipeEnabled: Boolean = options.centerSwipeEnabled()
 
     private val onCenterSwipe: () -> Unit = { onToggleFullscreen() }
 
-    private val boostSwipeEnabled: Boolean = settings.gestureBoostSwipe
+    private val boostSwipeEnabled: Boolean = options.boostSwipeEnabled()
 
     private val onBoostSwipe: (Float) -> Unit = { fraction ->
-        val base = settings.boostDefaultSpeed
+        val base = options.boostDefaultSpeed()
         val next = (base + fraction * 6f).coerceIn(1f, 5f)
         boostSpeed = next
         playback.setSpeed(next)

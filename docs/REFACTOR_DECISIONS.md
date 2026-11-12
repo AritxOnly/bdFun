@@ -511,3 +511,11 @@ P5-03将原4个MediaBridge/Observer/Progress/Continuation文件迁入视频模�
 来源选择和错误恢复的原业务分支抽至core:domain，保留raw视频/音轨先试，再fallback，最后报错；rawFallback单独存在不会触发第一步。空串主URL仍与null不同，不在搬迁时顺手过滤。6项纯测试覆盖这些实际边界，UI只更新原标记和原Toast。
 
 main 4c4e03b MainActivity.kt:87-90在同一Activity内去重相同原始链接文本；迁移后IncomingVideoLinkStateHolder保留同样规则。进度重入驱动不能将重复Intent被去重当作播放器恢复失败；以正常退出保存后冷进程重启验证持久化路径，不修改main导航行为。
+
+### 2026-11-13 根绘制与手势模块归属
+
+P5-03将原手势会话/识别/绑定、根布局、全屏/内联/弹幕输入覆盖与赞助展示8个文件迁入视频模块。app PlayerLayout只装配原native动作、资源/封面、共享弹幕设置和更多动作；模块拥有原Box/指针/BackHandler树。PlayerRenderPorts的getter/Composable槽保持设置、发送器和资源的原读点，不增加测量包装或重写控件。
+
+PlayerPanelControls/PlayerSeekBar/PlayerSeekBarUiState全仓仅有声明及内部互相引用，没有生产/测试调用，删除这3个旧文件；活跃FullScreenSeekBar、弹幕设置slider未变。原4项PlayerGestureSessionTest随实现原样进入模块presentation测试，CI定向视频测试为51项。为原BackHandler显式声明app已用的同版本Activity Compose；让app代持BackHandler会移动原返回注册顺序，故保留模块内原位置，不换导航库。
+
+首轮装机发现app装配和模块根实现都名为PlayerLayout.kt/同package，生成相同PlayerLayoutKt，运行时报NoSuchMethodError。模块文件改名VideoPlayerLayout.kt消除JVM文件类冲突；一次清点app/home/video同package同名源文件后无剩余潜在冲突。不通过改变包名、留旧副本或放宽签名绕过。

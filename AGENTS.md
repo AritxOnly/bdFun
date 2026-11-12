@@ -476,3 +476,7 @@ app/ui/player/fullscreen原三份剩余展示已迁入feature:video。听视频�
 ### 2026-11-13 媒体会话/退出/进度端口
 
 前台挂接协议ForegroundPlaybackAttachment进入core:application，BackgroundPlaybackStateHolder仍实现原owner/token动作，禁止把具体app类型引回feature。媒体会话、进度轮询、连播/定时关闭与退出观察器归feature:video；退出Context由app的PlayerExitHooks捕获，设置仍在事件读取。播放来源选择/重试次序归core:domain的PlaybackSourcePolicy，保留空串与null、rawFallback不能单独触发原地址重试等原边界。
+
+### 2026-11-13 播放器根绘制与Kotlin文件类
+
+VideoPlayerLayout、手势识别/绑定、全屏/内联/输入覆盖与赞助展示归feature:video，app的PlayerLayout仅装配PlayerRenderPorts；getter/Composable槽保持原读点与条件分支。不得在不同物理模块里保留同package、同名且含顶层函数的Kotlin文件：它们会生成同名FooKt，可能编译通过但装机NoSuchMethodError。本批模块文件使用VideoPlayerLayout.kt，app装配仍为PlayerLayout.kt。文件路径迁移要连JVM文件类名一起检查。

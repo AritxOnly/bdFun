@@ -36,9 +36,9 @@ internal fun PlayerFullscreenOverlay(
     presentation: VideoPlayerPresentation,
     ui: VideoPlayerUiStateHolder,
     fsActions: FullscreenActions,
-    playing: Boolean, positionMs: Long, durationMs: Long, bufferedMs: Long,
+    playing: Boolean, positionMs: Long, durationMs: Long, bufferedMs: Long, ports: PlayerRenderPorts,
 ) {
-    val PlayerUiState = LocalVideoPageState.current.playerUi
+    val PlayerUiState = ports.page
     val fullscreen = presentation.fullscreen
     val pictureInPicture = presentation.pictureInPicture
     val fullscreenInfo = presentation.fullscreenInfo
@@ -50,10 +50,10 @@ internal fun PlayerFullscreenOverlay(
     var fsBarPreviewMs by ui.fsBarPreviewMs
     val controlsAlpha = if (controlsVisible && !pictureInPicture) 1f else 0f
     if (fullscreen && !pictureInPicture) {
-        val chrome = rememberFullscreenChromeAssembly()
+        val chrome = ports.fullscreenVisuals()
         FullscreenPlayerChrome(
             info = fullscreenInfo,
-            playback = fullscreenPlaybackProjection(media, ui, playing, positionMs, durationMs, bufferedMs, LocalVideoPageState.current.settings),
+            playback = fullscreenPlaybackProjection(media, ui, playing, positionMs, durationMs, bufferedMs, chrome),
             actions = fsActions,
             panel = fsPanel,
             onPanelChanged = { fsPanel = it },
@@ -86,7 +86,7 @@ internal fun PlayerFullscreenOverlay(
 private fun fullscreenPlaybackProjection(
     media: VideoMediaInput, ui: VideoPlayerUiStateHolder,
     playing: Boolean, positionMs: Long, durationMs: Long, bufferedMs: Long,
-    settings: com.aritxonly.bdfun.core.domain.SettingsRepository,
+    settings: PlayerFullscreenVisuals,
 ): FullscreenPlaybackState {
     val info = media.info
     val quality = media.quality
@@ -135,8 +135,8 @@ private fun fullscreenPlaybackProjection(
 }
 
 @Composable
-internal fun BoxScope.PlayerLockOverlay(ui: VideoPlayerUiStateHolder, fullscreen: Boolean) {
-    val PlayerUiState = LocalVideoPageState.current.playerUi
+internal fun BoxScope.PlayerLockOverlay(ui: VideoPlayerUiStateHolder, fullscreen: Boolean, page: PlayerPageHost) {
+    val PlayerUiState = page
     var fsLocked by ui.fsLocked
     var fsLockHint by ui.fsLockHint
     var controlsVisible by ui.controlsVisible
