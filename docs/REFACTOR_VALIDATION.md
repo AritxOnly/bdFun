@@ -725,3 +725,9 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - `/tmp/bdfun-search-library-mappers.log`首轮28s通过checkLayering、core/domain CloudResumePolicyTest4项、infra SearchResponseMapperTest3/LibraryResponseMapperTest4及app debug，共11项/0失败/错误/跳过；1021生产文件/10669 PSI节点/0违规。没有重复播放器装机或全套。
 - 公开无Cookie搜索补全真实样本1,970字节、10tag，固定测试按原规则取8；字段构造分支明确为回归变体，不冒充登录响应。测试覆盖HTML边界/标识过滤/字符串计数、热词来源与重复、历史游标/统计/30项、收藏id形态/字段/原始40项、关系未筛选分页与事件时登录读取，以及原云续播阈值。
 - 8个收藏/稍后看/历史删除/关注/心跳操作体及搜索请求筛选前缀逐字一致，未执行账号写操作。实际热词回退/资料补全/缓存并发/请求次序保持。11项通过不代替真实账号批量操作/云端进度装机验收；最终必要回归、其余映射、release与交付继续。
+
+### 2026-11-13 空间/动态入口映射
+
+- `/tmp/bdfun-space-dynamic-mappers.log`首轮13s编译失败：提取脚本把两处out+=误加return，未算通过；恢复原追加语句。`/tmp/bdfun-space-dynamic-mappers-corrected.log`26s通过checkLayering、SpaceContentMapperTest5/DynamicPageMapperTest2及原SpaceLikesFallbackTest5，共12项/0失败/错误/跳过，app debug通过；1026生产文件/10684 PSI节点/0违规。未改断言。
+- 复用真实space-info/nav样本验证brief和515投稿计数，其余构造用例明确不是新真实响应；覆盖空间视频显式HTML/时长/长id、season/series原序与重复、archive统计null-only回退、article首cover存在性、番剧筛选、小店价格/标签、UP去重/直播重复/原Boolean语义及原获赞fallback取消。
+- 合集完整循环体经空白/最终return正规化后相同；空间视频、UP reader经接收者/依赖替换后逐字一致；动态点赞body逐字一致。空间请求/小店POST/并行聚合和获赞回退时序保持。按要求没有重复装机或全套，也未执行点赞/关注等写操作。最终必要回归、其余映射、release/交付继续。

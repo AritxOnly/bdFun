@@ -8,8 +8,8 @@
 | 播放流 | PlayInfoMapper/PlayInfoDto，真实匿名样本+6项测试 | VideoApi2字幕/VideoApi空降片段等附加读取 |
 | 评论/楼中楼/动态评论/面板表情 | CommentItemMapper/CommentPageMapper/ReplyEmoteMapper，真实匿名样本+6项测试 | 真实写操作验收独立保留；上传pictures属于传输编码 |
 | 消息feed/会话/私信/系统/粉丝/未读 | MessageFeedMapper/MessagePageMapper/MessageSessionMapper/PrivateMessageMapper/MessageSupplementMapper/MessageUnreadMapper | 账号收发/管理/ack装机验收独立保留；请求编码仍在传输适配器 |
-| 动态正文/视频/直播卡片 | Dynamic*Mapper | DynamicApi的portal/up列表元信息 |
-| 空间主资料 | SpaceInfoMapper及真实样本 | SpaceApi/SpaceApi2的合集/投稿/文章/番剧/小店/brief等 |
+| 动态正文/视频/直播卡片及page/portal/up元信息 | Dynamic*Mapper，入口新增2项回归 | 实际登录动态/入口装机验收独立保留 |
+| 空间资料及正文/合集/brief | SpaceInfo/Video/Collection/Content/SupplementMapper，主资料真实样本，正文新增5项回归/原5项获赞回退 | 真实分类/分页/小店装机验收独立保留；原签名/聚合/回退仍在infra |
 | 搜索 | SearchResponseMapper，匿名补全样本+3项回归 | 真实搜索/筛选装机验收独立保留；原HTML解码器显式输入 |
 | 媒体库/关系 | LibraryHistory/Collection/RelationMapper，4项回归；云续播规则入domain并有4项测试 | 真实账号/批量操作装机验收独立保留；补资料/缓存/请求仍在infra |
 | 账号 | AccountApi直接字段读取 | nav/QR响应业务模型映射；Cookie/签名仍为协议职责 |

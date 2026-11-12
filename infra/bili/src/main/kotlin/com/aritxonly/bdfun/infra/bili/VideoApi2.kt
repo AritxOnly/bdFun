@@ -151,26 +151,7 @@ internal suspend fun BiliApiContext.subtitleCues(url: String): List<SubtitleCue>
     }.getOrDefault(emptyList())
 }
 
-internal fun BiliApiContext.parseSpaceVideo(item: JSONObject): VideoItem? {
-    val bvid = item.s("bvid")
-    if (bvid.isBlank()) return null
-    return VideoItem(
-        bvid = bvid,
-        aid = item.l("aid"),
-        title = cleanHtml(item.s("title")),
-        cover = image(item.s("pic"), 480),
-        ownerName = item.s("author"),
-        ownerFace = "",
-        ownerMid = item.l("mid"),
-        play = item.l("play"),
-        danmaku = item.l("video_review"),
-        duration = parseDurationText(item.s("length")),
-        pubdate = item.l("created"),
-        extras = VideoItemExtras(
-            cid = item.l("cid"),
-        ),
-    )
-}
+internal fun BiliApiContext.parseSpaceVideo(item: JSONObject): VideoItem? = mapSpaceVideo(item, ::cleanHtml)
 
 internal fun BiliApiContext.parseVideoDetail(data: JSONObject): VideoDetail =
     mapVideoDetail(readVideoDetail(data), ::cleanHtml)

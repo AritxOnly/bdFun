@@ -81,8 +81,7 @@ internal suspend fun BiliApiContext.spaceVideos(mid: Long, page: Int): List<Vide
             signed = true,
             referer = "https://space.bilibili.com/$mid",
         )
-        data.optJSONObject("list")?.optJSONArray("vlist").objects()
-            .mapNotNull(this@spaceVideos::parseSpaceVideo)
+        mapSpaceVideos(data, this@spaceVideos::parseSpaceVideo)
     }.getOrDefault(emptyList())
 }
 
@@ -102,23 +101,7 @@ internal suspend fun BiliApiContext.spaceArticles(mid: Long, page: Int): List<Sp
                 signed = true,
                 referer = "https://space.bilibili.com/$mid",
             )
-            data.optJSONArray("articles").objects().mapNotNull { article ->
-                val id = article.l("id")
-                if (id <= 0L) return@mapNotNull null
-                val covers = article.optJSONArray("covers")
-                val cover = when {
-                    covers != null && covers.length() > 0 -> covers.optString(0)
-                    else -> article.s("cover")
-                }
-                SpaceArticle(
-                    id = id,
-                    title = article.s("title"),
-                    cover = image(cover, 480),
-                    view = article.optJSONObject("stats")?.l("view")
-                        ?: article.l("view"),
-                    publishTime = article.l("publish_time"),
-                )
-            }
+            mapSpaceArticles(data)
         }.getOrDefault(emptyList())
     }
 
@@ -136,18 +119,7 @@ internal suspend fun BiliApiContext.spaceBangumi(mid: Long, page: Int): List<Spa
                 ),
                 referer = "https://space.bilibili.com/$mid",
             )
-            data.optJSONArray("list").objects().mapNotNull { item ->
-                val seasonId = item.l("season_id")
-                val title = item.s("title")
-                if (seasonId <= 0L || title.isBlank()) return@mapNotNull null
-                SpaceBangumi(
-                    seasonId = seasonId,
-                    title = title,
-                    cover = image(item.s("cover"), 480),
-                    progress = item.s("progress"),
-                    total = item.optInt("total_count", 0),
-                )
-            }
+            mapSpaceBangumi(data)
         }.getOrDefault(emptyList())
     }
 
@@ -184,33 +156,7 @@ internal suspend fun BiliApiContext.spaceShop(mid: Long): List<SpaceShopItem> = 
         val root = http.executeOnce(request, tolerateEmptyBody = true)
         if (root.optInt("code", 0) != 0) return@cancellableCatching emptyList()
         val data = root.optJSONObject("data") ?: return@cancellableCatching emptyList()
-        data.optJSONArray("data").objects().mapNotNull { item ->
-            val title = item.s("title")
-            if (title.isBlank()) return@mapNotNull null
-            val coverObj = item.optJSONObject("cover")
-            val priceObj = item.optJSONObject("netPrice")
-            val price = if (priceObj != null) {
-                buildString {
-                    priceObj.s("pricePrefix").takeIf { it.isNotBlank() }?.let {
-                        append(it); append(' ')
-                    }
-                    append(priceObj.s("priceSymbol"))
-                    append(priceObj.s("netPrice"))
-                }
-            } else {
-                ""
-            }
-            val labels = item.optJSONArray("belowLabels").objects()
-                .mapNotNull { it.s("title").takeIf(String::isNotBlank) }
-                .joinToString("|")
-            SpaceShopItem(
-                title = title,
-                cover = image(coverObj?.s("url").orEmpty(), 480),
-                price = price,
-                source = labels.ifBlank { item.s("itemSourceName") },
-                url = item.s("cardUrl"),
-            )
-        }
+        mapSpaceShop(data)
     }.getOrDefault(emptyList())
 }
 
@@ -228,8 +174,7 @@ internal suspend fun BiliApiContext.userBrief(mid: Long): Pair<String, String>? 
             mapOf("mid" to mid.toString()),
             signed = true,
         )
-        val name = data.s("name")
-        if (name.isBlank()) null else name to avatar(data.s("face"), 120)
+        readSpaceBrief(data)
     }.getOrNull()
 }
 
@@ -244,6 +189,6 @@ internal suspend fun BiliApiContext.userIpLocation(mid: Long): String = withCont
             signed = true,
             referer = "https://space.bilibili.com/$mid",
         )
-        data.s("ip_location")
+        readSpaceIpLocation(data)
     }.getOrDefault("")
 }

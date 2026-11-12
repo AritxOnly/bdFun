@@ -581,3 +581,9 @@ P1-04/P1-09将搜索补全/热词/视频/用户与历史/稍后看/收藏夹/收
 历史保留cursor布尔/数字及顶层has_more、30映射条目兜底和缺cursor的viewAt回退；收藏按原始40个medias兜底，显式has_more覆盖；数字收藏夹id不新过滤、字符串id不新增支持。关系ids仍有效mid去重，个人relation字段读取保持资料查询后的事件时登录getter；分页按原始raw大小，普通followings不新增过滤。8个账号写/心跳方法体和搜索请求/筛选前缀逐字一致。
 
 P1-10云端续播原跨cid隔离与秒/毫秒阈值归core/domain，API保留aid/cid/登录守卫和请求。规则/阈值不改，4项纯JVM边界覆盖同P/跨P、零负数、两倍时长含边界及未知时长。
+
+### 2026-11-13 空间正文与动态入口元信息
+
+P1-04/P1-07/P1-09将空间投稿/合集/文章/番剧/小店/brief/计数/IP与动态page/portal/up/详情包装读取归mapper，API保留原请求签名、空间并发聚合、获赞回退及小店POST。空间视频读取仅显式传原HTML解码器，body一致；合集仍seasons后series且保留重复，校验和完整循环体经空白/最终return正规化后一致。文章covers存在但首项空时不新增fallback，小店价格/标签格式不改。
+
+动态正文仍复用原parseDynamicItem；UP列表同mid保留首项，直播UP不新增去重，Boolean与长字符串id按原读取。parseDynamicUpPage去掉context接收者后逐字一致；动态点赞写操作不改。初始说明中的“合集去重”不作为改动依据，查原实现无去重后明确保留重复并有回归。

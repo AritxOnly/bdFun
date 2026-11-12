@@ -82,11 +82,7 @@ internal suspend fun BiliApiContext.userDynamics(mid: Long, offset: String = "")
             ),
             referer = "https://space.bilibili.com/$mid/dynamic",
         )
-        DynamicPage(
-            items = data.optJSONArray("items").objects().mapNotNull { parseDynamicItem(it) },
-            offset = data.s("offset"),
-            hasMore = data.optBoolean("has_more", false),
-        )
+        mapDynamicPage(data)
     }
 
 /** UP 主投稿视频数。 */
@@ -103,41 +99,17 @@ internal suspend fun BiliApiContext.dynamicPage(type: String, offset: String = "
             if (error.code == 4101132) return@withContext DynamicPage(emptyList(), "", false)
             throw error
         }
-        DynamicPage(
-            items = data.optJSONArray("items").objects().mapNotNull { parseDynamicItem(it) },
-            offset = data.s("offset"),
-            hasMore = data.optBoolean("has_more", false),
-        )
+        mapDynamicPage(data)
     }
 
 internal suspend fun BiliApiContext.dynamicPortal(): DynamicPortal = withContext(Dispatchers.IO) {
     val data = dataRequest(DYNAMIC_PORTAL_PATH, dynamicPortalParams)
-    val live = data.optJSONObject("live_users")
-    DynamicPortal(
-        upList = parseDynamicUpPage(data.optJSONObject("up_list")),
-        liveUsers = live?.optJSONArray("items").objects().mapNotNull {
-            val roomId = it.l("room_id")
-            if (roomId <= 0) null else DynamicLiveUser(
-                mid = it.l("mid"), name = it.s("uname"), face = avatar(it.s("face"), 120),
-                roomId = roomId, title = it.s("title"),
-            )
-        },
-        liveCount = live?.optInt("count", 0) ?: 0,
-    )
+    mapDynamicPortal(data)
 }
 
 internal suspend fun BiliApiContext.dynamicUpList(offset: String): DynamicUpPage = withContext(Dispatchers.IO) {
     parseDynamicUpPage(dataRequest(DYNAMIC_UP_LIST_PATH, dynamicUpListParams(offset)))
 }
-
-internal fun BiliApiContext.parseDynamicUpPage(data: JSONObject?): DynamicUpPage = DynamicUpPage(
-    items = data?.optJSONArray("items").objects().mapNotNull {
-        val mid = it.l("mid")
-        if (mid <= 0) null else DynamicAuthor(mid, it.s("uname"), avatar(it.s("face"), 120), it.optBoolean("has_update"))
-    }.distinctBy { it.mid },
-    offset = data?.s("offset").orEmpty(),
-    hasMore = data?.optBoolean("has_more", false) ?: false,
-)
 
 /**
  * 动态详情官方接口：feed 只给摘要时，打开详情用 detail 接口拿完整的
@@ -159,7 +131,7 @@ internal suspend fun BiliApiContext.dynamicDetail(id: String): DynamicItem? = wi
                     "onlyfansQaCard,commentsNewVersion",
             ),
         )
-        data.optJSONObject("item")?.let { parseDynamicItem(it) }
+        mapDynamicDetail(data)
     }.getOrNull()
 }
 

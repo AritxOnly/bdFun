@@ -67,7 +67,7 @@ import com.aritxonly.bdfun.infra.bili.biliQualityLabel as qualityLabel
 internal suspend fun BiliApiContext.upVideoCount(mid: Long): Long = withContext(Dispatchers.IO) {
     cancellableCatching {
         val data = dataRequest("/x/space/navnum", mapOf("mid" to mid.toString()))
-        data.l("video")
+        readSpaceVideoCount(data)
     }.getOrDefault(0L)
 }
 
@@ -75,7 +75,7 @@ internal suspend fun BiliApiContext.upVideoCount(mid: Long): Long = withContext(
 
 internal suspend fun BiliApiContext.userLikes(mid: Long): Long = withContext(Dispatchers.IO) {
     cancellableCatching {
-        dataRequest("/x/space/upstat", mapOf("mid" to mid.toString())).l("likes")
+        readSpaceLikeCount(dataRequest("/x/space/upstat", mapOf("mid" to mid.toString())))
     }.getOrDefault(0L)
 }
 
@@ -169,16 +169,16 @@ internal suspend fun BiliApiContext.space(mid: Long): SpaceInfo = withContext(Di
     val nav = navDeferred.await()
     val appSpace = appSpaceDeferred.await()
     val likes = resolveSpaceLikes(info, nav) {
-        dataRequest("/x/space/upstat", mapOf("mid" to mid.toString())).l("likes")
+        readSpaceLikeCount(dataRequest("/x/space/upstat", mapOf("mid" to mid.toString())))
     }
     return@withContext mapSpaceInfo(SpacePayloadsDto(info, stat, videos, nav, appSpace),
         likes, this@space::parseSpaceVideo)
 }
 
 internal suspend fun resolveSpaceLikes(info: JSONObject, nav: JSONObject?, fetchLikes: suspend () -> Long): Long =
-    info.optLong("likes", 0L).takeIf { it > 0L }
+    readSpaceLikeCount(info).takeIf { it > 0L }
         ?: cancellableCatching { fetchLikes() }.getOrDefault(0L).takeIf { it > 0L }
-        ?: nav?.l("likes") ?: 0L
+        ?: readSpaceLikeCount(nav)
 
 internal suspend fun BiliApiContext.spaceSeasonsSeries(mid: Long): List<SpaceSeason> = withContext(Dispatchers.IO) {
     cancellableCatching {
@@ -192,37 +192,7 @@ internal suspend fun BiliApiContext.spaceSeasonsSeries(mid: Long): List<SpaceSea
             ),
             referer = "https://space.bilibili.com/$mid",
         )
-        val lists = data.optJSONObject("items_lists")
-        val out = ArrayList<SpaceSeason>()
-        lists?.optJSONArray("seasons_list")?.objects().orEmpty().forEach { item ->
-            val meta = item.optJSONObject("meta") ?: return@forEach
-            val id = meta.l("season_id")
-            val title = meta.s("name").ifBlank { meta.s("title") }
-            val cover = image(meta.s("cover"), 480)
-            if (id <= 0L || title.isBlank() || cover.isBlank()) return@forEach
-            out += SpaceSeason(
-                id = id,
-                title = title,
-                cover = cover,
-                total = meta.optInt("total", 0),
-                isSeries = false,
-            )
-        }
-        lists?.optJSONArray("series_list")?.objects().orEmpty().forEach { item ->
-            val meta = item.optJSONObject("meta") ?: return@forEach
-            val id = meta.l("series_id")
-            val title = meta.s("name").ifBlank { meta.s("title") }
-            val cover = image(meta.s("cover"), 480)
-            if (id <= 0L || title.isBlank() || cover.isBlank()) return@forEach
-            out += SpaceSeason(
-                id = id,
-                title = title,
-                cover = cover,
-                total = meta.optInt("total", 0),
-                isSeries = true,
-            )
-        }
-        out
+        mapSpaceCollections(data)
     }.getOrDefault(emptyList())
 }
 
@@ -261,27 +231,7 @@ internal suspend fun BiliApiContext.spaceCollectionArchives(
                 referer = "https://space.bilibili.com/$mid",
             )
         }
-        data.optJSONArray("archives").objects().mapNotNull { archive ->
-            val bvid = archive.s("bvid")
-            if (bvid.isBlank()) return@mapNotNull null
-            val stat = archive.optJSONObject("stat")
-            VideoItem(
-                bvid = bvid,
-                aid = archive.l("aid"),
-                title = archive.s("title"),
-                cover = image(archive.s("pic"), 480),
-                ownerName = "",
-                ownerFace = "",
-                ownerMid = mid,
-                play = stat?.l("view") ?: archive.l("play"),
-                danmaku = stat?.l("danmaku") ?: 0L,
-                duration = archive.optInt("duration", 0),
-                pubdate = archive.l("pubdate"),
-                extras = VideoItemExtras(
-                    cid = archive.l("cid"),
-                ),
-            )
-        }
+        mapSpaceArchives(data, mid)
     }.getOrDefault(emptyList())
 }
 

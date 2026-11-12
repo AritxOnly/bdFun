@@ -520,3 +520,7 @@ VideoActivityPageStateHolder、VideoActivityHostActions中立契约、入口解�
 ### 2026-11-13 搜索与媒体库响应边界
 
 搜索字段映射必须显式接入原HTML解码器，保留补全term优先/去重8项、热词请求回退顺序、视频/用户有效标识过滤及原字符串数字解析。媒体库mapper保留HistoryPage的cursor三种has_more形态与30项兜底、收藏视频按原始medias数量40项兜底、Number收藏夹id不额外过滤、关注列表不额外剔除0。关系查询ids来自原始有效mid去重，资料补全/已登录getter/请求顺序保持。云续播秒/毫秒判定原规则归core/domain并补纯JVM边界测试，不改阈值或跨P行为。
+
+### 2026-11-13 空间正文与动态入口映射
+
+空间合集/系列、投稿/文章/番剧/小店、brief/IP/计数与动态page/portal/up列表归infra:bili/mapper。请求、签名/小店POST、空间并行聚合和获赞回退时序保持。合集保留原seasons后series顺序与重复，不新增去重；文章有covers数组时即使首项空也不退回cover；小店价格前缀空格/标签竖线和source回退保持。空间投稿仍用原HTML解码器；动态UP同mid去重保留首项，直播UP不新增去重，长整数/Boolean读取不改。
