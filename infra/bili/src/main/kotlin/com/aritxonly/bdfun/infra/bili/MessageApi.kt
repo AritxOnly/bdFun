@@ -75,28 +75,14 @@ internal suspend fun BiliApiContext.messagesPage(type: Int, cursor: MessageCurso
     }
     val params = messageFeedParams(type, cursor)
     val data = dataRequest(path, params)
-    // 收到的赞返回的是 { latest: { items }, total: { items } } 两个分桶，
-    // 不是顶层的 items；原来只读顶层，所以这个页面一直是空的。
-    val rawItems = if (type == 2) {
-        val merged = ArrayList<JSONObject>()
-        data.optJSONObject("latest")?.optJSONArray("items").objects().let(merged::addAll)
-        data.optJSONObject("total")?.optJSONArray("items").objects().let(merged::addAll)
-        merged.distinctBy { it.s("id") }
-    } else {
-        data.optJSONArray("items").objects()
-    }
-    val parsed = rawItems.mapNotNull { mapMessageFeedItem(MessageFeedItemDto(type, it)) }
+    val mapped = mapMessageFeed(data, type)
     // 补充封面 / UP 主关系：同一个视频只查一次，失败不影响文字消息。
-    val enriched = enrichMessageVideos(parsed, type)
+    val enriched = enrichMessageVideos(mapped.items, type)
     log(
         "MSG",
-        "type=$type items=${rawItems.size} parsed=${enriched.size}",
+        "type=$type items=${mapped.rawSize} parsed=${enriched.size}",
     )
-    val next = (if (type == 2) data.optJSONObject("total") else data)?.optJSONObject("cursor")
-    val nextId = next?.l("id") ?: 0L
-    val nextTime = next?.l("time") ?: 0L
-    MessageFeedPage(enriched, messageContinuation(cursor, nextId, nextTime,
-        next == null || next.optBoolean("is_end", false)))
+    MessageFeedPage(enriched, messageContinuation(cursor, mapped.nextId, mapped.nextTime, mapped.isEnd))
 }
 
 /**
@@ -173,9 +159,8 @@ internal suspend fun BiliApiContext.messageSessions(
         "unfollow_fold" to "0", "sort_rule" to "2", "size" to pageSize.toString(), "mobi_app" to "web")
     if (sessionTs > 0L) request["session_ts"] = sessionTs.toString()
     val data = dataRequest("/session_svr/v1/session_svr/get_sessions", request, base = VC)
-    val allSessions = data.optJSONArray("session_list").objects()
-    val raw = if (followingOnly) allSessions.filter { it.optInt("is_follow") == 1 } else allSessions
-    val system = raw.map { parseMessageSession(it) }
+    val mapped = mapMessageSessions(data, followingOnly, pageSize)
+    val system = mapped.items
     // 首屏先返回：内存缓存里已经有的名字/头像立即带上，其余留给后台补全。
     val quick = system.map { session ->
         val cached = messageUsers.get(session.talkerId)
@@ -200,9 +185,7 @@ internal suspend fun BiliApiContext.messageSessions(
         } }.awaitAll().filterNotNull().toMap()
         quick.map { session -> names[session.id]?.let { session.copy(name = it.first, avatar = it.second) } ?: session }
     }
-    val nextTs = allSessions.lastOrNull()?.l("session_ts") ?: 0L
-    val more = if (data.has("has_more")) data.optInt("has_more") == 1 else allSessions.size >= pageSize
-    MessageSessionPage(resolved, sessionContinuation(sessionTs, nextTs, more))
+    MessageSessionPage(resolved, sessionContinuation(sessionTs, mapped.nextTimestamp, mapped.hasMore))
 }
 
 /** 拉取一个私信会话的消息。 */

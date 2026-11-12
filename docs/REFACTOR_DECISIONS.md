@@ -567,3 +567,9 @@ P1-04/P1-10审计发现playInfo仍在API分片读取字段并组装模型；新�
 P1-04/P1-06将原递归parseComment移入mapper（除去context接收者外逐字一致），删除仅存该实现的CommentApi2。评论列表、楼中楼与动态评论转发同一mapCommentPage，楼中楼显式includeTop=false；保持top优先、distinctBy(rpid)、page>=count及acount，不借迁移修改分页解释。预览仍最多三条一级，长整数、图片/表情/@人规则不变。原表情面板字段读取也迁入ReplyEmoteMapper；发送rpid提取、图片上传与pictures请求编码不改，不执行真实写操作。
 
 采集无Cookie公开评论响应code0，67,942字节，3根评论及一级预览，固定样本与显式边界变体分开标记。此条补齐评论读模型映射，不声称消息、搜索、媒体库等其余API职责已全部收齐。
+
+### 2026-11-13 消息读模型映射收口
+
+P1-04/P1-08将feed分桶/游标字段、会话筛选/预览、私信消息、系统/粉丝及未读字段迁入mapper。API仍按原顺序请求、补资料/封面、调用原游标领域策略和执行ack。会话nextTs/more从未筛选的allSessions取得；followingOnly仍只认is_follow==1，不借旧注释扩展筛选。私信仍读取一次当时mid，撤回优先、空type1保留、未知类型raw回退、sequence排序及大整数/时间回退保持。
+
+9个发送/已读/管理操作体和系统首屏ack/continuation尾部逐字一致；parseMessageSession/previewOfMessage仅去掉context接收者。消息形状测试明确为原字段构造回归，未采集或伪造真实登录响应，未进行真实账号消息写入。未改富化并发上限/缓存或onEnriched兼容参数。

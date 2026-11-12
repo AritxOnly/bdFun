@@ -713,3 +713,9 @@ bash ./gradlew :app:assembleRelease --no-parallel --max-workers=2
 - `/tmp/bdfun-comment-mappers.log`首轮23s通过checkLayering、6项CommentMapperTest与app debug；1011生产文件/10636 PSI节点/0违规。真实公开无Cookie样本67,942字节、code0，来源记录于json/README。6项必要测试覆盖实际长整数/图片/预览、top去重优先与楼中楼忽略top、空页/原count边界、三条/一级预览上限、图片/表情/@人/VIP/位置缺省，以及面板表情过滤。0失败/错误/跳过；没有修改既有断言。
 - parseComment经接收者/包路径替换后逐字一致；API原请求、CSRF、排序/分页参数和发送/上传路径未改。共用page mapper保留page>=count，即使真实count=253也不在迁移中改解释。本批只有网络映射变动，按用户要求不重复播放器装机或全套测试；不将离线样本当作真实发送/删除等写操作验收。
 - 其余API映射审计、必要最终行为回归、release与交付继续。
+
+### 2026-11-13 消息响应/会话/私信映射
+
+- `/tmp/bdfun-message-response-mappers.log`首轮19s通过checkLayering、7项MessageResponseMapperTest和3项既有MessageFeedMapperTest及app debug；1016生产文件/10645 PSI节点/0违规，10项测试0失败/错误/跳过。覆盖私信保留/排序/撤回/时间/ID/共享视频、会话群信息/原筛选/未筛选游标、预览类型、like双桶去重、系统/粉丝回退和未读类别。测试为原实现字段形状的显式构造回归，非真实登录账号响应。
+- 9个发送/ack/管理方法体与系统首屏确认/continuation尾部逐字一致；会话/预览读取仅换接收者/包。实际请求参数、mid读取时机、富化/ack及领域游标调用顺序保持。发送/置顶/免打扰/删除/真实已读未执行。
+- 按用户要求不重复起播、消息装机或全套；离线mapper通过不冒充消息收发/账号切换装机验收。其余映射职责清单见RESPONSE_MAPPING_AUDIT.md，最终必要行为、release和交付继续。

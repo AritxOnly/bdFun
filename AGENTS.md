@@ -512,3 +512,7 @@ VideoActivityPageStateHolder、VideoActivityHostActions中立契约、入口解�
 ### 2026-11-13 评论响应映射边界
 
 评论/楼中楼/动态评论共用infra:bili/mapper字段解析，API只负责原请求。必须保留top优先且按rpid去重、page>=count的原结束判断（本次不另改分页含义）、acount总数、只取前三条一级preview且不继续嵌套、mid/oid/root/parent的Long及原图片/表情/@人字段规则。发送rpid/上传pictures属于传输结果/请求编码，本轮不更改发送或上传行为。
+
+### 2026-11-13 消息响应映射边界
+
+消息feed分桶/游标、会话/预览、私信、系统/新粉丝及未读字段读取进入infra:bili/mapper，API保留原请求、资料补全、ack和错误信封。followingOnly仍只认is_follow==1，nextTs必须来自未筛选的allSessions；私信仍按sequence排序、保留空白type1、撤回优先/未知type原文fallback，游标继续原领域策略。系统首屏ack和所有发送/已读/置顶/免打扰操作不得在mapper中执行或改时序。构造字段形状测试须标明不是实际登录响应。

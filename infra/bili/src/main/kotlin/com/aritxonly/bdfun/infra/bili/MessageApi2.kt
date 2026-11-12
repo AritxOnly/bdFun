@@ -87,35 +87,7 @@ internal suspend fun BiliApiContext.privateMessagePage(
         signed = true,
         base = VC,
     )
-    val own = mid
-    val items = data.optJSONArray("messages").objects().mapNotNull { message ->
-        val type = message.optInt("msg_type", 1)
-        val raw = message.s("content")
-        val content = cancellableCatching { JSONObject(raw) }.getOrNull()
-        val withdrawn = message.optInt("msg_status") == 1
-        val text = if (withdrawn) "消息已撤回" else when (type) {
-            1 -> content?.s("content").orEmpty()
-            2 -> ""
-            6, 7 -> content?.s("title").orEmpty()
-            else -> content?.s("content").orEmpty().ifBlank { raw }
-        }
-        val image = if (type == 2 && !withdrawn) content?.s("url").orEmpty() else ""
-        if (text.isBlank() && image.isBlank() && type != 1) return@mapNotNull null
-        ChatMessage(
-            id = message.l("msg_key").takeIf { it != 0L }
-                ?: message.l("msg_seqno"),
-            sequence = message.l("msg_seqno"),
-            senderId = message.l("sender_uid"),
-            timestamp = message.l("timestamp").takeIf { it > 0L }
-                ?: message.l("msg_time"),
-            text = text,
-            sharedVideo = decodeSharedVideo(text),
-            imageUrl = image,
-            isMine = message.l("sender_uid") == own,
-        )
-    }.sortedBy { it.sequence }
-    val next = data.optString("min_seqno").toLongOrNull() ?: 0L
-    ChatMessagePage(items, sessionContinuation(before ?: 0L, next, data.optInt("has_more") == 1))
+    mapPrivateMessagePage(data, mid, before)
 }
 
 /** 发送一条纯文本私信。 */
@@ -167,35 +139,14 @@ internal suspend fun BiliApiContext.newFollowers(page: Int = 1): List<MessageIte
             "order_type" to "attention",
         ),
     )
-    data.optJSONArray("list").objects().mapNotNull { fan ->
-        val fanMid = fan.l("mid")
-        if (fanMid <= 0L) return@mapNotNull null
-        val attribute = fan.optInt("attribute", 0)
-        MessageItem(
-            id = "fans_$fanMid",
-            title = "",
-            content = fan.s("sign"),
-            time = fan.l("mtime").takeIf { it > 0L } ?: fan.l("ctime"),
-            name = fan.s("uname"),
-            avatar = avatar(fan.s("face"), 120),
-            presentation = MessagePresentation(
-                action = "关注了我",
-                source = fan.s("sign"),
-            ),
-            actor = MessageActor(
-                userMid = fanMid,
-                followed = attribute == 2 || attribute == 6 ||
-                fan.optBoolean("is_follow", false),
-            ),
-        )
-    }
+    mapNewFollowers(data)
 }
 
 /** 仅取用户昵称和头像，供私信会话补全。 */
 
 internal suspend fun BiliApiContext.messageFeedUnread(): Map<String, Int> {
     val data = dataRequest("/x/msgfeed/unread", mapOf("mobi_app" to "web", "build" to "0"))
-    return listOf("reply", "at", "like", "sys_msg").associateWith { data.optInt(it).coerceAtLeast(0) }
+    return mapFeedUnreadCounts(data)
 }
 
 internal suspend fun BiliApiContext.messageUnreadCount(): Int = withContext(Dispatchers.IO) {
@@ -203,8 +154,7 @@ internal suspend fun BiliApiContext.messageUnreadCount(): Int = withContext(Disp
     val privateData = dataRequest("/session_svr/v1/session_svr/single_unread",
         params + ("unread_type" to "0"), base = "https://api.vc.bilibili.com")
     val feed = dataRequest("/x/msgfeed/unread", params)
-    (listOf("follow_unread", "unfollow_unread").sumOf { privateData.optInt(it).coerceAtLeast(0) } +
-        listOf("at", "like", "reply", "sys_msg").sumOf { feed.optInt(it).coerceAtLeast(0) })
+    mapTotalUnread(privateData, feed)
 }
 
 /** Only report success after the server confirms that every unread category is clear. */
@@ -272,24 +222,7 @@ internal suspend fun BiliApiContext.systemMessages(cursor: MessageCursor?): Mess
     val root = rawRequest("/x/sys-msg/query_notify_list", params, base = "https://message.bilibili.com")
     val code = root.optInt("code")
     if (code != 0) throw BiliException(code, apiMessage(code, root.optString("message")))
-    val items = root.optJSONArray("data").objects().map {
-        val raw = it.s("content")
-        val content = cancellableCatching { JSONObject(raw).optString("web", raw) }.getOrDefault(raw)
-        MessageItem(
-            id = it.s("id"),
-            title = it.s("title"),
-            content = content,
-            time = 0L,
-            name = "系统通知",
-            avatar = "",
-            presentation = MessagePresentation(
-                source = it.s("time_at"),
-            ),
-            notice = MessageNotice(
-                systemCursor = it.l("cursor"),
-            ),
-        )
-    }
+    val items = mapSystemMessages(root)
     if (cursor == null && items.isNotEmpty()) {
         try {
             dataRequest("/x/sys-msg/update_cursor", mapOf("cursor" to items.first().systemCursor.toString(),
@@ -312,52 +245,3 @@ internal suspend fun BiliApiContext.deleteSystemMessage(id: String) = withContex
     val code = response.optInt("code")
     if (code != 0) throw BiliException(code, apiMessage(code, response.optString("message")))
 }
-
-internal fun BiliApiContext.parseMessageSession(message: JSONObject): MessageSession = with(message) {
-    val type = optInt("session_type", 1)
-    val systemType = optInt("system_msg_type", 0)
-    val account = optJSONObject("account_info")
-    val name = account?.s("name").orEmpty()
-        .ifBlank { if (type == 2) s("group_name") else "" }
-    val avatar = account?.s("pic_url").orEmpty()
-        .ifBlank { if (type == 2) s("group_cover") else "" }
-    val last = optJSONObject("last_msg")
-    MessageSession(
-        id = "${type}_${l("talker_id")}",
-        talkerId = l("talker_id"),
-        sessionType = type,
-        name = name,
-        avatar = avatar,
-        preview = last?.let { previewOfMessage(it) }.orEmpty(),
-        time = (l("session_ts") / 1_000_000L).takeIf { it > 0L }
-            ?: (last?.l("timestamp") ?: 0L),
-        unread = optInt("unread_count", 0),
-        isSystem = systemType != 0,
-        preferences = MessageSessionPreferences(
-            followed = optInt("is_follow") == 1,
-            pinned = l("top_ts") > 0L,
-            muted = optInt("is_dnd") == 1,
-        ),
-        maxSeqno = l("max_seqno"),
-        sessionTs = l("session_ts"),
-    )
-}
-
-internal fun BiliApiContext.previewOfMessage(message: JSONObject): String {
-    val type = message.optInt("msg_type", 0)
-    val raw = message.optString("content")
-    val obj = cancellableCatching { JSONObject(raw) }.getOrNull()
-    return when (type) {
-        2 -> "[图片]"
-        306 -> obj?.s("content").orEmpty()
-        10, 11, 12 -> obj?.s("title").orEmpty()
-            .ifBlank { obj?.s("text").orEmpty() }
-            .ifBlank { obj?.s("desc").orEmpty() }
-        else -> obj?.s("content").orEmpty()
-            .ifBlank { obj?.s("title").orEmpty() }
-            .ifBlank { obj?.s("text").orEmpty() }
-            .ifBlank { raw }
-    }.replace('\n', ' ')
-}
-
-// ---------------------------------------------------------------- parsing
