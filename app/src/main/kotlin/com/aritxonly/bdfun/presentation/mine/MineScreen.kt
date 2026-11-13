@@ -47,7 +47,7 @@ private fun MinePage(
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 600.dp
         LazyColumn(Modifier.fillMaxSize().then(if (wide) Modifier.statusBarsPadding() else Modifier),
-            contentPadding = if (wide) PaddingValues(start = 22.dp, top = 25.dp, end = 22.dp, bottom = 110.dp)
+            contentPadding = if (wide) PaddingValues(start = 22.dp, top = top.yukonga.miuix.kmp.basic.TopAppBarDefaults.CollapsedHeight + 12.dp, end = 22.dp, bottom = 110.dp)
                 else PaddingValues(bottom = 110.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (request.profile == null) {
@@ -57,8 +57,8 @@ private fun MinePage(
             } else if (shown != null) {
                 if (wide) item {
                     Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
-                        Box(Modifier.weight(0.36f)) { MineHero(shown, navigation, wide = true) }
-                        Column(Modifier.weight(0.64f).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Box(Modifier.weight(0.45f)) { MineHero(shown, navigation, wide = true) }
+                        Column(Modifier.weight(0.55f).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                             MinePageContent(request, navigation, dependencies, layout, previews, retry)
                         }
                     }
@@ -73,6 +73,7 @@ private fun MinePage(
                 }
             }
         }
+        MineTopAppBar(navigation.onOpenSettings)
     }
 }
 
