@@ -21,7 +21,7 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.videoDetailPages(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 12.dp, end = 12.dp, top = 12.dp)
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp)
                     .padding(vertical = 8.dp)
                     .graphicsLayer {
                         alpha = enter

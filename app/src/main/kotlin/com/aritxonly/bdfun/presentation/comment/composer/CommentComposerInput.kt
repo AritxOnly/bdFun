@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.teak.common.material.teakContentControlShadow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -17,7 +18,7 @@ internal fun androidx.compose.foundation.layout.RowScope.CommentComposerInput(
     val recipe = material.recipe
     val backdrop = material.backdrop
     TeakGlassSurface(
-        modifier = Modifier.weight(1f).height(46.dp),
+        modifier = Modifier.weight(1f).height(46.dp).teakContentControlShadow(Capsule()),
         shape = Capsule(),
         recipe = recipe,
         backdrop = backdrop,

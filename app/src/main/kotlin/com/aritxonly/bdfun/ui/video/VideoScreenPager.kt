@@ -40,7 +40,7 @@ private fun VideoScreenComments(pane: VideoCommentPane) {
         request = CommentScreenRequest(aid = d.aid, upMid = d.ownerMid, title = d.title, bvid = d.bvid,
             focusRootRpid = pane.root, focusTargetRpid = pane.target),
         onBack = {},
-        layout = CommentScreenLayout(bare = true, topInset = pane.topInset,
+        layout = CommentScreenLayout(bare = true, flatList = true, topInset = pane.topInset,
             trackBackProgress = pane.trackBackProgress, threadPlayerBottom = pane.threadPlayerBottom,
             threadPaneWidth = pane.threadPaneWidth, playerFullscreen = pane.fullscreen),
     )

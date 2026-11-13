@@ -55,3 +55,9 @@ Run `:app:assembleDebug :app:testDebugUnitTest :TeakUI:testDebugUnitTest`. Host 
 - 播放面板与 tabs 移除横向 safeDrawing inset；播放器只保留顶部状态栏和底部导航栏避让。移除左侧状态栏纯色 surface 遮罩，以及外壳空顶栏的第二层渐进模糊；保留视频页自己的过渡。返回键统一 Miuix ChevronBackward，搜索清空使用 Miuix Close。
 - 新增“视频页退出不会继续播放”（默认关闭以保留已有偏好）。开启后，返回离开视频页或关闭 PiP 会暂停该 Activity 的播放器并禁止交接到后台；切到桌面仍进入 PiP。按 Activity 隔离暂停回调，避免旧页销毁误停新视频。PiP 隐藏详情、页级悬浮控件及播放操作层。生命周期依据 [Android PiP guidance](https://developer.android.com/develop/ui/views/picture-in-picture)。
 - 本轮依用户要求不运行模拟器；编译、单元测试与真机视觉验证分开记录。未更改柔光玻璃的配方、光学参数及 fallback。
+
+### 2026-11-13 当前阴影同步
+
+按用户要求，全局玻璃阴影以 Deadliner 当前本地工作区的 `ui/material/glass/SoftGlassShadow.kt` 为源，基于提交 `3b561656e1ddca43220a39763f12aaa0c67fdaba`（源文件为工作区新增/修改内容，并非声称全部来自该提交）。源文件 SHA-256：`baa6a84f6bbd8654ea7f51a3b95110f052fdfa00c06c64fda6c340e6caafe0a3`。同步完整三层阴影参数解析、明暗/官方材质分支、预设和顶栏补偿；不修改其他光学配方。
+
+默认浅色 BalancedDiffuse：ambient 26dp / spread -2dp / alpha .03459375，outer 10dp / -1dp / .06490625，edge 2dp / -.5dp / .0094375；顶栏 ambient 为34dp / .043453125。深色与官方浅色参数保持源实现。视频详情在对应 Standard 或 TopBarControl 基线上仅将三层 alpha 乘 1.10，半径、spread、offset 与预设选择不变；移除上一轮独立的浓阴影配方。历史段落的“阴影参数不变”描述的是当时同步范围，由本检查点更新。

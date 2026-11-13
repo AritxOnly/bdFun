@@ -102,7 +102,10 @@ fun TeakTheme(
         )
     }
     // 文字字重完全交给系统默认：不写死 350 / Light，用户系统里调粗调细会跟着变。
-    CompositionLocalProvider(LocalDensity provides scaledDensity) {
+    CompositionLocalProvider(
+        LocalDensity provides scaledDensity,
+        LocalTeakContentColors provides teakContentColors(dark),
+    ) {
         MiuixTheme(controller = controller) {
             MaterialTheme(colorScheme = materialColors) {
                 CompositionLocalProvider(LocalTeakMaterialSpec provides materialSpec) {

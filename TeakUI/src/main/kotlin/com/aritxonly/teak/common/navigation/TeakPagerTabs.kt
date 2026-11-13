@@ -1,5 +1,6 @@
 package com.aritxonly.teak.common.navigation
 
+import com.aritxonly.teak.common.material.teakContentControlShadow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -138,7 +139,7 @@ fun TeakPagerTabs(
                         .width(itemWidth)
                         .height(TeakPagerTabDefaults.ItemHeight)
                         .background(
-                            Color.Black.copy(alpha = TeakPagerTabDefaults.IndicatorAlpha),
+                            colors.onBackground.copy(alpha = TeakPagerTabDefaults.IndicatorAlpha),
                             Capsule(),
                         ),
                 )
@@ -158,9 +159,13 @@ fun TeakPagerTabs(
                     ) {
                         Text(
                             text = label,
-                            color = if (active) colors.primary else colors.onBackgroundVariant,
+                            color = if (active) colors.primary else if (com.aritxonly.teak.common.theme.LocalTeakControlEmphasis.current) {
+                                colors.onBackground.copy(alpha = 0.88f)
+                            } else colors.onBackgroundVariant,
                             fontSize = TeakPagerTabDefaults.LabelFontSize,
-                            fontWeight = if (active) FontWeight.Normal else FontWeight.Normal,
+                            fontWeight = if (com.aritxonly.teak.common.theme.LocalTeakControlEmphasis.current) {
+                                FontWeight.Medium
+                            } else FontWeight.Normal,
                         )
                     }
                 }
@@ -188,7 +193,8 @@ fun TeakPagerTabs(
         }
     } else if (plain && transparentBackground) {
         Box(
-            modifier = modifier.height(TeakPagerTabDefaults.Height),
+            modifier = modifier.teakContentControlShadow(Capsule(), materialProgress)
+                .height(TeakPagerTabDefaults.Height),
             contentAlignment = Alignment.CenterStart,
         ) {
             content()
@@ -205,7 +211,8 @@ fun TeakPagerTabs(
         }
     } else {
         TeakGlassSurface(
-            modifier = modifier.height(TeakPagerTabDefaults.Height),
+            modifier = modifier.teakContentControlShadow(Capsule(), materialProgress)
+                .height(TeakPagerTabDefaults.Height),
             shape = Capsule(),
             recipe = recipe,
             backdrop = backdrop,

@@ -73,6 +73,7 @@ internal fun VideoActivityBody(
         CommentScreen(
             request = CommentScreenRequest(aid = c.aid, upMid = c.ownerMid, title = c.title, bvid = c.bvid),
             onBack = onBack,
+            layout = CommentScreenLayout(flatList = true),
         )
     })
 }

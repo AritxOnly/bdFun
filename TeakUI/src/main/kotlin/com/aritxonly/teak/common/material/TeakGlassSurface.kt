@@ -1,6 +1,9 @@
 package com.aritxonly.teak.common.material
 
 import com.aritxonly.teak.common.material.miuixControlFeedback
+import com.aritxonly.teak.common.theme.LocalTeakControlEmphasis
+import com.aritxonly.teak.common.theme.LocalTeakContentColors
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.background
 import com.aritxonly.teak.common.chrome.LocalProgressiveTopBarMaterialHosted
 import androidx.compose.foundation.clickable
@@ -96,6 +99,18 @@ fun TeakGlassSurface(
                     interaction = interaction,
                 ),
         )
+        if (LocalTeakControlEmphasis.current && advancedMaterial.enabled) {
+            val highlight = LocalTeakContentColors.current.glassHighlight
+            // 宽而柔和的渐变光带，不沿轮廓描线，也不覆盖中性灰底。
+            Box(Modifier.matchParentSize()
+                .graphicsLayer { alpha = materialAlpha.coerceIn(0f, 1f) }
+                .background(Brush.linearGradient(
+                0f to highlight.copy(alpha = if (isDark) 0.12f else 0.18f),
+                0.34f to highlight.copy(alpha = 0f),
+                0.78f to highlight.copy(alpha = 0f),
+                1f to highlight.copy(alpha = if (isDark) 0.035f else 0.06f),
+            )))
+        }
         content()
     }
 }
@@ -128,7 +143,10 @@ fun TeakGlassIconButton(
                 shape = TeakGlassDefaults.Shape,
                 isDark = isDark,
                 alpha = materialAlpha,
-                profile = if (LocalProgressiveTopBarMaterialHosted.current) TeakGlassShadowProfile.TopBarControl
+                profile = if (LocalTeakControlEmphasis.current) {
+                    if (LocalProgressiveTopBarMaterialHosted.current) TeakGlassShadowProfile.ContentTopBarControl
+                    else TeakGlassShadowProfile.ContentControl
+                } else if (LocalProgressiveTopBarMaterialHosted.current) TeakGlassShadowProfile.TopBarControl
                     else TeakGlassShadowProfile.Standard,
             )
             .miuixControlFeedback(enabled = enabled, shape = TeakGlassDefaults.Shape),

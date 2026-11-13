@@ -5,6 +5,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import com.aritxonly.teak.common.theme.LocalTeakContentColors
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,14 +28,14 @@ internal fun VideoCollectionCard(
     slots: VideoDetailTailSlots,
     onSelect: (com.aritxonly.bdfun.core.model.video.VideoEpisode) -> Unit,
 ) {
-    val colors = MiuixTheme.colorScheme
+    val collectionColor = LocalTeakContentColors.current.groupedBackground
     val presentation = rememberVideoCollectionPresentation(title, episodes, currentCid)
     val expansion = presentation.expansion
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(colors.surface),
+            .background(collectionColor),
     ) {
         VideoCollectionHeader(title, episodes.size, presentation.currentIndex, expansion.expanded,
             onExpand = { expansion.expanded = !expansion.expanded }, onScroll = presentation.scrollTo)

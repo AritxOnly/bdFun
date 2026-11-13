@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.teak.common.material.teakContentControlShadow
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -58,6 +59,8 @@ fun TeakGlassChip(
 
     TeakGlassSurface(
         modifier = modifier
+            .teakContentControlShadow(Capsule(), if (com.aritxonly.teak.common.chrome.LocalProgressiveTopBarMaterialHosted.current)
+                com.aritxonly.teak.common.chrome.LocalTopBarButtonMaterialProgress.current else 1f)
             .height(height)
             .clip(Capsule())
             .clickable(interactionSource = null, indication = null, onClick = onClick),
@@ -95,7 +98,12 @@ fun TeakGlassChip(
             ) {
                 Text(
                     text = label,
-                    color = if (active) Color.White else colors.onBackgroundVariant,
+                    color = if (active) Color.White else if (com.aritxonly.teak.common.theme.LocalTeakControlEmphasis.current) {
+                        colors.onBackground.copy(alpha = 0.88f)
+                    } else colors.onBackgroundVariant,
+                    fontWeight = if (com.aritxonly.teak.common.theme.LocalTeakControlEmphasis.current) {
+                        androidx.compose.ui.text.font.FontWeight.Medium
+                    } else androidx.compose.ui.text.font.FontWeight.Normal,
                     fontSize = fontSize,
                     maxLines = 1,
                 )

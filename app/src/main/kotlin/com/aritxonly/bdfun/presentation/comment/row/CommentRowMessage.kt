@@ -29,8 +29,8 @@ internal fun CommentRowMessage(item: CommentItem) {
         ),
         style = EmoteTextStyle(
             color = colors.onBackground,
-            fontSize = 14.85.sp,
-            lineHeight = 21.8.sp,
+            fontSize = CommentTypography.bodySize,
+            lineHeight = CommentTypography.bodyLineHeight,
             fontWeight = FontWeight.Normal,
             mentionColor = colors.primary.copy(alpha = 0.72f),
         ),

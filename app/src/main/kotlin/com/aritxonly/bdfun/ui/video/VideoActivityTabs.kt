@@ -19,8 +19,5 @@ internal fun androidx.compose.foundation.layout.BoxScope.VideoActivityTabs(
             settings.danmakuOn = !settings.danmakuOn
             page.danmakuOn = settings.danmakuOn
         },
-        chip = { label, active, padding, onClick ->
-            TeakGlassChip(label = label, active = active, horizontalPadding = padding, onClick = onClick)
-        },
     )
 }

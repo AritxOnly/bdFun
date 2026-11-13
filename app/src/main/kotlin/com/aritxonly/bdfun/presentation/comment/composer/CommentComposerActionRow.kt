@@ -54,7 +54,9 @@ internal fun androidx.compose.foundation.layout.BoxScope.CommentComposerActionRo
         }
         ComposerIconButton(
             kind = ComposerIcon.Image,
-            tint = colors.onBackgroundVariant,
+            tint = if (com.aritxonly.teak.common.theme.LocalTeakControlEmphasis.current) {
+                colors.onBackground.copy(alpha = 0.88f)
+            } else colors.onBackgroundVariant,
             onClick = actions.pickImage,
         )
         Spacer(Modifier.width(1.dp))
@@ -65,7 +67,9 @@ internal fun androidx.compose.foundation.layout.BoxScope.CommentComposerActionRo
             ) {
                 BrandPink
             } else {
-                colors.outline
+                if (com.aritxonly.teak.common.theme.LocalTeakControlEmphasis.current) {
+                    colors.onBackground.copy(alpha = 0.28f)
+                } else colors.outline
             },
             onClick = actions::send,
         )

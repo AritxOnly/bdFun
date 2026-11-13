@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.teak.common.theme.LocalTeakContentColors
 import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -30,7 +31,7 @@ internal fun VideoCollectionEpisodes(
     episodes: List<com.aritxonly.bdfun.core.model.video.VideoEpisode>, currentCid: Long,
     presentation: VideoCollectionPresentation, slots: VideoDetailTailSlots, onSelect: (com.aritxonly.bdfun.core.model.video.VideoEpisode) -> Unit,
 ) {
-    val colors = MiuixTheme.colorScheme
+    val collectionColor = LocalTeakContentColors.current.groupedBackground
     Box(modifier = Modifier.fillMaxWidth().height(198.dp)) {
         LazyColumn(
             state = presentation.scrollState,
@@ -54,7 +55,7 @@ internal fun VideoCollectionEpisodes(
                 .height(6.dp)
                 .background(
                     Brush.verticalGradient(
-                        listOf(colors.surface, colors.surface.copy(alpha = 0f)),
+                        listOf(collectionColor, collectionColor.copy(alpha = 0f)),
                     ),
                 ),
         )
@@ -65,7 +66,7 @@ internal fun VideoCollectionEpisodes(
                 .height(6.dp)
                 .background(
                     Brush.verticalGradient(
-                        listOf(colors.surface.copy(alpha = 0f), colors.surface),
+                        listOf(collectionColor.copy(alpha = 0f), collectionColor),
                     ),
                 ),
         )
