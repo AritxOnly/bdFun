@@ -23,3 +23,9 @@
 窄屏头图绘制到状态栏背后，在我的页顶栏存在时关闭系统状态栏对比色蒙层，离开我的页后恢复原值。主壳持有并保存列表滚动位置，复用TrackTeakPageScroll将实际位置投影为TeakPageScrollState.materialProgress；仅在采样树之外用ProgressiveTopBarMaterial包裹TopAppBar，初始透明，滚动后渐进模糊。
 
 宽屏顶栏保留滚动渐进模糊但取消全页右上设置按钮，45%左栏在个人资料卡下方放置原生Miuix Card+ArrowPreference，进入现有设置二级页；普通偏好行不依赖背景采样，保留55%右栏。宽屏游客同样保留设置卡。
+
+## 视口与表面色修正
+
+我的页宽屏列表移除外层statusBarsPadding，将等量状态栏高度加到contentPadding中；媒体库共用pager同样铺满窗口，收藏/最近播放/稍后再看的网格将等量避让加入contentPadding。首屏位置保持，滚动内容可以进入顶部安全区和渐进模糊采样区。
+
+宽屏设置卡去除summary，继续使用Miuix ArrowPreference，Card显式选择surface/onSurface以匹配资料卡。平板底栏取消navigationBarsPadding，侧边与底部固定20dp，同一个常量提供给主壳遮挡高度；手机底栏保留原Insets行为。

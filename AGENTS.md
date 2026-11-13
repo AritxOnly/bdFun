@@ -563,3 +563,7 @@ MainTabPager位于主壳layerBackdrop的录制树内，因此MineScreen及其资
 ### 2026-11-13 我的页沉浸与宽屏设置入口
 
 窄屏头图从状态栏后通栏绘制；主壳持有mineList与mine的TeakPageScrollState，经TrackTeakPageScroll接入采样树外的ProgressiveTopBarMaterial，不能只画透明TopAppBar而不接滚动进度。宽度600dp起顶栏仅保留滚动渐进模糊、不显示设置按钮，左45%资料栏下方使用Miuix Card+ArrowPreference进入设置，右55%保留功能内容。宽屏设置卡为普通组件，不读取主壳Backdrop。
+
+### 2026-11-13 滚动视口与平板底栏 Insets
+
+我的页宽屏LazyColumn、媒体库收藏/历史/稍后再看共用的HorizontalPager和LazyVerticalGrid必须铺满窗口；状态栏初始避让加入滚动容器的contentPadding，禁止在容器外加statusBarsPadding截断滚动视口，避免顶栏渐进模糊下留下固定空带。我的页设置ArrowPreference不带副标题，Card显式使用与资料卡一致的surface/onSurface。平板MainWideNavigation不叠加navigationBarsPadding，左右及底部均使用MainWideNavigationEdgePadding（20dp）；手机底栏规则不变。

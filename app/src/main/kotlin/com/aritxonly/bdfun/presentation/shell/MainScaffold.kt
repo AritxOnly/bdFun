@@ -52,7 +52,7 @@ internal fun MainScaffold(settings: SettingsBindings, shell: MainShellState, dar
                 settings,
                 bottomObstruction = if (ui.showSearch || shell.bottom.showBottomSearch) 0.dp else
                 TeakFloatingTabBarDefaults.Height + when {
-                    wideNavigation -> 12.dp
+                    wideNavigation -> MainWideNavigationEdgePadding
                     settings.bottomBarRaise -> 4.dp + TeakChromeDefaults.RaisedBottomBarExtra
                     else -> 4.dp
                 },

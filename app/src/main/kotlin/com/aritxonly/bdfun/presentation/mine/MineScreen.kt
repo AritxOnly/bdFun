@@ -47,8 +47,10 @@ private fun MinePage(
     val shape = remember { ContinuousCornerShape(22.dp) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 600.dp
-        LazyColumn(Modifier.fillMaxSize().then(if (wide) Modifier.statusBarsPadding() else Modifier), state = listState,
-            contentPadding = if (wide) PaddingValues(start = 22.dp, top = 25.dp, end = 22.dp, bottom = 110.dp)
+        val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        // 避让放进可滚动内容，视口本身铺满窗口，才能滚入状态栏下的渐进模糊层。
+        LazyColumn(Modifier.fillMaxSize(), state = listState,
+            contentPadding = if (wide) PaddingValues(start = 22.dp, top = statusBarTop + 25.dp, end = 22.dp, bottom = 110.dp)
                 else PaddingValues(bottom = 110.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (request.profile == null) {
