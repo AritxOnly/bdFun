@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
@@ -22,7 +23,7 @@ internal fun MineHero(profile: UserProfile?, navigation: MineNavigation, wide: B
     val height = if (wide) 208.dp else 250.dp
     val shape = ContinuousCornerShape(24.dp)
     Box(Modifier.fillMaxWidth()) {
-        BoxWithConstraints(Modifier.fillMaxWidth().then(if (wide) Modifier.clip(shape) else Modifier)) {
+        BoxWithConstraints(Modifier.fillMaxWidth().then(if (wide) Modifier.clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) else Modifier)) {
             SpaceBanner(banner.bitmap, aspect = maxWidth / height, alignmentY = profile?.bannerAlignmentY ?: 0f)
             Box(Modifier.fillMaxWidth().height(height).background(Brush.verticalGradient(
                 listOf(Color.Transparent, Color.Black.copy(alpha = 0.18f)))))

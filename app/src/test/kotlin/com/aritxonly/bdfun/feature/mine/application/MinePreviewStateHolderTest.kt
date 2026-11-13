@@ -76,4 +76,54 @@ class MinePreviewStateHolderTest {
         assertEquals(0L, entry.copy(progress = -1).mineVideo(true).startPositionMs)
         assertEquals(0L, entry.mineVideo(false).startPositionMs)
     }
+    @Test fun refreshKeepsVisibleEntriesUntilReplacementArrives() = runBlocking {
+        val fake = Fake()
+        fake.historyResult = Outcome.Success(HistoryPage(listOf(entry), 0, 0, "", false))
+        val holder = MinePreviewStateHolder(fake) { true }
+        holder.load(MineLayout(history = true))
+        val entered = CompletableDeferred<Unit>(); val finish = CompletableDeferred<Unit>()
+        fake.beforeHistory = { entered.complete(Unit); finish.await() }
+        fake.historyResult = Outcome.Success(HistoryPage(listOf(entry.copy(title = "new")), 0, 0, "", false))
+        val job = launch { holder.load(MineLayout(history = true)) }; entered.await()
+        val refreshing = holder.state.value[MinePreviewKind.History]
+        assertTrue(refreshing.loading); assertTrue(refreshing.loaded)
+        assertEquals(listOf(entry), refreshing.entries)
+        finish.complete(Unit); job.join()
+        assertEquals("new", holder.state.value[MinePreviewKind.History].entries.single().title)
+        assertFalse(holder.state.value[MinePreviewKind.History].loading)
+    }
+    @Test fun refreshFailureRetainsLastSuccessfulContent() = runBlocking {
+        val fake = Fake()
+        fake.historyResult = Outcome.Success(HistoryPage(listOf(entry), 0, 0, "", false))
+        val holder = MinePreviewStateHolder(fake) { true }
+        holder.load(MineLayout(history = true))
+        fake.historyResult = Outcome.Failure(AppError.Network("offline"))
+        holder.load(MineLayout(history = true))
+        val failed = holder.state.value[MinePreviewKind.History]
+        assertTrue(failed.loaded); assertFalse(failed.loading)
+        assertEquals(listOf(entry), failed.entries); assertNotNull(failed.error)
+    }
+    @Test fun cancellingRefreshRetainsContentAndUnlocksRetry() = runBlocking {
+        val fake = Fake()
+        fake.historyResult = Outcome.Success(HistoryPage(listOf(entry), 0, 0, "", false))
+        val holder = MinePreviewStateHolder(fake) { true }
+        holder.load(MineLayout(history = true))
+        val entered = CompletableDeferred<Unit>()
+        fake.beforeHistory = { entered.complete(Unit); awaitCancellation() }
+        val job = launch { holder.load(MineLayout(history = true)) }; entered.await(); job.cancelAndJoin()
+        assertEquals(listOf(entry), holder.state.value[MinePreviewKind.History].entries)
+        assertFalse(holder.state.value[MinePreviewKind.History].loading)
+        fake.beforeHistory = {}; holder.retry(MinePreviewKind.History)
+        assertTrue(holder.state.value[MinePreviewKind.History].loaded)
+    }
+    @Test fun changedOwnerClearsRetainedContentWithoutRequesting() = runBlocking {
+        val fake = Fake(); var owner = true
+        fake.historyResult = Outcome.Success(HistoryPage(listOf(entry), 0, 0, "", false))
+        val holder = MinePreviewStateHolder(fake) { owner }
+        holder.load(MineLayout(history = true)); owner = false
+        holder.load(MineLayout(history = true))
+        assertTrue(holder.state.value.sections.isEmpty())
+        assertEquals(listOf("history"), fake.calls)
+    }
+
 }

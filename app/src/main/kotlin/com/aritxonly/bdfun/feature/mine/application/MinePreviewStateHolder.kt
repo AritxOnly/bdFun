@@ -32,7 +32,15 @@ internal class MinePreviewStateHolder(
     fun close() { closed = true; generation++; mutable.value = MinePreviewUiState() }
     suspend fun load(layout: MineLayout) = coroutineScope {
         val token = ++generation
-        mutable.value = MinePreviewUiState()
+        if (!active(token)) { mutable.value = MinePreviewUiState(); return@coroutineScope }
+        val enabled = buildSet {
+            if (layout.history) add(MinePreviewKind.History)
+            if (layout.favorites) add(MinePreviewKind.Favorites)
+            if (layout.watchLater) add(MinePreviewKind.WatchLater)
+        }
+        // 前台刷新保留已展示的内容，只移除被用户关闭的区块；新代数不继承旧请求的忙碌锁。
+        mutable.value = MinePreviewUiState(mutable.value.sections.filterKeys { it in enabled }
+            .mapValues { (_, section) -> section.copy(loading = false) })
         if (layout.history) launch { loadSection(MinePreviewKind.History, token) }
         if (layout.favorites) launch { loadSection(MinePreviewKind.Favorites, token) }
         if (layout.watchLater) launch { loadSection(MinePreviewKind.WatchLater, token) }
@@ -44,13 +52,14 @@ internal class MinePreviewStateHolder(
     }
     private suspend fun loadSection(kind: MinePreviewKind, token: Int) {
         if (!active(token) || state.value[kind].loading) return
-        publish(kind, token, MinePreviewSection(loading = true))
+        val previous = state.value[kind]
+        publish(kind, token, previous.copy(loading = true, error = null))
         try {
             val result = fetch(kind)
             currentCoroutineContext().ensureActive()
             when (result) {
                 is Outcome.Success -> publish(kind, token, result.value.copy(loaded = true))
-                is Outcome.Failure -> publish(kind, token, MinePreviewSection(error = result.error))
+                is Outcome.Failure -> publish(kind, token, previous.copy(loading = false, error = result.error))
             }
         } finally {
             if (active(token)) publish(kind, token, state.value[kind].copy(loading = false))

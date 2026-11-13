@@ -567,3 +567,7 @@ MainTabPager位于主壳layerBackdrop的录制树内，因此MineScreen及其资
 ### 2026-11-13 滚动视口与平板底栏 Insets
 
 我的页宽屏LazyColumn、媒体库收藏/历史/稍后再看共用的HorizontalPager和LazyVerticalGrid必须铺满窗口；状态栏初始避让加入滚动容器的contentPadding，禁止在容器外加statusBarsPadding截断滚动视口，避免顶栏渐进模糊下留下固定空带。我的页设置ArrowPreference不带副标题，Card显式使用与资料卡一致的surface/onSurface。平板MainWideNavigation不叠加navigationBarsPadding，左右及底部均使用MainWideNavigationEdgePadding（20dp）；手机底栏规则不变。
+
+### 2026-11-13 我的页预览刷新与高度
+
+宽屏头图仅上角圆角，底角为直角。MinePreviewStateHolder前台刷新保留已成功的区块，失败/取消不清旧内容；关闭区块或账号失效仍清理并拒收迟到响应。展示按实际窗口宽度和字体缩放预留固定内容槽，初次加载用等高骨架，空/错误状态保留该高度；视频封面16:9、单项最大180dp、标题固定两行占位。不得恢复先清空列表再显示单行加载文字的收缩/膨胀行为。
