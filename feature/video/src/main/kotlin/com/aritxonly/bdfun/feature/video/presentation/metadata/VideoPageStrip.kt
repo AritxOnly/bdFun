@@ -2,6 +2,7 @@ package com.aritxonly.bdfun.ui
 
 import com.aritxonly.teak.common.chrome.rememberManualProgress
 
+import com.aritxonly.teak.common.theme.LocalTeakContentColors
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -56,7 +57,7 @@ fun VideoPageStrip(
         LazyRow(
             state = stripState,
             modifier = Modifier.fillMaxWidth(),
-            // 外层已经有 12dp；这里不再加，让第一个 P 的左边和合集圆角卡片左边缘对齐。
+            // 外层已经有 16dp；这里不再加，让第一个 P 的左边和合集圆角卡片左边缘对齐。
             contentPadding = PaddingValues(horizontal = 0.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -67,7 +68,7 @@ fun VideoPageStrip(
                         .width(150.dp)
                         .height(54.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(colors.surface)
+                        .background(LocalTeakContentColors.current.groupedBackground)
                         .clickable(interactionSource = null, indication = null) { onSelect(page) }
                         .padding(horizontal = 10.dp, vertical = 6.dp),
                     contentAlignment = Alignment.CenterStart,
@@ -92,7 +93,7 @@ fun VideoPageStrip(
                 .graphicsLayer { alpha = leftAlpha }
                 .background(
                     Brush.horizontalGradient(
-                        listOf(colors.background, colors.background.copy(alpha = 0f)),
+                        listOf(LocalTeakContentColors.current.background, LocalTeakContentColors.current.background.copy(alpha = 0f)),
                     ),
                 ),
         )
@@ -104,7 +105,7 @@ fun VideoPageStrip(
                 .graphicsLayer { alpha = rightAlpha }
                 .background(
                     Brush.horizontalGradient(
-                        listOf(colors.background.copy(alpha = 0f), colors.background),
+                        listOf(LocalTeakContentColors.current.background.copy(alpha = 0f), LocalTeakContentColors.current.background),
                     ),
                 ),
         )

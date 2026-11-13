@@ -32,7 +32,7 @@ fun androidx.compose.foundation.layout.BoxScope.VideoDetailContentPager(
         pager, collapseConnection,
         metadata = { VideoScreenMetadata(content, pageUi, description, actions.metadata, slots) },
         tail = {
-            videoScreenTail(content, metaReady, relatedEnter, colors.onBackgroundVariant, colors.surface, actions, tailSlots)
+            videoScreenTail(content, metaReady, relatedEnter, colors.onBackgroundVariant, actions, tailSlots)
         },
         comments = { paneWidth ->
             VideoScreenComments(request, presentation, pager, inlineLayout, pageUi, content, paneWidth, slots)
@@ -64,14 +64,14 @@ private fun VideoScreenMetadata(
 
 private fun androidx.compose.foundation.lazy.LazyListScope.videoScreenTail(
     content: VideoScreenContent, metaReady: Boolean, relatedEnter: Float,
-    textColor: Color, surfaceColor: Color, actions: VideoDetailRenderActions, tailSlots: VideoDetailTailSlots,
+    textColor: Color, actions: VideoDetailRenderActions, tailSlots: VideoDetailTailSlots,
 ) {
     val detail = content.read.detail
     val currentCid = content.selection.cid
     val error = content.read.error?.messageOr("加载失败")
     val related = content.read.related
     videoDetailTail(detail, metaReady, currentCid, error, related, relatedEnter,
-        textColor, surfaceColor, actions.onPage,
+        textColor, actions.onPage,
         onRelated = actions.onRelated, slots = tailSlots)
 }
 

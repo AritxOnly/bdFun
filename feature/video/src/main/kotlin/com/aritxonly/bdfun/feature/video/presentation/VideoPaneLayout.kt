@@ -11,10 +11,10 @@ data class VideoPaneLayout(
     val playerWidthDp: Float get() = widthDp - detailsWidthDp
 }
 
-/** Landscape uses 70/30, reserving at least 300 dp for readable details/comments. */
+/** Landscape uses 70/30, reserving at least 360 dp for readable details/comments. */
 fun resolveVideoPaneLayout(widthDp: Float, heightDp: Float): VideoPaneLayout {
     val split = widthDp >= 600f && heightDp > 0f && widthDp > heightDp
-    return VideoPaneLayout(widthDp, if (split) maxOf(300f, widthDp * 0.3f) else 0f)
+    return VideoPaneLayout(widthDp, if (split) maxOf(360f, widthDp * 0.3f) else 0f)
 }
 
 data class VideoActivityLayout(

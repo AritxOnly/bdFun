@@ -45,6 +45,7 @@ internal data class CommentListViewLayout(
     val bare: Boolean, val title: String, val topInset: androidx.compose.ui.unit.Dp,
     val bottomPadding: androidx.compose.ui.unit.Dp, val showLoading: Boolean,
     val header: (androidx.compose.foundation.lazy.LazyListScope.() -> Unit)?,
+    val flatList: Boolean = false,
 )
 internal class CommentListViewActions(
     val onSort: () -> Unit, val onLike: (CommentItem) -> Unit, val onDislike: (CommentItem) -> Unit,
@@ -80,20 +81,28 @@ internal fun CommentListView(
                 state = listState,
                 modifier = Modifier,
                 contentPadding = PaddingValues(
-                    start = if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) 2.dp else 12.dp,
-                    end = if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) 2.dp else 12.dp,
+                    start = if (layout.flatList) {
+                        if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) 10.dp else 4.dp
+                    } else if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) 2.dp else 12.dp,
+                    end = if (layout.flatList) {
+                        if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) 10.dp else 4.dp
+                    } else if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) 2.dp else 12.dp,
                     top = 4.dp + topInset,
                     bottom = bottomPadding,
                 ),
             ) {
                 header?.invoke(this)
                 item(key = "comment-count") {
-                    CommentSortRow(total, sortHot, actions.onSort)
+                    Box(Modifier.padding(horizontal = if (layout.flatList) {
+                        if (com.aritxonly.teak.common.theme.TeakUiStyle.isClassic) 2.dp else 8.dp
+                    } else 0.dp)) {
+                        CommentSortRow(total, sortHot, actions.onSort)
+                    }
                 }
 
-                // 一整张卡片：每条评论只负责自己的圆角，中间无缝、用分割线隔开
+                // 视频详情平铺评论，其余入口保留原分组样式。
                 itemsIndexed(comments, key = { _, item -> item.rpid }) { index, item ->
-                    CommentListCard(index, comments.lastIndex, item, state, actions)
+                    CommentListCard(index, comments.lastIndex, item, state, actions, layout.flatList)
                 }
 
                 commentListFooter(state, showLoading, colors.onBackgroundVariant)

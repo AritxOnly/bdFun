@@ -7,8 +7,13 @@ class VideoPaneLayoutTest {
     @Test fun phoneLandscapeKeepsReadableComments() {
         val layout = resolveVideoPaneLayout(844f, 390f)
         assertTrue(layout.isSplit)
-        assertEquals(300f, layout.detailsWidthDp, 0.01f)
-        assertEquals(544f, layout.playerWidthDp, 0.01f)
+        assertEquals(360f, layout.detailsWidthDp, 0.01f)
+        assertEquals(484f, layout.playerWidthDp, 0.01f)
+    }
+
+    @Test fun tabletLandscapeReserves360BeforeRatioTakesOver() {
+        assertEquals(360f, resolveVideoPaneLayout(1000f, 800f).detailsWidthDp, 0.01f)
+        assertEquals(360f, resolveVideoPaneLayout(1200f, 800f).detailsWidthDp, 0.01f)
     }
 
     @Test fun largeLandscapeUsesSeventyThirty() {
@@ -27,8 +32,8 @@ class VideoPaneLayoutTest {
     @Test fun splitBoundaryReservesBothPanesWithoutOverflow() {
         for (width in listOf(600f, 720f, 999f, 1000f, 1920f)) {
             val layout = resolveVideoPaneLayout(width, 390f)
-            assertTrue(layout.detailsWidthDp >= 300f)
-            assertTrue(layout.playerWidthDp >= 300f)
+            assertTrue(layout.detailsWidthDp >= 360f)
+            assertTrue(layout.playerWidthDp >= 240f)
             assertEquals(width, layout.playerWidthDp + layout.detailsWidthDp, 0.01f)
         }
     }

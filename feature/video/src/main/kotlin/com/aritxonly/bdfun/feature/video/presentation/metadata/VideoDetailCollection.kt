@@ -20,7 +20,7 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.videoDetailCollectio
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 12.dp, end = 12.dp, top = 10.dp)
+                    .padding(start = 16.dp, end = 16.dp, top = 10.dp)
                     .graphicsLayer {
                         alpha = enter
                         translationY = (1f - enter) * 12.dp.toPx()
