@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
@@ -36,32 +38,20 @@ internal fun MineProfileCard(shown: UserProfile, cardShape: androidx.compose.ui.
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(cardShape)
-            .background(colors.surface)
+            .background(colors.surface, cardShape)
             .padding(16.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
             AsyncImage(
-                model = rememberImageRequest(shown.face),
-                contentDescription = null,
+                model = rememberImageRequest(shown.face), contentDescription = "头像",
                 contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(58.dp)
-                    .clip(CircleShape)
+                modifier = Modifier.offset(y = (-38).dp).size(76.dp).clip(CircleShape)
                     .background(colors.surfaceContainerHigh),
             )
-            Spacer(Modifier.width(12.dp))
-            // 三行整体高度压在头像（58dp）以内：ID / 大会员 / 硬币，首字左对齐
-            MineIdentity(shown)
-            Text(
-                text = "空间 ＞",
-                color = colors.onBackgroundVariant,
-                fontSize = 12.sp,
-                modifier = Modifier.clickable(interactionSource = null, indication = null) {
-                    navigation.onOpenSpace(shown.mid)
-                },
-            )
+            Text("个人空间 ＞", color = colors.onBackgroundVariant, fontSize = 12.sp,
+                modifier = Modifier.align(Alignment.CenterEnd).clickable { navigation.onOpenSpace(shown.mid) })
         }
+        Row(verticalAlignment = Alignment.CenterVertically) { MineIdentity(shown) }
 
         Spacer(Modifier.height(14.dp))
         Row(modifier = Modifier.fillMaxWidth()) {

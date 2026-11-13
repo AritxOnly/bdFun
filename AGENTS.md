@@ -544,3 +544,7 @@ HyperOS 4只拥有独立展开/关闭转场，内部复用顶栏的HomeTopBar及
 ### 2026-11-13 MSG-01 消息行为对齐检查点
 
 消息运行时收件箱使用 PiliPlus 固定参考版本的 gRPC SessionMain/SessionSecondary 与复合 offsets；旧 HTTP 门面只供兼容，不能把长整型时间戳当作新游标。会话身份、设置载荷仅在 infra 解析，路由走 core/navigation 的 MessageInbox/MessageTools 快照。设置、点赞人员、关键词、通讯录与单聊设置由 MessageToolsStateHolder 管理，私信使用 gRPC 发送/历史及 biz=im 图片上传；保留账号/页面迟到守卫与取消解锁。协议字段表通过 tools/generate-im-schema.py 从固定上游 pbjson 提取，无新增 protobuf 运行库。离线样本和游客启动通过不能替代登录账号的真实收发/撤回/服务端设置回归，验收范围见 docs/HYPERPILI_MESSAGE_ALIGNMENT.md。
+
+### 2026-11-13 MY-01 我的页布局与预览卡片
+
+我的页采用头图/叠层头像，宽度600dp起使用资料与内容双栏。历史/收藏/稍后再看大卡的三个独立开关仅在设置「我的页」区块，默认关闭；core/application/MineLayoutStateHolder统一发布，infra/storage独立mine_layout文件保存，不向旧SettingsStore追加字段。预览由feature/mine/application经LibraryRepository按需读取，每项最多两条；账号、页面关闭及配置代数拒收迟到结果。个人头图复用空间资料读取；收藏预览只使用真实FavoriteFolder字段，不猜公开性。游客不加载预览或展示本机发送记录正文。
