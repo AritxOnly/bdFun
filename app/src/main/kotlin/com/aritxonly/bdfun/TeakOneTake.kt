@@ -53,11 +53,15 @@ object TeakOneTake {
         fallback: () -> Unit,
     ) {
         openWith(context, anchor, radiusPx, foregroundColor, fallback) { activity, opts ->
-            activity.startActivity(
-                createRouteIntent(activity,
-                    com.aritxonly.bdfun.core.navigation.Route.Video(video.bvid, video.aid, video)),
-                opts.toBundle(),
-            )
+            val intent = createRouteIntent(activity,
+                com.aritxonly.bdfun.core.navigation.Route.Video(video.bvid, video.aid, video,
+                    fromVideoPage = activity is VideoActivity))
+            val options = opts.toBundle()
+            com.aritxonly.bdfun.data.LogCollector.record(TAG,
+                "launch source=${activity.javaClass.simpleName} target=VideoActivity " +
+                    "animType=${options.getInt("android:activity.animType", -1)} " +
+                    "flags=${intent.flags} anchor=$anchor")
+            activity.startActivity(intent, options)
         }
     }
 
@@ -132,6 +136,7 @@ object TeakOneTake {
             val options = ActivityOptions.makeThumbnailScaleUpAnimation(
                 decor, thumb, anchor.left - location[0], anchor.top - location[1],
             )
+            com.aritxonly.bdfun.data.LogCollector.record(TAG, "path=public-thumbnail")
             launch(activity, options)
         } catch (error: Exception) {
             Log.w(TAG, "公开缩略图过渡启动失败", error)
@@ -168,6 +173,9 @@ object TeakOneTake {
                 fail("系统没给出动画选项", fallback)
                 return
             }
+            com.aritxonly.bdfun.data.LogCollector.record(TAG,
+                "path=private requestedType=$ANIM_SCALED_THUMB " +
+                    "returnedType=${opts.toBundle().getInt("android:activity.animType", -1)}")
             Log.d(TAG, "系统动画启动 rect=$anchor r=$radiusPx thumb=${thumb.width}x${thumb.height}")
             launch(activity, opts)
         } catch (t: Throwable) {
@@ -251,6 +259,7 @@ object TeakOneTake {
 
     /** 任何一个环节不满足就退回普通跳转（只在日志里留一行原因）。 */
     private fun fail(reason: String, fallback: () -> Unit) {
+        com.aritxonly.bdfun.data.LogCollector.record(TAG, "path=plain reason=$reason")
         Log.w(TAG, "退回普通跳转：$reason")
         fallback()
     }
