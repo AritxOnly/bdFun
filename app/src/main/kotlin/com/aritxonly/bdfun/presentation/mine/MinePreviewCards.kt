@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -75,6 +76,10 @@ private fun MineVideoPreviews(section: MinePreviewSection, history: Boolean, nav
                     .background(MiuixTheme.colorScheme.surfaceContainerHigh)) {
                     AsyncImage(rememberImageRequest(entry.cover), null, contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize())
+                    if (entry.duration > 0) Text(formatDuration(entry.duration), color = Color.White,
+                        fontSize = 10.sp, modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp)
+                            .clip(RoundedCornerShape(4.dp)).background(Color.Black.copy(alpha = 0.55f))
+                            .padding(horizontal = 4.dp, vertical = 2.dp))
                     if (history && entry.duration > 0 && entry.progress > 0) Box(Modifier.align(Alignment.BottomStart)
                         .fillMaxWidth((entry.progress.toFloat() / entry.duration).coerceIn(0f, 1f))
                         .height(3.dp).background(MiuixTheme.colorScheme.primary))

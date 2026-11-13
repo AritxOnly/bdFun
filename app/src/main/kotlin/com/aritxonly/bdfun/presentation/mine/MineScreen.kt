@@ -1,6 +1,8 @@
 package com.aritxonly.bdfun.ui
 
-import androidx.compose.foundation.background
+import androidx.compose.material3.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.*
@@ -44,29 +46,30 @@ private fun MinePage(
     val shape = remember { ContinuousCornerShape(22.dp) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 600.dp
-        LazyColumn(Modifier.fillMaxSize().statusBarsPadding(),
-            contentPadding = PaddingValues(start = 14.dp, top = 20.dp, end = 14.dp, bottom = 110.dp),
+        LazyColumn(Modifier.fillMaxSize().then(if (wide) Modifier.statusBarsPadding() else Modifier),
+            contentPadding = if (wide) PaddingValues(start = 22.dp, top = 25.dp, end = 22.dp, bottom = 110.dp)
+                else PaddingValues(bottom = 110.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (request.profile == null) {
-                item { MineGuest(shape, navigation.onLogin) }
-                if (request.showSentHistory) item { MineRow("我的评论与弹幕", onClick = navigation.onOpenSentHistory) }
-                item { SettingsBar(navigation.onOpenSettings) }
+                item { MineHero(null, navigation, wide) }
+                if (request.showSentHistory) item { MineContentInset { MineRecent(shape, emptyList(), navigation) } }
+
             } else if (shown != null) {
                 if (wide) item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                        Box(Modifier.weight(0.38f)) { MineHero(shown, navigation) }
-                        Column(Modifier.weight(0.62f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+                        Box(Modifier.weight(0.36f)) { MineHero(shown, navigation, wide = true) }
+                        Column(Modifier.weight(0.64f).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                             MinePageContent(request, navigation, dependencies, layout, previews, retry)
                         }
                     }
                 } else {
                     item { MineHero(shown, navigation) }
-                    item { MineQuickActions(shape, navigation) }
-                    if (layout.history) item { MinePreviewCard(MinePreviewKind.History, previews[MinePreviewKind.History], navigation) { retry(MinePreviewKind.History) } }
-                    if (layout.favorites) item { MinePreviewCard(MinePreviewKind.Favorites, previews[MinePreviewKind.Favorites], navigation) { retry(MinePreviewKind.Favorites) } }
-                    if (layout.watchLater) item { MinePreviewCard(MinePreviewKind.WatchLater, previews[MinePreviewKind.WatchLater], navigation) { retry(MinePreviewKind.WatchLater) } }
-                    if (request.showSentHistory) item { MineRecent(shape, dependencies.recent(), navigation) }
-                    item { SettingsBar(navigation.onOpenSettings) }
+                    item { MineContentInset { MineShortcuts(navigation) } }
+                    if (layout.history) item { MineContentInset { MinePreviewCard(MinePreviewKind.History, previews[MinePreviewKind.History], navigation) { retry(MinePreviewKind.History) } } }
+                    if (layout.favorites) item { MineContentInset { MinePreviewCard(MinePreviewKind.Favorites, previews[MinePreviewKind.Favorites], navigation) { retry(MinePreviewKind.Favorites) } } }
+                    if (layout.watchLater) item { MineContentInset { MinePreviewCard(MinePreviewKind.WatchLater, previews[MinePreviewKind.WatchLater], navigation) { retry(MinePreviewKind.WatchLater) } } }
+                    if (request.showSentHistory) item { MineContentInset { MineRecent(shape, dependencies.recent(), navigation) } }
+
                 }
             }
         }
@@ -79,12 +82,25 @@ private fun MinePageContent(
     layout: MineLayout, previews: MinePreviewUiState, retry: (MinePreviewKind) -> Unit,
 ) {
     val shape = remember { ContinuousCornerShape(22.dp) }
-    MineQuickActions(shape, navigation)
+    MineShortcuts(navigation)
     val enabled = listOf(MinePreviewKind.History to layout.history,
         MinePreviewKind.Favorites to layout.favorites, MinePreviewKind.WatchLater to layout.watchLater)
     enabled.filter { it.second }.forEach { (kind, _) ->
         MinePreviewCard(kind, previews[kind], navigation) { retry(kind) }
     }
     if (request.showSentHistory) MineRecent(shape, dependencies.recent(), navigation)
-    SettingsBar(navigation.onOpenSettings)
+}
+
+@Composable
+private fun MineContentInset(content: @Composable () -> Unit) {
+    Box(Modifier.padding(horizontal = 14.dp)) { content() }
+}
+
+@Composable
+private fun MineShortcuts(navigation: MineNavigation) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("常用功能", Modifier.padding(horizontal = 7.dp), fontSize = 12.sp,
+            color = MiuixTheme.colorScheme.onBackgroundVariant)
+        MineQuickActions(ContinuousCornerShape(22.dp), navigation)
+    }
 }
