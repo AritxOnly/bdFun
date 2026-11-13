@@ -73,13 +73,13 @@ internal fun rememberMainShellState(background: Color): MainShellState {
     }
 
     val wideNavigation = isWideFoldTopBar() && LocalConfiguration.current.screenWidthDp >= 600
-    val bottom = remember { BottomSearchShellStateHolder(ui, appScope) { AppGraph.settings.animationsEnabled } }
+    val bottom = remember { BottomSearchShellStateHolder(ui, appScope, { searchChrome.reset() }) { AppGraph.settings.animationsEnabled } }
     return MainShellState(
         ui, MainShellNavigation(tabPagerState, destinations, tabItems, appScope),
         MainShellChrome(homeChrome, dynamicChrome, searchChrome),
         MainShellFeeds(session, homeFeed, dynamicFeed, unreadMessageCount),
         MainShellBackdrops(backdrop, searchBackdrop, wideNavigation), searchReveal,
-        bottom, { AppGraph.bottomSearchStateHolder() },
+        bottom, { AppGraph.searchStateHolder() },
     )
 }
 

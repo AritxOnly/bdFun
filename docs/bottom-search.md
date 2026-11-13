@@ -85,3 +85,9 @@ Activity 窗口过渡现在是同一 Activity 内的一层整页 alpha，时间�
 ## 分层分支接线（2026-11-13）
 
 以main d0a9ed3最终代码为准：入口仅在界面风格=2（HyperOS 4）显示，不保留早期文案中的独立开关。旧bottom_search键在原设置迁移流程中清理。原TeakSearchTransition参数保持，搜索请求进入feature/search/application/BottomSearchStateHolder，原布局拆到presentation/search/bottom；主壳拥有动画和输入生命周期，AppContainer提供仓储装配。两套入口不共享请求状态。宽屏留白滚动沿用分支已有TeakScrollContainer，内部列表继续持有原滚动状态。
+
+## issue #36：共用搜索界面
+
+HyperOS 4保留BottomSearchFrame及主壳八条转场时间线；内部直接调用与顶部入口相同的MainSearchLayer/SearchOverlay和MainHomeBarContent/HomeTopBar。记录、联想、结果卡片、用户页签及筛选完全共用；两个入口独立创建同一SearchStateHolder，底部专用控制器/展示卡片/测试副本已删除。工厂从AppContainer经主壳注入。关闭、提交、返回搜索首页仍作用于各自输入会话。
+
+验证：checkLayering、现有SearchStateHolderTest及assembleDebug通过（/tmp/bdfun-issue36-shared.log，1m39s）；人工检查清单：两种入口的热词/历史/输入/提交/视频与UP主切换/筛选/清除/取消，HyperOS 4展开和返回动画，关闭后再打开不残留结果。未执行真实账号写操作。

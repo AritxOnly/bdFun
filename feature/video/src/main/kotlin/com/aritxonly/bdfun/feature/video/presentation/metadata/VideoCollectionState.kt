@@ -1,10 +1,11 @@
 package com.aritxonly.bdfun.ui
 
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalDensity
@@ -23,12 +24,11 @@ internal class VideoCollectionExpansionStateHolder {
 }
 internal class VideoCollectionScrollStateHolder {
     var pendingScrollTarget by mutableStateOf<Int?>(null)
-    val episodeOffsets = mutableStateMapOf<Long, Int>()
 }
 internal class VideoCollectionPresentation(
     val expansion: VideoCollectionExpansionStateHolder,
     val scroll: VideoCollectionScrollStateHolder,
-    val scrollState: androidx.compose.foundation.ScrollState,
+    val scrollState: LazyListState,
     val currentIndex: Int,
     val scrollTo: (Int) -> Unit,
     val keepInsideCollection: androidx.compose.ui.input.nestedscroll.NestedScrollConnection,
@@ -39,7 +39,6 @@ internal fun rememberVideoCollectionPresentation(
     title: String, episodes: List<com.aritxonly.bdfun.core.model.video.VideoEpisode>, currentCid: Long,
 ): VideoCollectionPresentation {
     val scope = rememberCoroutineScope()
-    val density = androidx.compose.ui.platform.LocalDensity.current
     val expansion = remember(title, episodes.size) { VideoCollectionExpansionStateHolder() }
     val scroll = remember { VideoCollectionScrollStateHolder() }
     // 点击合集标题栏按钮时，等展开动画让列表完成测量后再滚。
@@ -48,16 +47,17 @@ internal fun rememberVideoCollectionPresentation(
     val currentIndex = episodes.indexOfFirst { it.cid == currentCid }.let {
         if (it < 0) 0 else it
     }
-    val scrollState = rememberScrollState()
-    // 记住每一集在合集内部的纵坐标，点「定位」时能准确滚到当前这一集。
-
-    fun centeredScrollOffset(): Int {
-        val cid = episodes.getOrNull(currentIndex)?.cid ?: return 0
-        val raw = scroll.episodeOffsets[cid]
-            ?: with(density) { (currentIndex * 62).dp.toPx() }.toInt()
-        val halfViewport = with(density) { 99.dp.toPx() }
-        val halfItem = with(density) { 31.dp.toPx() }
-        return (raw - halfViewport + halfItem).toInt().coerceAtLeast(0)
+    val scrollState = rememberLazyListState()
+    suspend fun scrollToTarget(target: Int?) {
+        val index = videoCollectionScrollIndex(target, currentIndex, episodes.size) ?: return
+        // LazyList按索引跳过不可见条目，不能再读取远处条目的绝对坐标。
+        scrollState.animateScrollToItem(index)
+        if (target != 0 && target != 2) {
+            val layout = scrollState.layoutInfo
+            val item = layout.visibleItemsInfo.firstOrNull { it.index == index } ?: return
+            val center = (layout.viewportStartOffset + layout.viewportEndOffset - item.size) / 2f
+            scrollState.animateScrollBy(item.offset - center)
+        }
     }
     // 展开后默认让当前播放的这一集停在合集区域的中间。
     LaunchedEffect(expansion.expanded) {
@@ -65,12 +65,7 @@ internal fun rememberVideoCollectionPresentation(
         delay(40)
         val target = scroll.pendingScrollTarget
         scroll.pendingScrollTarget = null
-        val value = when (target) {
-            0 -> 0
-            2 -> scrollState.maxValue
-            else -> centeredScrollOffset()
-        }
-        scrollState.animateScrollTo(value)
+        scrollToTarget(target)
     }
     fun scrollCollection(target: Int) {
         scope.launch {
@@ -79,12 +74,7 @@ internal fun rememberVideoCollectionPresentation(
                 expansion.expanded = true
             } else {
                 delay(40)
-                val value = when (target) {
-                    0 -> 0
-                    2 -> scrollState.maxValue
-                    else -> centeredScrollOffset()
-                }
-                scrollState.animateScrollTo(value)
+                scrollToTarget(target)
             }
         }
     }
