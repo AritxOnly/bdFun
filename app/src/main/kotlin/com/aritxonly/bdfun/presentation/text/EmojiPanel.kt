@@ -2,6 +2,11 @@ package com.aritxonly.bdfun.ui
 
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,14 +32,14 @@ internal fun EmojiPanel(onPick: (String) -> Unit, modifier: Modifier = Modifier)
     val spring = rememberSpringFloat(if (ui.shown) 1f else 0f, stiffness = 300f, damping = 22f)
     val packages = emotes.groupBy { it.packageId }
     val selected = packages[ui.selectedPackage] ?: packages.values.firstOrNull().orEmpty()
-    androidx.compose.foundation.layout.Column(modifier) {
+    EmojiPanelLayout(selected, spring, onPick, modifier) {
         if (packages.size > 1) EmojiPackageTabs(packages, selected.firstOrNull()?.packageId, ui)
-        EmojiPanelLayout(selected, spring, onPick, Modifier)
     }
 }
 
 @Composable
-private fun EmojiPanelLayout(emotes: List<EmoteItem>, spring: Float, onPick: (String) -> Unit, modifier: Modifier) {
+private fun EmojiPanelLayout(emotes: List<EmoteItem>, spring: Float, onPick: (String) -> Unit, modifier: Modifier,
+    tabs: @Composable () -> Unit) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val hPad = 10.dp
         val vPad = 8.dp
@@ -44,31 +49,39 @@ private fun EmojiPanelLayout(emotes: List<EmoteItem>, spring: Float, onPick: (St
             .toInt()
             .coerceIn(2, 10)
         val cell = ((maxWidth - hPad * 2) - gap * (columns - 1)) / columns
-        // 固定 4 行高度；内容整体可滚动，不再用 LazyGrid，避免最后一行被圆角裁切。
-        val panelHeight = vPad * 2 + cell * 4 + gap * 3 + 2.dp
+        // 切换表情包不改变面板高度；行高和图片大小不随剩余列宽放大。
+        val panelHeight = 220.dp
+        val rowHeight = if (emotes.firstOrNull()?.size == 2) 48.dp else 40.dp
+        val imageSize = if (emotes.firstOrNull()?.size == 2) 36.dp else 28.dp
         val cells = emojiCells(emotes)
         val rows = cells.chunked(columns)
-        val layout = EmojiGridLayout(hPad, vPad, gap, columns, cell, panelHeight, rows)
+        val layout = EmojiGridLayout(hPad, vPad, gap, columns, cell, panelHeight, rows, rowHeight, imageSize)
 
-        EmojiGlassPanel(layout, spring, onPick)
+        EmojiGlassPanel(layout, spring, onPick, tabs)
     }
 }
 
 internal class EmojiPanelPresentationStateHolder { var shown by mutableStateOf(false); var selectedPackage by mutableStateOf(0) }
 internal data class EmojiGridLayout(val hPad: androidx.compose.ui.unit.Dp, val vPad: androidx.compose.ui.unit.Dp,
     val gap: androidx.compose.ui.unit.Dp, val columns: Int, val cell: androidx.compose.ui.unit.Dp,
-    val panelHeight: androidx.compose.ui.unit.Dp, val rows: List<List<EmojiCell>>)
+    val panelHeight: androidx.compose.ui.unit.Dp, val rows: List<List<EmojiCell>>,
+    val rowHeight: androidx.compose.ui.unit.Dp, val imageSize: androidx.compose.ui.unit.Dp)
 
 @Composable
 private fun EmojiPackageTabs(packages: Map<Int, List<EmoteItem>>, selected: Int?, ui: EmojiPanelPresentationStateHolder) {
-    androidx.compose.foundation.lazy.LazyRow {
+    androidx.compose.foundation.lazy.LazyRow(Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 10.dp),
+        verticalAlignment = Alignment.CenterVertically) {
         items(packages.keys.toList().size) { index ->
             val id = packages.keys.elementAt(index)
             val icon = packages.getValue(id).first().packageIcon
-            androidx.compose.material3.TextButton(onClick = { ui.selectedPackage = id }) {
-                if (icon.isBlank()) androidx.compose.material3.Text("表情包 ${index + 1}")
+            androidx.compose.foundation.layout.Box(
+                Modifier.size(40.dp).clickable { ui.selectedPackage = id },
+                contentAlignment = Alignment.Center,
+            ) {
+                if (icon.isBlank()) androidx.compose.material3.Text("${index + 1}", fontSize = 12.sp,
+                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 else coil.compose.AsyncImage(model = icon, contentDescription = "表情包 ${index + 1}",
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(20.dp),
                     alpha = if (id == selected) 1f else 0.5f,
                     contentScale = androidx.compose.ui.layout.ContentScale.Fit)
             }

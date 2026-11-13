@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -34,7 +36,8 @@ import coil.compose.AsyncImage
 import com.aritxonly.bdfun.core.application.*
 
 @Composable
-internal fun EmojiGlassPanel(layout: EmojiGridLayout, spring: Float, onPick: (String) -> Unit) {
+internal fun EmojiGlassPanel(layout: EmojiGridLayout, spring: Float, onPick: (String) -> Unit,
+    tabs: @Composable () -> Unit) {
     val panelHeight = layout.panelHeight
     TeakGlassPanel(
         modifier = Modifier
@@ -59,7 +62,12 @@ internal fun EmojiGlassPanel(layout: EmojiGridLayout, spring: Float, onPick: (St
         // 和设置二级菜单/投币面板同一套底灰
         tintAlpha = 0.3f,
     ) {
-        EmojiGridContent(layout, onPick)
+        Column(Modifier.fillMaxSize().clipToBounds()) {
+            tabs()
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                androidx.compose.runtime.key(layout.rows) { EmojiGridContent(layout, onPick) }
+            }
+        }
     }
 }
 
@@ -88,38 +96,39 @@ private fun EmojiGridRow(row: List<EmojiCell>, layout: EmojiGridLayout, onPick: 
     val gap = layout.gap
     val columns = layout.columns
     Row(
-        modifier = Modifier.fillMaxWidth().height(cell),
+        modifier = Modifier.fillMaxWidth().height(layout.rowHeight),
         horizontalArrangement = Arrangement.spacedBy(gap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         row.forEach { item ->
-            EmojiGridCell(item, cell, onPick)
+            EmojiGridCell(item, layout, onPick)
         }
         repeat(columns - row.size) {
-            Spacer(Modifier.size(cell))
+            Spacer(Modifier.width(cell).height(layout.rowHeight))
         }
     }
 }
 
 @Composable
-private fun EmojiGridCell(item: EmojiCell, cell: androidx.compose.ui.unit.Dp, onPick: (String) -> Unit) {
+private fun EmojiGridCell(item: EmojiCell, layout: EmojiGridLayout, onPick: (String) -> Unit) {
     val preview = remember(item) { EmojiPreviewStateHolder() }
     if (preview.visible && item.url != null) EmojiPreview(item) { preview.visible = false }
     Box(
         modifier = Modifier
-            .size(cell)
+            .width(layout.cell).height(layout.rowHeight).clipToBounds()
             .combinedClickable(onClick = { onPick(item.pick) },
                 onLongClick = { if (item.url != null) preview.visible = true }),
         contentAlignment = Alignment.Center,
     ) {
         if (item.url == null) {
-            Text(text = item.pick, fontSize = 22.sp)
+            Text(text = item.pick, fontSize = 16.sp, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         } else {
             AsyncImage(
                 model = item.url,
                 contentDescription = item.pick,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.size(cell * 0.84f),
+                modifier = Modifier.size(layout.imageSize.coerceAtMost(layout.cell)),
             )
         }
     }
