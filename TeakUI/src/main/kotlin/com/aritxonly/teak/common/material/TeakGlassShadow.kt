@@ -14,7 +14,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 
-internal enum class TeakGlassShadowProfile { Standard, TopBarControl, ContentControl }
+// 来源与工作区指纹见 docs/DEADLINER_GLASS_SYNC.md；本地差异仅为详情页 1.10 倍 alpha。
+internal enum class TeakGlassShadowProfile { Standard, TopBarControl, ContentControl, ContentTopBarControl }
 
 internal data class TeakGlassShadowTokens(
     val ambientRadius: Dp,
@@ -34,20 +35,47 @@ internal fun teakGlassShadowTokens(
     useOfficialMiuixGlass: Boolean = false,
     profile: TeakGlassShadowProfile = TeakGlassShadowProfile.Standard,
     preset: GlassShadowPreset = GlassShadowPreset.Default,
-): TeakGlassShadowTokens = if (profile == TeakGlassShadowProfile.ContentControl) {
-    // 白底上的分离来自宽扩散和轻接触阴影，避免用一圈深色线条勾边。
+): TeakGlassShadowTokens {
+    val detail = profile == TeakGlassShadowProfile.ContentControl ||
+        profile == TeakGlassShadowProfile.ContentTopBarControl
+    val baseProfile = when (profile) {
+        TeakGlassShadowProfile.ContentControl -> TeakGlassShadowProfile.Standard
+        TeakGlassShadowProfile.ContentTopBarControl -> TeakGlassShadowProfile.TopBarControl
+        else -> profile
+    }
+    val base = deadlinerShadowTokens(isDark, useOfficialMiuixGlass, baseProfile, preset)
+    // 详情页只轻微加深，不另造半径或扩散配方。
+    return if (detail) base.copy(
+        ambientAlpha = (base.ambientAlpha * 1.10f).coerceAtMost(1f),
+        outerAlpha = (base.outerAlpha * 1.10f).coerceAtMost(1f),
+        edgeAlpha = (base.edgeAlpha * 1.10f).coerceAtMost(1f),
+    ) else base
+}
+
+private fun deadlinerShadowTokens(
+    isDark: Boolean, useOfficialMiuixGlass: Boolean,
+    profile: TeakGlassShadowProfile, preset: GlassShadowPreset,
+): TeakGlassShadowTokens = if (isDark) {
     TeakGlassShadowTokens(
-        ambientRadius = 28.dp, ambientSpread = (-2).dp, ambientAlpha = if (isDark) 0.04f else 0.065f,
-        outerRadius = 11.dp, outerSpread = (-1).dp, outerAlpha = if (isDark) 0.06f else 0.09f,
-        edgeRadius = 2.dp, edgeSpread = (-0.5).dp, edgeAlpha = 0.015f,
+        ambientRadius = 22.dp,
+        ambientSpread = (-1).dp,
+        ambientAlpha = 0.020f,
+        outerRadius = 11.dp,
+        outerSpread = (-0.5).dp,
+        outerAlpha = 0.038f,
+        edgeRadius = 4.dp,
+        edgeSpread = (-0.5).dp,
+        edgeAlpha = 0.008f,
     )
-} else TeakGlassShadowTokens(
-    ambientRadius = 0.dp, ambientSpread = 0.dp, ambientAlpha = 0f,
-    outerRadius = if (isDark) 7.dp else 8.dp, outerSpread = (-0.75).dp,
-    outerAlpha = if (isDark) 0.052f else 0.068f,
-    edgeRadius = if (isDark) 3.dp else 3.5.dp, edgeSpread = (-0.75).dp,
-    edgeAlpha = if (isDark) 0.010f else 0.014f,
-)
+} else if (!useOfficialMiuixGlass) {
+    selfLightShadowTokens(preset, profile)
+} else {
+    TeakGlassShadowTokens(
+        ambientRadius = 24.dp, ambientSpread = (-1).dp, ambientAlpha = 0.025f,
+        outerRadius = 12.dp, outerSpread = (-0.5).dp, outerAlpha = 0.050f,
+        edgeRadius = 4.5.dp, edgeSpread = (-0.5).dp, edgeAlpha = 0.012f,
+    )
+}
 
 /** Three bounded lobes keep the experiment at the same rendering cost as the existing shadow. */
 private fun selfLightShadowTokens(
@@ -138,10 +166,13 @@ internal fun Modifier.drawTeakGlassShadow(
     )
 }
 
-/** 投影位于胶囊裁剪之外；只在黑白详情控件上启用，不改变内容或点击区域。 */
+/** 详情控件沿用全局阴影，仅在相同顶栏/普通层次上轻微加深。 */
 @Composable
 fun Modifier.teakContentControlShadow(shape: Shape, alpha: Float = 1f): Modifier {
     if (!com.aritxonly.teak.common.theme.LocalTeakControlEmphasis.current) return this
     val isDark = androidx.compose.material3.MaterialTheme.colorScheme.onSurface.luminance() > 0.5f
-    return teakGlassShadow(shape, isDark, alpha, TeakGlassShadowProfile.ContentControl)
+    val profile = if (com.aritxonly.teak.common.chrome.LocalProgressiveTopBarMaterialHosted.current) {
+        TeakGlassShadowProfile.ContentTopBarControl
+    } else TeakGlassShadowProfile.ContentControl
+    return teakGlassShadow(shape, isDark, alpha, profile)
 }

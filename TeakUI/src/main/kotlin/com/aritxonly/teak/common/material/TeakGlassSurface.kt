@@ -143,8 +143,10 @@ fun TeakGlassIconButton(
                 shape = TeakGlassDefaults.Shape,
                 isDark = isDark,
                 alpha = materialAlpha,
-                profile = if (LocalTeakControlEmphasis.current) TeakGlassShadowProfile.ContentControl
-                    else if (LocalProgressiveTopBarMaterialHosted.current) TeakGlassShadowProfile.TopBarControl
+                profile = if (LocalTeakControlEmphasis.current) {
+                    if (LocalProgressiveTopBarMaterialHosted.current) TeakGlassShadowProfile.ContentTopBarControl
+                    else TeakGlassShadowProfile.ContentControl
+                } else if (LocalProgressiveTopBarMaterialHosted.current) TeakGlassShadowProfile.TopBarControl
                     else TeakGlassShadowProfile.Standard,
             )
             .miuixControlFeedback(enabled = enabled, shape = TeakGlassDefaults.Shape),
