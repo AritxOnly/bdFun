@@ -548,3 +548,10 @@ HyperOS 4只拥有独立展开/关闭转场，内部复用顶栏的HomeTopBar及
 ### 2026-11-13 MY-01 我的页布局与预览卡片
 
 我的页竖屏头图必须从页面顶部通栏铺开，不加外边距或卡片圆角；资料卡内缩14dp并上压30dp，头像上压24dp。设置入口仅在头图右上，复用AdaptiveMiuixTopAppBar/TeakGlassIconButton；头图复用SpaceBanner及其解码工具。宽度600dp起使用原型的资料与内容双栏。历史/收藏/稍后再看大卡的三个独立开关仅在设置「我的页」区块，默认关闭；core/application/MineLayoutStateHolder统一发布，infra/storage独立mine_layout文件保存，不向旧SettingsStore追加字段。预览由feature/mine/application经LibraryRepository按需读取，每项最多两条；账号、页面关闭及配置代数拒收迟到结果。个人头图复用空间资料读取；收藏预览只使用真实FavoriteFolder字段，不猜公开性。游客不加载预览或展示本机发送记录正文。
+
+### 2026-11-13 表情缓存约束
+
+表情面板列表通过 core/domain 的 EmoteCache 端口按账号持久化，infra/storage 保存 JSON；
+EmoteStore 先读缓存，24 小时内复用，过期保留旧列表并刷新，账号切换拒收迟到结果。
+图片由 app 装配的独立 Coil loader 按显示需求缓存，不预下载整包；磁盘位于 filesDir/emote_images，
+上限 128MiB。面板使用固定 220dp 的懒网格，禁止恢复一次组合全包图片的 Column。

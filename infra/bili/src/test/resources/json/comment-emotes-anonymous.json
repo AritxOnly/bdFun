@@ -1,0 +1,59 @@
+{
+  "rpid": 2273794059,
+  "content": {
+    "message": "回复 @值六枚硬币的新昵称 :你真优秀[打call][吃瓜][滑稽]",
+    "emote": {
+      "[吃瓜]": {
+        "id": 415,
+        "package_id": 1,
+        "state": 0,
+        "type": 1,
+        "attr": 0,
+        "text": "[吃瓜]",
+        "url": "https://i0.hdslb.com/bfs/emote/4191ce3c44c2b3df8fd97c33f85d3ab15f4f3c84.png",
+        "meta": {
+          "size": 1,
+          "suggest": [
+            ""
+          ]
+        },
+        "mtime": 1668688325,
+        "jump_title": "吃瓜"
+      },
+      "[打call]": {
+        "id": 510,
+        "package_id": 1,
+        "state": 0,
+        "type": 1,
+        "attr": 0,
+        "text": "[打call]",
+        "url": "https://i0.hdslb.com/bfs/emote/431432c43da3ee5aab5b0e4f8931953e649e9975.png",
+        "meta": {
+          "size": 1,
+          "suggest": [
+            ""
+          ]
+        },
+        "mtime": 1668688325,
+        "jump_title": "打call"
+      },
+      "[滑稽]": {
+        "id": 27,
+        "package_id": 1,
+        "state": 0,
+        "type": 1,
+        "attr": 0,
+        "text": "[滑稽]",
+        "url": "https://i0.hdslb.com/bfs/emote/d15121545a99ac46774f1f4465b895fe2d1411c3.png",
+        "meta": {
+          "size": 1,
+          "suggest": [
+            ""
+          ]
+        },
+        "mtime": 1668688325,
+        "jump_title": "滑稽"
+      }
+    }
+  }
+}

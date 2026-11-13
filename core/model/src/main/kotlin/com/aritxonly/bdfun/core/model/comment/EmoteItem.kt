@@ -4,4 +4,8 @@ package com.aritxonly.bdfun.core.model.comment
 data class EmoteItem(
     val text: String,
     val url: String,
+    val packageId: Int = 0,
+    val packageIcon: String = "",
+    val type: Int = 1,
+    val size: Int = 1,
 )
