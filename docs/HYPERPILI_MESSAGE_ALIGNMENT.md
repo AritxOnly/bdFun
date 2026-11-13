@@ -63,3 +63,20 @@ Per the user's instructions, no emulator was used and no package was sent to Fei
 ## 同机跳转哔哩哔哩登录
 
 对照同一参考版本 `lib/pages/login/view.dart` 的「其他应用打开」：登录页提供「跳转哔哩哔哩登录」，使用 `bilibili://browser?url=` 和完整编码的当前二维码 URL，由官方 App 打开授权页；返回后沿用原二维码 key 轮询，不新增回调 scheme、不更换登录方式、不写入新的全局传参。加载、过期、失败或页面关闭后不可发起跳转，点击执行时重新读取当前链接。未安装/无法打开时提示继续使用二维码登录，不输出带凭证的 URL。实机需验证已安装官方 App 的打开、确认与返回登录，以及二维码刷新后使用新链接。
+
+## 私信进入后退出：初始化顺序回归
+
+`PrivateChatEffects` 读取 `LocalRichTextDependencies`，但此前在 `TeakActivityScaffold` 之前组合；独立 Activity 不继承消息页的 CompositionLocal，默认值会抛出「富文本依赖尚未装配」。已将 effect 绑定移入页面壳的 content，在 `TeakBareTheme` 注入依赖后组合，保留原控制器和 effect key。
+
+新增框架 Instrumentation `PrivateChatLaunchRegression`，通过真实 `Route.PrivateChat` 进入 Activity，并等待首屏组合后确认页面保持打开。只允许游客数据，避免真实账号的已读回执；不新增测试运行库，测试入口仅存在独立 androidTest APK。对照同一测试：修复前 Debug APK 报 `Process crashed`，AndroidRuntime 栈指向 `PrivateChatEffects` 的「富文本依赖尚未装配」；修复后 `OK (1 test)`，Fatal 崩溃数 0。
+
+复现/回归命令（使用只读测试模拟器）：
+
+```sh
+./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w com.aritxonly.bdfun.debug.test/com.aritxonly.bdfun.PrivateChatLaunchRegression
+```
+
+该测试覆盖页面初始化与依赖装配，不代表登录账号的实际收发/撤回/举报已经通过。

@@ -29,7 +29,6 @@ internal fun PrivateChatRoot(session: MessageSession) {
     val menu = remember(controller) { ChatMessageMenuState() }
     val ui = remember(controller) { PrivateChatPresentationStateHolder() }
     val listState = key(controller) { rememberLazyListState() }
-    PrivateChatEffects(runtime, ui, session, content, listState)
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null && ui.imagePickerOwner === controller) controller.setImage(uri.toString())
         ui.imagePickerOwner = null
@@ -69,6 +68,8 @@ internal fun PrivateChatRoot(session: MessageSession) {
         },
         ),
     ) {
+        // 富文本与主题依赖由页面壳注入，读取它们的 effect 必须在壳内组合。
+        PrivateChatEffects(runtime, ui, session, content, listState)
         com.aritxonly.teak.common.chrome.BindTeakPageScrollState(listState)
         CompositionLocalProvider(LocalChatMessageMenu provides { message -> menu.selected = message; menu.report = false; menu.description = "" },
             LocalChatImageOpen provides { url -> menu.image = url }) {

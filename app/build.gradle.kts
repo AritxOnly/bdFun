@@ -35,6 +35,7 @@ android {
         applicationId = pkgOverride ?: "com.aritxonly.bdfun"
         // miuix-blur 鐨?RuntimeShader 璺緞鍩虹嚎
         minSdk = 33
+        testInstrumentationRunner = "com.aritxonly.bdfun.PrivateChatLaunchRegression"
         targetSdk = 37
         versionCode = 500
         versionName = "preview-5.0"
