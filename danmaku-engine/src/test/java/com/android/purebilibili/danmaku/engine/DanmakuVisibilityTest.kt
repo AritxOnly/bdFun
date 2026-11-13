@@ -10,6 +10,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [33], manifest = org.robolectric.annotation.Config.NONE)
 class DanmakuVisibilityTest {
     @Test
     fun activeItems_stopDrawingAndAcceptingHits_thenResumeAtTheirCurrentPosition() {

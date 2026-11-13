@@ -1,0 +1,14 @@
+{
+  "code": 0,
+  "message": "OK",
+  "ttl": 1,
+  "data": {
+    "mid": 2283296,
+    "following": 964,
+    "whisper": 0,
+    "black": 0,
+    "follower": 759601,
+    "fans_medal_toast": null,
+    "fans_effect": null
+  }
+}

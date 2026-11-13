@@ -18,6 +18,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "bdFun"
 include(":app")
+include(":core:model")
 include(":TeakUI")
 include(":danmaku-engine")
 
@@ -28,6 +29,8 @@ include(":danmaku-engine")
 val miuixSource = file(
     System.getenv("MIUIX_SOURCE")
         ?: gradle.startParameter.projectProperties["miuixSource"]
+        ?: file(".local/miuix-45645854cd46c32275c5666e3aafa9980d8f104e")
+            .takeIf { it.resolve("settings.gradle.kts").isFile }?.path
         ?: "../miuix-src/miuix-45645854cd46c32275c5666e3aafa9980d8f104e",
 )
 if (miuixSource.resolve("settings.gradle.kts").isFile) {
@@ -53,3 +56,22 @@ if (miuixSource.resolve("settings.gradle.kts").isFile) {
         }
     }
 }
+
+include(":core:common")
+
+include(":core:domain")
+
+include(":core:application")
+
+include(":core:navigation")
+
+include(":infra:bili")
+
+include(":infra:storage")
+
+include(":infra:playback")
+
+include(":feature:home")
+include(":tools:kotlin-audit")
+
+include(":feature:video")

@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.core.domain.targetPlaybackRefreshRate
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -22,11 +23,7 @@ import java.lang.ref.WeakReference
  * - 全屏播放且静止：同样 60 帧。
  * 通过 Window.setFrameRate 生效（API 30+），同时清掉 preferredRefreshRate 让系统自己选模式。
  */
-object SmartRefresh {
-    private const val IDLE_MS = 1500L
-
-    var playing = false
-    var fullscreen = false
+private class WindowRefreshStateHolder {
 
     private var lastTouchAt = SystemClock.uptimeMillis()
     private var applied = Float.NaN
@@ -55,15 +52,11 @@ object SmartRefresh {
         lastTouchAt = SystemClock.uptimeMillis()
     }
 
-    fun apply(enabled: Boolean) {
+    fun apply(enabled: Boolean, playing: Boolean, fullscreen: Boolean) {
         val window = windowRef?.get() ?: return
-        val idle = SystemClock.uptimeMillis() - lastTouchAt >= IDLE_MS
-        val target = when {
-            !enabled -> 0f
-            !idle -> 0f
-            playing || fullscreen -> 60f
-            else -> 1f
-        }
+        val target = targetPlaybackRefreshRate(
+            enabled, SystemClock.uptimeMillis() - lastTouchAt, playing, fullscreen,
+        )
         if (target == applied) return
         applied = target
         runCatching {
@@ -84,13 +77,16 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 fun Modifier.smartRefresh(enabled: Boolean): Modifier {
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
+    val controller = remember(activity) { WindowRefreshStateHolder() }
+    val playing = BackgroundPlayback.playing
+    val fullscreen = BackgroundPlayback.fullscreen
     DisposableEffect(activity) {
-        SmartRefresh.attach(activity?.window)
-        onDispose { SmartRefresh.detach() }
+        controller.attach(activity?.window)
+        onDispose { controller.detach() }
     }
-    LaunchedEffect(enabled) {
+    LaunchedEffect(enabled, playing, fullscreen) {
         while (true) {
-            SmartRefresh.apply(enabled)
+            controller.apply(enabled, playing, fullscreen)
             delay(400)
         }
     }
@@ -98,7 +94,7 @@ fun Modifier.smartRefresh(enabled: Boolean): Modifier {
         awaitPointerEventScope {
             while (true) {
                 val event = awaitPointerEvent()
-                if (event.changes.any { it.pressed }) SmartRefresh.touch()
+                if (event.changes.any { it.pressed }) controller.touch()
             }
         }
     }

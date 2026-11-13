@@ -13,6 +13,8 @@ import kotlin.test.assertTrue
  * [beginX, beginY, alphaRange, duration, content, rotateZ, rotateY,
  *  endX, endY, translationDuration, delay, noStroke, font, easing, pathData]
  */
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [33], manifest = org.robolectric.annotation.Config.NONE)
 class AdvancedDanmakuParserTest {
 
     @Test

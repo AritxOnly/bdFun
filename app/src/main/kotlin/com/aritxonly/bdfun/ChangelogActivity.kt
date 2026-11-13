@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.ui.ActivityPageOptions
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -17,7 +19,9 @@ class ChangelogActivity : ComponentActivity() {
             TeakActivityScaffold(
                 settings = settings,
                 onBack = { finish() },
-                title = "更新日志",
+                options = ActivityPageOptions(
+                    title = "更新日志",
+                ),
             ) {
                 ChangelogScreen(onBack = { finish() })
             }

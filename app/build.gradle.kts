@@ -103,7 +103,17 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":feature:home"))
+    implementation(project(":feature:video"))
+    implementation(project(":infra:storage"))
+    implementation(project(":infra:playback"))
+    implementation(project(":infra:bili"))
+    implementation(project(":core:navigation"))
+    implementation(project(":core:application"))
+    implementation(project(":core:domain"))
+    implementation(project(":core:common"))
     testImplementation("junit:junit:4.13.2")
+    implementation(project(":core:model"))
     implementation(project(":TeakUI"))
     implementation(project(":danmaku-engine"))
 
@@ -121,6 +131,7 @@ dependencies {
 
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel)
     implementation(libs.androidx.media)
     implementation(libs.coroutines.android)
 
@@ -129,6 +140,5 @@ dependencies {
 
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
-    implementation("org.brotli:dec:0.1.2")
     implementation(libs.zxing.core)
 }

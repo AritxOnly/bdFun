@@ -1,5 +1,7 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.ui.ActivityPageOptions
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -12,16 +14,18 @@ class LoginActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         AppGraph.ensure(applicationContext)
-        val api = AppGraph.api
+        val login = AppGraph.createQrLogin()
         val settings = AppGraph.settings
         setContent {
             TeakActivityScaffold(
                 settings = settings,
                 onBack = { finish() },
-                showBackButton = false,
+                options = ActivityPageOptions(
+                    showBackButton = false,
+                ),
             ) {
                 LoginScreen(
-                    api = api,
+                    controller = login,
                     onBack = { finish() },
                     onSuccess = { profile ->
                         // 登录态写进进程级单例，MainActivity 的 Compose 状态会立即刷新

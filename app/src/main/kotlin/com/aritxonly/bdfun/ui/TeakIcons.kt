@@ -16,21 +16,6 @@ import com.aritxonly.bdfun.R
  * 用户提供的图标资源统一在这里取用。
  * 素材都是「白色图形 + 透明底」，所以颜色一律用 tint 覆盖，同一张图能同时适配深浅色。
  */
-@Composable
-internal fun ResourceGlyph(
-    @DrawableRes res: Int,
-    tint: Color,
-    modifier: Modifier = Modifier,
-    size: Dp = 16.dp,
-) {
-    Image(
-        painter = painterResource(res),
-        contentDescription = null,
-        colorFilter = ColorFilter.tint(tint),
-        modifier = modifier.size(size),
-    )
-}
-
 internal object TeakIcon {
     val Like = R.drawable.act_like
     val Dislike = R.drawable.act_dislike

@@ -1,0 +1,125 @@
+{
+  "code": 0,
+  "message": "OK",
+  "ttl": 1,
+  "data": {
+    "bvid": "BV1ouxp6REjf",
+    "aid": 117539027817782,
+    "videos": 1,
+    "tid": 138,
+    "tid_v2": 2063,
+    "tname": "",
+    "tname_v2": "",
+    "copyright": 1,
+    "pic": "http://i1.hdslb.com/bfs/archive/dd4497e6247257974f6bdae55e5c1a261b5de2d5.jpg",
+    "title": "灭霸全家福",
+    "pubdate": 1793503300,
+    "ctime": 1793503300,
+    "desc": "-",
+    "desc_v2": [
+      {
+        "raw_text": "-",
+        "type": 1,
+        "biz_id": 0
+      }
+    ],
+    "state": 0,
+    "duration": 31,
+    "rights": {
+      "bp": 0,
+      "elec": 0,
+      "download": 1,
+      "movie": 0,
+      "pay": 0,
+      "hd5": 0,
+      "no_reprint": 1,
+      "autoplay": 1,
+      "ugc_pay": 0,
+      "is_cooperation": 0,
+      "ugc_pay_preview": 0,
+      "no_background": 0,
+      "clean_mode": 0,
+      "is_stein_gate": 0,
+      "is_360": 0,
+      "no_share": 0,
+      "arc_pay": 0,
+      "free_watch": 0
+    },
+    "owner": {
+      "mid": 3690985378810373,
+      "name": "小姜的猫meme剧场",
+      "face": "https://i2.hdslb.com/bfs/face/3d8d9467feb860ba77facb205ae544f05e793cb8.jpg"
+    },
+    "stat": {
+      "aid": 117539027817782,
+      "view": 625956,
+      "danmaku": 183,
+      "reply": 849,
+      "favorite": 18973,
+      "coin": 480,
+      "share": 5302,
+      "now_rank": 0,
+      "his_rank": 0,
+      "like": 16215,
+      "dislike": 0,
+      "evaluation": "",
+      "vt": 0
+    },
+    "argue_info": {
+      "argue_msg": "含AI生成内容",
+      "argue_type": 0,
+      "argue_link": ""
+    },
+    "dynamic": "",
+    "cid": 43226173335,
+    "dimension": {
+      "width": 2160,
+      "height": 2880,
+      "rotate": 0
+    },
+    "premiere": null,
+    "teenage_mode": 1,
+    "is_chargeable_season": false,
+    "is_story": true,
+    "is_upower_exclusive": false,
+    "is_upower_play": false,
+    "is_upower_preview": false,
+    "enable_vt": 0,
+    "vt_display": "",
+    "is_upower_exclusive_with_qa": false,
+    "is_hua_sheng": false,
+    "no_cache": false,
+    "pages": [
+      {
+        "cid": 43226173335,
+        "page": 1,
+        "from": "vupload",
+        "part": "灭霸全家福-副本",
+        "duration": 31,
+        "vid": "",
+        "weblink": "",
+        "dimension": {
+          "width": 2160,
+          "height": 2880,
+          "rotate": 0
+        },
+        "first_frame": "http://i1.hdslb.com/bfs/storyff/_00002y8wdp98th0jb2t1zzuq0l5l6bb_firsti.jpg",
+        "ctime": 1793503300
+      }
+    ],
+    "subtitle": {
+      "allow_submit": false,
+      "list": []
+    },
+    "is_season_display": false,
+    "user_garb": {
+      "url_image_ani_cut": ""
+    },
+    "honor_reply": {},
+    "like_icon": "",
+    "need_jump_bv": false,
+    "disable_show_up_info": false,
+    "is_story_play": 1,
+    "is_view_self": false
+  }
+}

@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun
 
+import com.aritxonly.bdfun.navigation.createRouteIntent
 import android.app.Activity
 import android.app.ActivityOptions
 import android.content.Context
@@ -52,9 +53,9 @@ object TeakOneTake {
         fallback: () -> Unit,
     ) {
         openWith(context, anchor, radiusPx, foregroundColor, fallback) { activity, opts ->
-            AppGraph.pendingVideo.value = video
             activity.startActivity(
-                Intent(activity, VideoActivity::class.java),
+                createRouteIntent(activity,
+                    com.aritxonly.bdfun.core.navigation.Route.Video(video.bvid, video.aid, video)),
                 opts.toBundle(),
             )
         }
@@ -71,9 +72,9 @@ object TeakOneTake {
         fallback: () -> Unit,
     ) {
         openWith(context, anchor, radiusPx, foregroundColor, fallback) { activity, opts ->
-            AppGraph.pendingDynamic.value = dynamic
             activity.startActivity(
-                Intent(activity, DynamicDetailActivity::class.java),
+                createRouteIntent(activity,
+                    com.aritxonly.bdfun.core.navigation.Route.Dynamic(dynamic.id, dynamic)),
                 opts.toBundle(),
             )
         }

@@ -5,6 +5,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [33], manifest = org.robolectric.annotation.Config.NONE)
 class SpecialDanmakuWindowTest {
     @Test
     fun futurePayloadIsNotFetchedAndColdSeekKeepsLongLivedScenes() = runSuspend {

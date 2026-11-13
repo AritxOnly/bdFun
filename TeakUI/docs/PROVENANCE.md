@@ -100,3 +100,23 @@
 - **Miuix**：模糊能力本身，第三方依赖，没有复制源码；
 - **HyperIsland**：只参考渐进模糊的部分参数/观感，没有复制源码；
 - **Teak 自己**：页面外壳、顶部 overlay、设置页、PagerTabs、主题适配层等。
+
+## 2026-11-12 · 自有滚动视口
+
+`chrome/TeakScrollContainer.kt`与`chrome/TeakContentWidth.kt`为本项目实现。使用Compose公开Layout/scrollable/ScrollableState，以并列留白手势区替代原centeredListWidth的祖先scrollable；没有复制第三方手势引擎。宽度规则来自本项目原ListContentWidth.kt。
+
+### 2026-11-13 跨视频/直播共用播放绘制
+
+`common/player/PlayerGlyphs.kt`由bdFun既有FullscreenGlyphs中的PixelIcon/PlayGlyph/PauseGlyph原样迁入；PlayGlyph仅增加显式资源ID参数，仍绘制app传入的原TeakIcon.PlayerPlay。保留BitmapFactory、FilterQuality.High、暂停条尺寸/间距和内容描述；不包含业务模型、账号状态、网络或资源目录反向依赖。视频/直播都从TeakUI导入，不通过feature:video共享UI。
+
+### ResourceGlyph
+
+`common/icons/ResourceGlyph.kt`来自bdFun原`ui/TeakIcons.kt`的通用资源图片绘制，函数体、16dp默认尺寸、着色与contentDescription语义原样；只接收资源ID，不迁入业务图标目录或导航。
+
+### blockTouches
+
+`common/interaction/BlockTouches.kt`来自bdFun原`ui/ManualAnimation.kt`，除换行规范外函数体逐字保留。用于透明覆盖层阻挡触摸，不涉及视频、路由或业务状态。原页面调用同一实现。
+
+### TeakActionSheet
+
+`common/modal/TeakActionSheet.kt`来自bdFun原`ui/TeakActionSheet.kt`的无业务外壳，函数体逐字保留：原MiuixBottomSheet、关闭按钮、默认标题、allowDismiss、Column滚动与padding均不变。业务动作行及资源目录仍在app/feature。

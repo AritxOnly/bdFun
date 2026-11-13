@@ -1,0 +1,41 @@
+package com.aritxonly.bdfun.ui
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.text.InlineTextContent
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import com.aritxonly.bdfun.core.application.*
+
+@Composable
+internal fun EmoteText(content: EmoteTextContent, style: EmoteTextStyle, modifier: Modifier = Modifier,
+    decorations: EmoteTextDecorations = EmoteTextDecorations(), onMentionClick: ((Long) -> Unit)? = null) {
+    val dependencies = LocalRichTextDependencies.current
+    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val linkColor = MiuixTheme.colorScheme.primary
+    val text = content.text
+    val biliTitles = rememberBiliLinkTitles(text)
+    val map = remember(dependencies.emotes.byText, content.extraEmotes) {
+        if (content.extraEmotes.isEmpty()) dependencies.emotes.byText else dependencies.emotes.byText + content.extraEmotes
+    }
+    val analysis = remember(text, map, content.mentions, onMentionClick != null) {
+        analyzeRichText(text, map, content.mentions, onMentionClick != null)
+    }
+    if (analysis.plainText(decorations.trailingContent != null)) {
+        PlainEmoteText(text, style, modifier)
+        return
+    }
+    val inline = remember(map, text, style.fontSize) { mutableMapOf<String, InlineTextContent>() }
+    val runtime = RichTextRenderContext(content, style, decorations,
+        RichTextActions({ dependencies.openVideo(context, it) }, { uriHandler.openUri(it) }, onMentionClick),
+        linkColor, biliTitles, analysis)
+    val annotated = remember(map, text, content.prefix, style.prefixColor, style.prefixWeight,
+        decorations.prefixBadge != null, style.fontSize, decorations.trailingContent != null,
+        analysis.mentionList, style.mentionColor, onMentionClick != null, analysis.hasUrl, linkColor, biliTitles) {
+        buildRichText(runtime, inline)
+    }
+    AnnotatedEmoteText(annotated, inline, style, modifier)
+}

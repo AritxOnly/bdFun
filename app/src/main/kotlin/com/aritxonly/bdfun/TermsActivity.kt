@@ -5,7 +5,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.aritxonly.bdfun.data.SettingsStore
 import com.aritxonly.bdfun.ui.OnboardingScreen
 import com.aritxonly.bdfun.ui.TeakBareTheme
 
@@ -14,7 +13,8 @@ class TermsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         com.aritxonly.bdfun.data.LogCollector.init(applicationContext)
-        val settings = SettingsStore(applicationContext)
+        AppGraph.ensure(applicationContext)
+        val settings = AppGraph.settings
         val replay = intent.getBooleanExtra(EXTRA_REPLAY, false)
         // 新版开始页只在这个版本第一次进入时显示；看过一次后不再显示。
         // 从设置里点「查看开始页」时（replay）无条件再展示一次。
@@ -31,7 +31,6 @@ class TermsActivity : ComponentActivity() {
         setContent {
             TeakBareTheme(settings = settings) { _, _ ->
                 OnboardingScreen(
-                    settings = settings,
                     onAccept = {
                         settings.onboardingAcked = true
                         settings.termsAckedVersion = BuildConfig.VERSION_NAME

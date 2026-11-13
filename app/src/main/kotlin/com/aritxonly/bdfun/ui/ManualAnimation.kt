@@ -46,16 +46,5 @@ fun rememberManualProgress(
     return value
 }
 
-/** 透明但仍在屏幕上的控件会抢点击：用它把手势吃掉。 */
-fun Modifier.blockTouches(blocked: Boolean): Modifier = pointerInput(blocked) {
-    if (!blocked) return@pointerInput
-    awaitPointerEventScope {
-        while (true) {
-            val event = awaitPointerEvent()
-            event.changes.forEach { it.consume() }
-        }
-    }
-}
-
 /** 常用时长：页面/颜色切换统一走这个，保证各处速率一致。 */
 const val UiSwapDurationMs = 200f

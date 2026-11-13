@@ -1,0 +1,32 @@
+plugins { alias(libs.plugins.androidLibrary) }
+android {
+    namespace = "com.aritxonly.bdfun.infra.playback"
+    compileSdk = 37
+    buildToolsVersion = "37.0.0"
+    defaultConfig { minSdk = 33 }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+}
+kotlin { jvmToolchain(21) }
+dependencies {
+    implementation(project(":core:application"))
+    implementation(project(":core:domain"))
+    implementation(project(":core:model"))
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
+    implementation(libs.androidx.media)
+    implementation(libs.androidx.core)
+    implementation(libs.coil.core)
+    // 新模块也按 app 的已解析版本约束旧 media-compat 的传递依赖，不重新引入旧 AndroidX。
+    constraints {
+        implementation(libs.androidx.lifecycle.runtime)
+        implementation(libs.androidx.lifecycle.common)
+        implementation(libs.androidx.arch.core.common)
+        implementation(libs.androidx.collection)
+        implementation(libs.androidx.annotation)
+    }
+    constraints { implementation(libs.androidx.annotation.experimental) { because("与 app 已解析的 Media3 注解版本一致") } }
+    implementation(libs.coroutines.android)
+}

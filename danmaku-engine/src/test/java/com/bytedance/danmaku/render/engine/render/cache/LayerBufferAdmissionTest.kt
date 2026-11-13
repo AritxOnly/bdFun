@@ -7,6 +7,8 @@ import com.bytedance.danmaku.render.engine.render.draw.DrawItem
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [33], manifest = org.robolectric.annotation.Config.NONE)
 class LayerBufferAdmissionTest {
     private class Item(time: Long) : DanmakuData() { init { showAtTime = time } }
     private class Drawing : DrawItem<DanmakuData>() {

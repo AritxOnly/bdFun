@@ -4,39 +4,40 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class VideoExitOwnershipTest {
+    private val pauses = com.aritxonly.bdfun.core.application.PlaybackPauseRegistry()
     @Test fun finishingOldActivityDoesNotPauseTheNewVideo() {
         val old = Any()
         val next = Any()
         val calls = mutableListOf<String>()
         val oldHook: (Boolean) -> Unit = { calls += "old:$it" }
         val newHook: (Boolean) -> Unit = { calls += "new:$it" }
-        VideoPageBus.registerPause(old, oldHook)
-        VideoPageBus.registerPause(next, newHook)
+        pauses.register(old, oldHook)
+        pauses.register(next, newHook)
         try {
-            VideoPageBus.pauseFor(old)
+            pauses.pauseFor(old)
             assertEquals(listOf("old:false"), calls)
         } finally {
-            VideoPageBus.unregisterPause(oldHook)
-            VideoPageBus.unregisterPause(newHook)
+            pauses.unregister(oldHook)
+            pauses.unregister(newHook)
         }
     }
     @Test fun dismissedPipCannotAutomaticallyResume() {
         val owner = Any()
         var allowResume = true
         val hook: (Boolean) -> Unit = { allowResume = it }
-        VideoPageBus.registerPause(owner, hook)
+        pauses.register(owner, hook)
         try {
-            VideoPageBus.pauseFor(owner)
+            pauses.pauseFor(owner)
             assertFalse(allowResume)
-        } finally { VideoPageBus.unregisterPause(hook) }
+        } finally { pauses.unregister(hook) }
     }
     @Test fun destroyedPlayerIsNotCalledAgain() {
         val owner = Any()
         var calls = 0
         val hook: (Boolean) -> Unit = { calls++ }
-        VideoPageBus.registerPause(owner, hook)
-        VideoPageBus.unregisterPause(hook)
-        VideoPageBus.pauseFor(owner)
+        pauses.register(owner, hook)
+        pauses.unregister(hook)
+        pauses.pauseFor(owner)
         assertEquals(0, calls)
     }
 }

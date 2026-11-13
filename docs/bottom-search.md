@@ -81,3 +81,7 @@ Activity 窗口过渡现在是同一 Activity 内的一层整页 alpha，时间�
 - `app/src/main/kotlin/com/aritxonly/bdfun/App.kt`（入口按钮、动画驱动、返回键、触控拦截）
 - `app/src/main/kotlin/com/aritxonly/bdfun/data/SettingsStore.kt`（`bottom_search`，默认 false）
 - `app/src/main/kotlin/com/aritxonly/bdfun/ui/SettingsScreen.kt`（开关项）
+
+## 分层分支接线（2026-11-13）
+
+以main d0a9ed3最终代码为准：入口仅在界面风格=2（HyperOS 4）显示，不保留早期文案中的独立开关。旧bottom_search键在原设置迁移流程中清理。原TeakSearchTransition参数保持，搜索请求进入feature/search/application/BottomSearchStateHolder，原布局拆到presentation/search/bottom；主壳拥有动画和输入生命周期，AppContainer提供仓储装配。两套入口不共享请求状态。宽屏留白滚动沿用分支已有TeakScrollContainer，内部列表继续持有原滚动状态。

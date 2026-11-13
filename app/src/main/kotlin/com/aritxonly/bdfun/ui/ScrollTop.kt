@@ -24,26 +24,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
-import com.aritxonly.bdfun.data.SettingsStore
+import com.aritxonly.bdfun.feature.settings.presentation.SettingsBindings
 import com.aritxonly.teak.common.chrome.teakGlassGlyphColor
 import com.aritxonly.teak.common.material.TeakGlassIconButton
 import kotlinx.coroutines.launch
 
 /** 当前列表页注册的「回到顶部」动作；没有注册时不显示按钮。 */
-object ScrollTopBus {
-    var action by mutableStateOf<(() -> Unit)?>(null)
-    /** 注册动作的页面 key，用于设置里按页面开关。 */
-    var page by mutableStateOf<String?>(null)
-    /** 页面是否已经滑过一小段；在顶部时按钮淡出。 */
-    var scrolled by mutableStateOf(false)
-}
+
 
 /** 第一项之前还有 3 项左右时认为已经离开顶部，足够避免刚打开就闪出按钮。 */
 private fun scrolledEnough(index: Int, offset: Int): Boolean =
     index >= 3 || (index == 2 && offset > 0)
 
 @Composable
-fun BoxScope.ScrollTopButton(settings: SettingsStore, bottomObstruction: androidx.compose.ui.unit.Dp = 0.dp) {
+fun BoxScope.ScrollTopButton(settings: SettingsBindings, bottomObstruction: androidx.compose.ui.unit.Dp = 0.dp) {
+    val ScrollTopBus = LocalPageChromeState.current
+
     val action = ScrollTopBus.action
     val page = ScrollTopBus.page
     val enabled = settings.scrollTopEnabled &&
@@ -105,6 +101,8 @@ fun BoxScope.ScrollTopButton(settings: SettingsStore, bottomObstruction: android
 
 @Composable
 fun RegisterScrollTop(state: LazyListState, page: String) {
+    val ScrollTopBus = LocalPageChromeState.current
+
     val scope = rememberCoroutineScope()
     val action: () -> Unit = {
         scope.launch { state.animateScrollToItem(0) }
@@ -130,6 +128,8 @@ fun RegisterScrollTop(state: LazyListState, page: String) {
 
 @Composable
 fun RegisterScrollTop(state: LazyGridState, page: String) {
+    val ScrollTopBus = LocalPageChromeState.current
+
     val scope = rememberCoroutineScope()
     val action: () -> Unit = {
         scope.launch { state.animateScrollToItem(0) }
@@ -155,6 +155,8 @@ fun RegisterScrollTop(state: LazyGridState, page: String) {
 
 @Composable
 fun RegisterScrollTop(state: androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState, page: String) {
+    val ScrollTopBus = LocalPageChromeState.current
+
     val scope = rememberCoroutineScope()
     val action: () -> Unit = {
         scope.launch { state.animateScrollToItem(0) }

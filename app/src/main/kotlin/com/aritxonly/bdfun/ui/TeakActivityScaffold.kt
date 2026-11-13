@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.bdfun.navigateToVideo
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -16,7 +17,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.aritxonly.bdfun.BrandPink
-import com.aritxonly.bdfun.data.SettingsStore
+import com.aritxonly.bdfun.feature.settings.presentation.SettingsBindings
 import com.aritxonly.bdfun.hyperDarkColors
 import com.aritxonly.bdfun.hyperLightColors
 import com.aritxonly.teak.common.chrome.TeakPageChrome
@@ -34,36 +35,31 @@ import com.aritxonly.teak.common.theme.TeakTheme
  * [backRevealed] 传 null 表示跟随页面滚动；视频页传 false（纯箭头）。
  */
 @Composable
-fun TeakActivityScaffold(
-    settings: SettingsStore,
-    onBack: () -> Unit,
-    backRevealed: Boolean? = null,
-    showBackButton: Boolean = true,
-    /** 播放器页自己就是视频，不需要再叠一张后台播放唱片。 */
-    showBackgroundDisc: Boolean = true,
-    /** 页面底部有输入栏时，把唱片整体抬高，避免和输入栏重叠。 */
-    discLift: androidx.compose.ui.unit.Dp = 0.dp,
-    /** 个别页面覆盖唱片的右边距，用来对准底部表情按钮。 */
-    discEndPadding: androidx.compose.ui.unit.Dp? = null,
-    title: String? = null,
-    limitContentWidth: Boolean = true,
-    showTopBar: Boolean = true,
-    showScrollTop: Boolean = true,
-    topBarLeading: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
-    topBarCenter: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit = {},
-    topBarActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
-    /** 采集层之外的覆盖层：这里的玻璃可以安全读取 backdrop（真模糊）。 */
-    overlay: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit = {},
-    /** 顶栏之上的浮层，玻璃菜单用，避免被搜索按钮等顶栏按钮盖住。 */
-    menuOverlay: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit = {},
-    titleAlwaysVisible: Boolean = false,
-    pageState: TeakPageScrollState? = null,
-    /** 顶栏渐变模糊的显隐：0 = 完全透明，1 = 正常显示。 */
-    barBlurFraction: Float = 1f,
-    /** 顶栏三个图标的自定义颜色；null 时跟随主题。 */
-    topBarGlyphColor: Color? = null,
+internal fun TeakActivityScaffold(
+    settings: SettingsBindings, onBack: () -> Unit,
+    options: ActivityPageOptions = ActivityPageOptions(),
+    disc: ActivityDiscOptions = ActivityDiscOptions(),
+    slots: ActivityPageSlots = ActivityPageSlots(), pageState: TeakPageScrollState? = null,
     content: @Composable () -> Unit,
 ) {
+    val backRevealed = options.backRevealed
+    val showBackButton = options.showBackButton
+    val title = options.title
+    val limitContentWidth = options.limitContentWidth
+    val showTopBar = options.showTopBar
+    val showScrollTop = options.showScrollTop
+    val titleAlwaysVisible = options.titleAlwaysVisible
+    val barBlurFraction = options.barBlurFraction
+    val topBarGlyphColor = options.topBarGlyphColor
+    val showBackgroundDisc = disc.showBackgroundDisc
+    val discLift = disc.discLift
+    val discEndPadding = disc.discEndPadding
+    val topBarLeading = slots.topBarLeading
+    val topBarCenter = slots.topBarCenter
+    val topBarActions = slots.topBarActions
+    val overlay = slots.overlay
+    val menuOverlay = slots.menuOverlay
+    PageChromeScope {
     val discContext = LocalContext.current
     TeakBareTheme(settings) { _, materialColors ->
         TeakPageScaffold(
@@ -92,21 +88,21 @@ fun TeakActivityScaffold(
                     BackgroundPlayback.active
                 ) {
                     // 和首页完全同一份位置计算。
-                    val discPlacement = rememberDiscPlacement()
+                    val discPlacement = rememberDiscPlacement(settings)
                     BackgroundPlayDisc(
+                        settings = settings, dependencies = com.aritxonly.bdfun.AppGraph.discDependencies,
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .navigationBarsPadding()
                             .padding(end = discEndPadding ?: discPlacement.endPadding)
                             .graphicsLayer {
                                 // 外壳自带 8dp 透明留白，下移后视觉底边和首页一致。
-                                // HyperOS 4 的位姿已经在 rememberDiscPlacement 里算好，不再叠加页面自己的抬高。
                                 translationY = discPlacement.bottomOffset.toPx() -
                                     (if (com.aritxonly.teak.common.theme.TeakUiStyle.isHyperOs4) 0.dp else discLift).toPx()
                             },
                         size = discPlacement.size,
                     ) { video ->
-                        com.aritxonly.bdfun.TeakNavigator.openVideo(discContext, video)
+                        navigateToVideo(discContext, video)
                     }
                 }
             },
@@ -114,6 +110,7 @@ fun TeakActivityScaffold(
             titleAlwaysVisible = titleAlwaysVisible,
             content = content,
         )
+    }
     }
 }
 
@@ -123,7 +120,7 @@ fun TeakActivityScaffold(
  */
 @Composable
 fun TeakBareTheme(
-    settings: SettingsStore,
+    settings: SettingsBindings,
     content: @Composable (dark: Boolean, materialColors: androidx.compose.material3.ColorScheme) -> Unit,
 ) {
     val systemDark = isSystemInDarkTheme()
@@ -165,6 +162,9 @@ fun TeakBareTheme(
         refractionEnabled = settings.refractionEnabled,
         fontScale = settings.fontScale,
     ) {
-        content(dark, materialColors)
+        androidx.compose.runtime.CompositionLocalProvider(
+            com.aritxonly.bdfun.feature.settings.presentation.LocalSettingsBindings provides settings,
+            LocalRichTextDependencies provides com.aritxonly.bdfun.AppGraph.richTextDependencies,
+        ) { content(dark, materialColors) }
     }
 }
