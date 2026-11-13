@@ -23,7 +23,6 @@ fun androidx.compose.foundation.layout.BoxScope.VideoPageTabs(
     layout: VideoActivityLayout, playerBottomPx: () -> Float,
     pager: androidx.compose.foundation.pager.PagerState, onSelect: (Int) -> Unit,
     danmakuOn: Boolean, onOpenInput: () -> Unit, onToggleDanmaku: () -> Unit,
-    chip: @Composable (String, Boolean, androidx.compose.ui.unit.Dp, () -> Unit) -> Unit,
 ) {
     val pageOverlayAlpha = layout.overlayAlpha
     val paneLayout = layout.paneLayout
@@ -57,7 +56,7 @@ fun androidx.compose.foundation.layout.BoxScope.VideoPageTabs(
                     onSelect = onSelect,
                     itemWidth = if (splitPanes) 48.dp else 60.dp,
                 )
-                VideoDanmakuActions(splitPanes, danmakuOn, onOpenInput, onToggleDanmaku, chip)
+                VideoDanmakuActions(splitPanes, danmakuOn, onOpenInput, onToggleDanmaku)
             }
         }
     }
@@ -67,12 +66,7 @@ fun androidx.compose.foundation.layout.BoxScope.VideoPageTabs(
 @Composable
 private fun RowScope.VideoDanmakuActions(
     compact: Boolean, danmakuOn: Boolean, onOpenInput: () -> Unit, onToggleDanmaku: () -> Unit,
-    chip: @Composable (String, Boolean, androidx.compose.ui.unit.Dp, () -> Unit) -> Unit,
 ) {
     Spacer(Modifier.weight(1f))
-    // 点我发弹幕（与「简介/评论」同一套玻璃）
-    chip("点我发弹幕", false, if (compact) 10.dp else 14.dp, onOpenInput)
-    Spacer(Modifier.width(8.dp))
-    // 「弹」沿用app的原真玻璃组合，开关状态与动作显式输入。
-    chip("弹", danmakuOn, if (compact) 10.dp else 15.dp, onToggleDanmaku)
+    VideoDanmakuControl(compact, danmakuOn, onOpenInput, onToggleDanmaku)
 }
