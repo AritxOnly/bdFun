@@ -7,6 +7,22 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class RichTextPolicyTest {
+    @Test fun commentDictionaryAloneResolvesUninstalledPackagesAndNestedNames() {
+        val emotes = mapOf("[未下载包_笑[开心]]" to "remote", "未下载包_笑" to "short")
+        val text = "[未下载包_笑[开心]] [未下载包_笑] [未下载包_笑[开心]]"
+        val plan = analyzeRichText(text, emotes, emptyMap(), false)
+        assertEquals(listOf("remote", "short", "remote"), plan.hits.map { it.emoteUrl })
+        assertEquals(listOf("未下载包_笑[开心]", "未下载包_笑", "未下载包_笑[开心]"),
+            plan.hits.map { it.emoteToken })
+        assertFalse(plan.plainText(false))
+    }
+    @Test fun literalNamesEscapeRegexAndDoNotReplaceUnknownOrBareText() {
+        val plan = analyzeRichText("[包_a+b.*] [包_axxbZZ] 包_a+b.*", mapOf("包_a+b.*" to "remote"), emptyMap(), false)
+        assertEquals(1, plan.hits.size)
+        assertEquals(0, plan.hits.single().start)
+        assertEquals("[包_a+b.*]".length, plan.hits.single().end)
+    }
+
     @Test fun longPackageEmoteNamesAreRecognizedWithoutTruncation() {
         val token = "这是一个超过十二个字符的表情包名称_开心"
         val hit = analyzeRichText("[$token]", mapOf(token to "url"), emptyMap(), false).hits.single()

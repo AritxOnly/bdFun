@@ -6,6 +6,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class CommentMapperTest {
+    @Test fun anonymousCommentSuppliesImagesWithoutAnyDownloadedPackages() {
+        val reply = javaClass.classLoader!!.getResourceAsStream("json/comment-emotes-anonymous.json")!!
+            .bufferedReader().use { JSONObject(it.readText()) }
+        val item = parseComment(reply, 0, false)
+        assertEquals(setOf("吃瓜", "打call", "滑稽"), item.emotes.keys)
+        assertTrue(item.emotes.values.all { it.startsWith("https://") && !it.contains("@") })
+        assertTrue(item.message.contains("[吃瓜]"))
+    }
+
     private fun realData(): JSONObject = javaClass.classLoader!!
         .getResourceAsStream("json/comments-anonymous.json")!!.bufferedReader()
         .use { JSONObject(it.readText()).getJSONObject("data") }

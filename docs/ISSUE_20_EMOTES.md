@@ -41,3 +41,18 @@ meta.size 大表情网格和长按原图预览。插入时文字表情保留字�
 220dp（包含 40dp 切换栏），内容区内部滚动，切换包不再改变面板高度。
 切换栏图标固定 20dp、文字 12sp；表情图片限制 28/36dp，行高 40/48dp，
 文字表情固定 16sp、单行省略，避免列宽或内容撑大显示。
+
+## 未下载表情包的评论解析
+
+对照本地 Hyper-PiliPlus `0d08dd25bdeaa9a55e5a0e333154b681fd8048fe`
+的 `lib/pages/video/reply/widgets/reply_item_grpc.dart`：以评论自带表情字典
+构建转义后的完整名称匹配，不要求个人表情面板下载该包。现有字典输入保留，
+匹配规则改为完整名称、长名称优先，允许名称内层括号及正则特殊字符；链接优先级
+和旧带/不带外括号的字典兼容保持不变。
+
+2026-11-13 匿名真实请求 `/x/v2/reply?type=1&oid=170001&pn=1&ps=20&sort=2`
+成功；提取单条评论的 rpid/content.message/content.emote 为
+`infra/bili/src/test/resources/json/comment-emotes-anonymous.json`，不保存其他资料。
+真实样本覆盖无个人表情包的三种评论表情 URL；特殊名称另以合成用例覆盖。
+core:application:test、infra:bili:testDebugUnitTest、app:assembleDebug 和分层检查通过。
+尚待反馈具体未显示的表情名称/评论，以确认现场问题与这次修复完全对应。

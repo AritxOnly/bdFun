@@ -48,9 +48,14 @@ fun collectRichLinks(text: String): List<RichTextHit> {
 }
 
 private fun addRichEmotes(hits: MutableList<RichTextHit>, text: String, emotes: Map<String, String>) {
-    for (match in EmoteToken.findAll(text)) {
-        val token = match.groupValues[1]
-        val url = emotes[token] ?: emotes["[$token]"] ?: continue
+    // 评论自带的字典足以显示未下载的表情；完整名称可能包含内层括号。
+    val tokens = emotes.keys.map { it.removeSurrounding("[", "]") }
+        .filter { it.isNotEmpty() }.distinct().sortedByDescending { it.length }
+    if (tokens.isEmpty()) return
+    val pattern = Regex(tokens.joinToString("|") { Regex.escape("[$it]") })
+    for (match in pattern.findAll(text)) {
+        val token = match.value.removeSurrounding("[", "]")
+        val url = emotes[token] ?: emotes[match.value] ?: continue
         val start = match.range.first; val end = match.range.last + 1
         if (hits.any { it.start < end && start < it.end }) continue
         hits += RichTextHit(start, end, emoteToken = token, emoteUrl = url)
