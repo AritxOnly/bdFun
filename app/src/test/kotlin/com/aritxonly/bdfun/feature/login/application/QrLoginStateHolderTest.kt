@@ -18,6 +18,36 @@ class QrLoginStateHolderTest {
         override suspend fun generate(): QrLoginResult<QrLogin> { calls++; gate?.await(); return generated }
         override suspend fun poll(key: String): QrLoginResult<QrPoll> { keys += key; pollGate?.await(); return polls.removeFirst() }
     }
+    @Test fun officialAppLaunchUsesOnlyReadyCurrentQrAndDoesNotReplacePollingKey() = runBlocking {
+        val first = "https://passport.bilibili.com/scan?auth_code=first"
+        val second = "https://passport.bilibili.com/scan?auth_code=second"
+        val fake = Fake().apply { generated = QrLoginResult.Success(QrLogin(first, "first")) }
+        val holder = QrLoginStateHolder(fake) {}
+        assertNull(holder.officialAppLoginLink())
+        holder.generate()
+        assertEquals(officialAppLoginUri(first), holder.officialAppLoginLink())
+        assertEquals("first", holder.state.value.qr?.key)
+        fake.gate = CompletableDeferred()
+        val refresh = launch(start = CoroutineStart.UNDISPATCHED) { holder.generate() }
+        assertNull(holder.officialAppLoginLink())
+        fake.generated = QrLoginResult.Success(QrLogin(second, "second"))
+        fake.gate!!.complete(Unit); refresh.join()
+        assertEquals(officialAppLoginUri(second), holder.officialAppLoginLink())
+        fake.polls += QrLoginResult.Success(QrPoll(QrState.Success, "ok"))
+        assertEquals(QrLoginCompletion(null), holder.poll("second"))
+        assertEquals(listOf("second"), fake.keys)
+    }
+    @Test fun officialAppLaunchIsDisabledAfterExpiryFailureOrClose() = runBlocking {
+        val fake = Fake().apply { generated = QrLoginResult.Success(QrLogin("https://passport.bilibili.com/scan", "key")) }
+        val holder = QrLoginStateHolder(fake) {}; holder.generate()
+        fake.polls += QrLoginResult.Success(QrPoll(QrState.Expired, "expired"))
+        holder.poll("key"); assertNull(holder.officialAppLoginLink())
+        holder.generate(); assertNotNull(holder.officialAppLoginLink())
+        fake.generated = QrLoginResult.Failure("offline"); holder.generate()
+        assertNull(holder.officialAppLoginLink())
+        fake.generated = QrLoginResult.Success(QrLogin("https://passport.bilibili.com/scan", "new"))
+        holder.generate(); holder.close(); assertNull(holder.officialAppLoginLink())
+    }
     @Test fun initialLoadingAndRefreshPreserveOldPollingKeyButHideOldImage() = runBlocking {
         val fake = Fake(); val holder = QrLoginStateHolder(fake)
         assertEquals(QrLoginState(), holder.state.value); holder.generate()
