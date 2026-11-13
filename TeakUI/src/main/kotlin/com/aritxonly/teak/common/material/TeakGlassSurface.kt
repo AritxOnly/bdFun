@@ -1,9 +1,6 @@
 package com.aritxonly.teak.common.material
 
 import com.aritxonly.teak.common.material.miuixControlFeedback
-import androidx.compose.foundation.border
-import com.aritxonly.teak.common.theme.LocalTeakControlContrast
-import com.aritxonly.teak.common.theme.LocalTeakContentColors
 import androidx.compose.foundation.background
 import com.aritxonly.teak.common.chrome.LocalProgressiveTopBarMaterialHosted
 import androidx.compose.foundation.clickable
@@ -99,11 +96,6 @@ fun TeakGlassSurface(
                     interaction = interaction,
                 ),
         )
-        if (LocalTeakControlContrast.current) {
-            val contrast = LocalTeakContentColors.current
-            Box(Modifier.matchParentSize().background(contrast.controlFill, shape)
-                .border(1.dp, contrast.controlOutline, shape))
-        }
         content()
     }
 }

@@ -138,9 +138,7 @@ fun TeakPagerTabs(
                         .width(itemWidth)
                         .height(TeakPagerTabDefaults.ItemHeight)
                         .background(
-                            if (com.aritxonly.teak.common.theme.LocalTeakControlContrast.current) {
-                                colors.onBackground.copy(alpha = 0.12f)
-                            } else Color.Black.copy(alpha = TeakPagerTabDefaults.IndicatorAlpha),
+                            colors.onBackground.copy(alpha = TeakPagerTabDefaults.IndicatorAlpha),
                             Capsule(),
                         ),
                 )

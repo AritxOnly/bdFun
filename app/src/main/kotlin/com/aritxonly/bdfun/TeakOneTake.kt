@@ -37,18 +37,7 @@ object TeakOneTake {
     @Volatile
     private var resolved = false
 
-    private var pendingComparisonVideo: VideoItem? = null
-
-    /** 临时对照入口；只在裸 Intent 上消费，避免影响普通路由。 */
-    internal fun consumeComparisonVideo(intent: Intent): VideoItem? {
-        if (intent.extras != null) return null
-        val snapshot = pendingComparisonVideo
-        pendingComparisonVideo = null
-        trace("receive mode=legacy-bare-intent snapshot=${snapshot != null}")
-        return snapshot
-    }
-
-    /** 本次 release 对照只记录转场参数，不记录视频、账号或 Cookie。 */
+    /** release 仅保留转场路径诊断，避免把窗口策略问题误判为路由问题。 */
     private fun trace(message: String) {
         Log.i(TAG, message)
         com.aritxonly.bdfun.data.LogCollector.record(TAG, message)
@@ -70,19 +59,19 @@ object TeakOneTake {
         fallback: () -> Unit,
     ) {
         openWith(context, anchor, radiusPx, foregroundColor, fallback) { activity, opts ->
-            // 对照实验：恢复旧版裸 Intent + 一次性交接，排除路由编码的影响。
-            val intent = Intent(activity, VideoActivity::class.java)
+            val intent = createRouteIntent(activity,
+                com.aritxonly.bdfun.core.navigation.Route.Video(video.bvid, video.aid, video,
+                    fromVideoPage = activity is VideoActivity))
             val options = opts.toBundle()
-            trace("launch mode=legacy-bare-intent source=${activity.javaClass.simpleName} " +
-                "animType=${options.getInt("android:activity.animType", -1)} " +
-                "flags=${intent.flags} anchor=$anchor")
-            pendingComparisonVideo = video
-            try {
-                activity.startActivity(intent, options)
-            } catch (error: Exception) {
-                if (pendingComparisonVideo === video) pendingComparisonVideo = null
-                throw error
-            }
+            trace(
+                "launch mode=route-intent source=${activity.javaClass.simpleName} target=VideoActivity " +
+                    "animType=${options.getInt("android:activity.animType", -1)} " +
+                    "flags=${intent.flags} anchor=$anchor " +
+                    "orientation=${activity.resources.configuration.orientation} " +
+                    "smallestWidth=${activity.resources.configuration.smallestScreenWidthDp} " +
+                    "requestedOrientation=${activity.requestedOrientation} " +
+                    "window=${activity.windowManager.currentWindowMetrics.bounds}")
+            activity.startActivity(intent, options)
         }
     }
 
