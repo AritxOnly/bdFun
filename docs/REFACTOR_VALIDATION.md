@@ -783,3 +783,14 @@ release安装成功；冷启动1734ms、真实首页推荐与BV1orW46aEba起播�
 首轮debug/架构29s通过，复核将私信从值域判断改为仅参数存在性后，`/tmp/bdfun-missing-route-corrected.log`16s通过checkLayering/debug；1032文件/10710节点/0违规。本批为低影响原生错误提示，不加复述实现的单测、不重复1089项全套。原有纯入口解析测试已覆盖无BV/AV时释放loading/Close，不以它冒充Toast装机证据。
 
 手工验收清单：分别缺视频标识、空间mid、动态快照、会话参数时看到对应原因并返回；有快照的视频、BV-only、AV-only、合法空间/动态和Route/legacy extras私信仍按原流程打开。不扩大Activity导出范围，未进行账号发送操作。提示装机/R8及更新后的最终交付仍需收尾，旧交付包来源保持2b5cd24。
+
+### 2026-11-13 续接核验：当前源码 eb6b864
+
+- 刷新origin/main仍为4c4e03bf767d457d49a82b5226b2215ebd7872ce，HEAD未遗漏main提交。当前生产源码eb6b8640b7f814765e9f130dc348434ed7a64809包含状态模板与缺参提示；不再以2b5cd24旧候选包代替当前产物。
+- `/tmp/bdfun-current-final-validation.log`：完整既有测试、checkLayering及debug/release组合构建10m50s成功，739任务。现有XML合计1089项，0失败/错误/跳过；1032生产文件/10710节点/0尺寸违规，实际Gradle生产依赖图通过。另30项Python守卫测试通过，日志`/tmp/bdfun-current-guard-tests.log`。未引入新依赖或修改测试断言。
+- debug装机成功。后台回归首轮未在等待期限内进入PLAYING，记失败，finally恢复四份设置/进度文件。诊断冷启动23179ms，随后截图与本包会话确认为PLAYING，crash空；主机同时执行R8，不能据此单独断言失败原因。驱动改为等待am start -W并延长起播等待后，两轮正常Back→后台前台服务→系统暂停/播放→stop释放均通过，第二轮会话126→128，设置/进度逐字恢复。见`/tmp/bdfun-current-service-recreation{,-retry}.log`。该结果不覆盖系统杀进程恢复或耳机。
+- 当前release SHA256 `7cf2380de2b40ef1a9a6e31c7c884db895bc53ead330044bcb38b772517424cd`，默认Android Debug证书SHA256 `9d6aabd27c61c797ff68293e229707d82083f5f4108b091ded2976bea7c38db1`，v2验签成功。release安装、冷启动7128ms、真实视频PLAYING、系统pause/play及空crash缓冲通过；结束force-stop。见`/tmp/bdfun-current-release-{signature.txt,smoke.log}`。正常播放会更新历史/进度，未执行账号互动或修改设置。
+- 缺参Toast的直接装机尝试因非导出Activity的Android权限检查被拒绝，不能记作通过；未扩大exported。
+- 当前请求重新要求完整验收：全站同数据main对照、账号流程、播放器所有组合与当前产物最终交付均继续列为剩余工作，不沿用历史“后续人工验收”安排将其移出范围。真实私信/评论等写操作需明确测试账号与目标，未擅自向他人发送测试内容。
+
+- 当前release补充PiP检查：起播后Home未观察到pinned任务，截图为launcher；未核对当前release设置条件，不能断言实现回归，也不能记通过。第一次Home在详情加载期，单列为无效前置。记录`/tmp/bdfun-current-release-pip{,2}.{txt,png}`，最终force-stop，crash空。当前PiP仍需受控设置下复核，不沿用旧产物通过结果。
