@@ -281,7 +281,11 @@ class VideoActivity : ComponentActivity() {
         }
         val isLoggedIn = AppGraph.loginStatus::isLoggedIn
         val settings = AppGraph.settings
-        val route = readRouteIntent(intent) as? com.aritxonly.bdfun.core.navigation.Route.Video
+        val comparisonVideo = TeakOneTake.consumeComparisonVideo(intent)
+        val route = (readRouteIntent(intent) as? com.aritxonly.bdfun.core.navigation.Route.Video)
+            ?: comparisonVideo?.let {
+                com.aritxonly.bdfun.core.navigation.Route.Video(it.bvid, it.aid, it)
+            }
         val requestedBvid = route?.bvid?.takeIf { it.isNotBlank() } ?: intent?.getStringExtra("bvid")
         val requestedAid = route?.aid ?: intent?.getLongExtra("aid", 0L) ?: 0L
         if (route?.snapshot == null && requestedBvid.isNullOrBlank() && requestedAid <= 0L) {

@@ -37,6 +37,23 @@ object TeakOneTake {
     @Volatile
     private var resolved = false
 
+    private var pendingComparisonVideo: VideoItem? = null
+
+    /** 临时对照入口；只在裸 Intent 上消费，避免影响普通路由。 */
+    internal fun consumeComparisonVideo(intent: Intent): VideoItem? {
+        if (intent.extras != null) return null
+        val snapshot = pendingComparisonVideo
+        pendingComparisonVideo = null
+        trace("receive mode=legacy-bare-intent snapshot=${snapshot != null}")
+        return snapshot
+    }
+
+    /** 本次 release 对照只记录转场参数，不记录视频、账号或 Cookie。 */
+    private fun trace(message: String) {
+        Log.i(TAG, message)
+        com.aritxonly.bdfun.data.LogCollector.record(TAG, message)
+    }
+
     /**
      * 用系统动画打开视频页。
      * @param anchor 卡片在**屏幕坐标系**里的矩形（px）
@@ -53,15 +70,19 @@ object TeakOneTake {
         fallback: () -> Unit,
     ) {
         openWith(context, anchor, radiusPx, foregroundColor, fallback) { activity, opts ->
-            val intent = createRouteIntent(activity,
-                com.aritxonly.bdfun.core.navigation.Route.Video(video.bvid, video.aid, video,
-                    fromVideoPage = activity is VideoActivity))
+            // 对照实验：恢复旧版裸 Intent + 一次性交接，排除路由编码的影响。
+            val intent = Intent(activity, VideoActivity::class.java)
             val options = opts.toBundle()
-            com.aritxonly.bdfun.data.LogCollector.record(TAG,
-                "launch source=${activity.javaClass.simpleName} target=VideoActivity " +
-                    "animType=${options.getInt("android:activity.animType", -1)} " +
-                    "flags=${intent.flags} anchor=$anchor")
-            activity.startActivity(intent, options)
+            trace("launch mode=legacy-bare-intent source=${activity.javaClass.simpleName} " +
+                "animType=${options.getInt("android:activity.animType", -1)} " +
+                "flags=${intent.flags} anchor=$anchor")
+            pendingComparisonVideo = video
+            try {
+                activity.startActivity(intent, options)
+            } catch (error: Exception) {
+                if (pendingComparisonVideo === video) pendingComparisonVideo = null
+                throw error
+            }
         }
     }
 
@@ -136,7 +157,7 @@ object TeakOneTake {
             val options = ActivityOptions.makeThumbnailScaleUpAnimation(
                 decor, thumb, anchor.left - location[0], anchor.top - location[1],
             )
-            com.aritxonly.bdfun.data.LogCollector.record(TAG, "path=public-thumbnail")
+            trace( "path=public-thumbnail")
             launch(activity, options)
         } catch (error: Exception) {
             Log.w(TAG, "公开缩略图过渡启动失败", error)
@@ -173,7 +194,7 @@ object TeakOneTake {
                 fail("系统没给出动画选项", fallback)
                 return
             }
-            com.aritxonly.bdfun.data.LogCollector.record(TAG,
+            trace(
                 "path=private requestedType=$ANIM_SCALED_THUMB " +
                     "returnedType=${opts.toBundle().getInt("android:activity.animType", -1)}")
             Log.d(TAG, "系统动画启动 rect=$anchor r=$radiusPx thumb=${thumb.width}x${thumb.height}")
@@ -259,7 +280,7 @@ object TeakOneTake {
 
     /** 任何一个环节不满足就退回普通跳转（只在日志里留一行原因）。 */
     private fun fail(reason: String, fallback: () -> Unit) {
-        com.aritxonly.bdfun.data.LogCollector.record(TAG, "path=plain reason=$reason")
+        trace( "path=plain reason=$reason")
         Log.w(TAG, "退回普通跳转：$reason")
         fallback()
     }
