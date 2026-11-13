@@ -6,6 +6,7 @@ import com.aritxonly.teak.common.material.LocalTeakMaterialSpec
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.dropShadow
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.shadow.Shadow
@@ -13,7 +14,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 
-internal enum class TeakGlassShadowProfile { Standard, TopBarControl }
+internal enum class TeakGlassShadowProfile { Standard, TopBarControl, ContentControl }
 
 internal data class TeakGlassShadowTokens(
     val ambientRadius: Dp,
@@ -33,7 +34,14 @@ internal fun teakGlassShadowTokens(
     useOfficialMiuixGlass: Boolean = false,
     profile: TeakGlassShadowProfile = TeakGlassShadowProfile.Standard,
     preset: GlassShadowPreset = GlassShadowPreset.Default,
-): TeakGlassShadowTokens = TeakGlassShadowTokens(
+): TeakGlassShadowTokens = if (profile == TeakGlassShadowProfile.ContentControl) {
+    // 白底上的分离来自宽扩散和轻接触阴影，避免用一圈深色线条勾边。
+    TeakGlassShadowTokens(
+        ambientRadius = 28.dp, ambientSpread = (-2).dp, ambientAlpha = if (isDark) 0.04f else 0.065f,
+        outerRadius = 11.dp, outerSpread = (-1).dp, outerAlpha = if (isDark) 0.06f else 0.09f,
+        edgeRadius = 2.dp, edgeSpread = (-0.5).dp, edgeAlpha = 0.015f,
+    )
+} else TeakGlassShadowTokens(
     ambientRadius = 0.dp, ambientSpread = 0.dp, ambientAlpha = 0f,
     outerRadius = if (isDark) 7.dp else 8.dp, outerSpread = (-0.75).dp,
     outerAlpha = if (isDark) 0.052f else 0.068f,
@@ -128,4 +136,12 @@ internal fun Modifier.drawTeakGlassShadow(
             alpha = tokens.edgeAlpha * resolvedAlpha,
         ),
     )
+}
+
+/** 投影位于胶囊裁剪之外；只在黑白详情控件上启用，不改变内容或点击区域。 */
+@Composable
+fun Modifier.teakContentControlShadow(shape: Shape, alpha: Float = 1f): Modifier {
+    if (!com.aritxonly.teak.common.theme.LocalTeakControlEmphasis.current) return this
+    val isDark = androidx.compose.material3.MaterialTheme.colorScheme.onSurface.luminance() > 0.5f
+    return teakGlassShadow(shape, isDark, alpha, TeakGlassShadowProfile.ContentControl)
 }

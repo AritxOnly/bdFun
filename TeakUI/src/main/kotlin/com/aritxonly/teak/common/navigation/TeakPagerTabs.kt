@@ -1,5 +1,6 @@
 package com.aritxonly.teak.common.navigation
 
+import com.aritxonly.teak.common.material.teakContentControlShadow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -192,7 +193,8 @@ fun TeakPagerTabs(
         }
     } else if (plain && transparentBackground) {
         Box(
-            modifier = modifier.height(TeakPagerTabDefaults.Height),
+            modifier = modifier.teakContentControlShadow(Capsule(), materialProgress)
+                .height(TeakPagerTabDefaults.Height),
             contentAlignment = Alignment.CenterStart,
         ) {
             content()
@@ -209,7 +211,8 @@ fun TeakPagerTabs(
         }
     } else {
         TeakGlassSurface(
-            modifier = modifier.height(TeakPagerTabDefaults.Height),
+            modifier = modifier.teakContentControlShadow(Capsule(), materialProgress)
+                .height(TeakPagerTabDefaults.Height),
             shape = Capsule(),
             recipe = recipe,
             backdrop = backdrop,
