@@ -104,15 +104,19 @@ internal class AppContainer(
     val playbackQueue = com.aritxonly.bdfun.core.application.PlaybackQueueStateHolder()
     val mediaControls = com.aritxonly.bdfun.core.application.MediaControlsRegistry()
     val playbackPauses = com.aritxonly.bdfun.core.application.PlaybackPauseRegistry()
-    private val emoteStore = com.aritxonly.bdfun.core.application.EmoteStore(com.aritxonly.bdfun.infra.bili.BiliEmoteRepository(api))
+    private val emoteImages by lazy { context?.let(::createEmoteImageLoader) }
+    private val emoteStore = com.aritxonly.bdfun.core.application.EmoteStore(
+        com.aritxonly.bdfun.infra.bili.BiliEmoteRepository(api),
+        context?.let { com.aritxonly.bdfun.infra.storage.FileEmoteCache(java.io.File(it.filesDir, "emote_panels")) },
+        { sessionController.state.value.user?.mid ?: 0L })
     val emotes = com.aritxonly.bdfun.presentation.EmotePresentationState(emoteStore, presentationScope)
     private val linkTitles = com.aritxonly.bdfun.core.application.VideoLinkTitleStore(
         com.aritxonly.bdfun.infra.bili.BiliVideoLinkTitleRepository({ api.view(it).title }, { api.viewByAid(it).bvid }),
     )
     val richTextDependencies by lazy {
         com.aritxonly.bdfun.ui.RichTextDependencies(emotes, linkTitles,
-            { com.aritxonly.bdfun.core.application.EmojiPanelStateHolder(emoteStore) },
-            { context, bvid -> navigateToVideoByBvid(context, bvid) })
+            { scope -> com.aritxonly.bdfun.core.application.EmojiPanelStateHolder(emoteStore, scope) },
+            { context, bvid -> navigateToVideoByBvid(context, bvid) }, emoteImages)
     }
     val commentLikesStore = com.aritxonly.bdfun.core.application.CommentLikeStore()
     val commentLikes = com.aritxonly.bdfun.presentation.CommentLikePresentationState(commentLikesStore, presentationScope)

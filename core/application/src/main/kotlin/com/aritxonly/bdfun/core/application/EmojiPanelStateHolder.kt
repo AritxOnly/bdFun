@@ -1,21 +1,22 @@
 package com.aritxonly.bdfun.core.application
 
 import com.aritxonly.bdfun.core.model.comment.EmoteItem
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** 面板按原逻辑在首次 ensure 结束后取一次表情，不改变已经打开的面板快照。 */
-class EmojiPanelStateHolder(private val store: EmoteStore) {
+/** 面板随共享加载更新；关闭只结束页面观察，不清除进程/磁盘缓存。 */
+class EmojiPanelStateHolder(private val store: EmoteStore, scope: kotlinx.coroutines.CoroutineScope) {
     private val mutable = MutableStateFlow(store.state.value.items)
     val state = mutable.asStateFlow()
     private var closed = false
-    fun close() { closed = true }
+    private val observer = scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+        store.state.collect { mutable.value = it.items }
+    }
+    fun close() { closed = true; observer.cancel() }
     suspend fun load() {
         if (closed) return
         store.ensure()
-        currentCoroutineContext().ensureActive()
         if (!closed) mutable.value = store.state.value.items
     }
 }

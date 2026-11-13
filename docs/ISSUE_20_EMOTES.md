@@ -56,3 +56,23 @@ meta.size 大表情网格和长按原图预览。插入时文字表情保留字�
 真实样本覆盖无个人表情包的三种评论表情 URL；特殊名称另以合成用例覆盖。
 core:application:test、infra:bili:testDebugUnitTest、app:assembleDebug 和分层检查通过。
 尚待反馈具体未显示的表情名称/评论，以确认现场问题与这次修复完全对应。
+
+## 按需持久化与懒网格
+
+- 表情包元数据通过 EmoteCache / FileEmoteCache 按账号写入 filesDir/emote_panels，
+  原子替换 JSON；24 小时内直接复用，过期先展示缓存再更新，失败保留已有内容。
+- 图片不整包预下载。评论、面板、包图标及长按预览共享进程级独立 Coil loader，
+  由显示需求触发请求；原图写入 filesDir/emote_images，最大 128MiB、满后自动淘汰。
+  内容 URL 缓存命中后直接复用，不随 MainActivity 的普通图片内存清理失效。
+- 固定 220dp 容器改用 LazyVerticalGrid，仅组合可见/预取项，移除全包 Column。
+  面板在自己的协程作用域内观察共享列表，关闭取消观察，预加载完成会自动更新。
+- infra:storage 新增对已有 core:common 与 coroutines-core 的模块依赖，用于显式
+  Outcome 错误和后台磁盘 IO；复用已有版本，没有新增外部库。同步主线程读写会阻塞面板，
+  因此未采用；图片持久化复用 Coil 2.7.0，未另造下载队列。
+- 官方 API 依据：https://github.com/coil-kt/coil/blob/2.7.0/coil-base/src/main/java/coil/ImageLoader.kt
+
+新增 JVM 用例覆盖重启读缓存不联网、过期缓存离线回退、账号切换拒收磁盘迟到结果、
+取消后解锁、损坏/未知版本缓存回退、真实文件往返与包元信息完整性。
+页面观察测试原先锁定“不再更新”的行为，本轮改为验证预加载完成自动更新。
+仍需装机核对：浏览一部分表情后重启/断网，已见图片命中磁盘；未见图片不应批量下载，
+联网后滚动到新区域才加载；切包/大字体/窄屏下保持固定高度。

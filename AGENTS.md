@@ -544,3 +544,10 @@ HyperOS 4只拥有独立展开/关闭转场，内部复用顶栏的HomeTopBar及
 ### 2026-11-13 MSG-01 消息行为对齐检查点
 
 消息运行时收件箱使用 PiliPlus 固定参考版本的 gRPC SessionMain/SessionSecondary 与复合 offsets；旧 HTTP 门面只供兼容，不能把长整型时间戳当作新游标。会话身份、设置载荷仅在 infra 解析，路由走 core/navigation 的 MessageInbox/MessageTools 快照。设置、点赞人员、关键词、通讯录与单聊设置由 MessageToolsStateHolder 管理，私信使用 gRPC 发送/历史及 biz=im 图片上传；保留账号/页面迟到守卫与取消解锁。协议字段表通过 tools/generate-im-schema.py 从固定上游 pbjson 提取，无新增 protobuf 运行库。离线样本和游客启动通过不能替代登录账号的真实收发/撤回/服务端设置回归，验收范围见 docs/HYPERPILI_MESSAGE_ALIGNMENT.md。
+
+### 2026-11-13 表情缓存约束
+
+表情面板列表通过 core/domain 的 EmoteCache 端口按账号持久化，infra/storage 保存 JSON；
+EmoteStore 先读缓存，24 小时内复用，过期保留旧列表并刷新，账号切换拒收迟到结果。
+图片由 app 装配的独立 Coil loader 按显示需求缓存，不预下载整包；磁盘位于 filesDir/emote_images，
+上限 128MiB。面板使用固定 220dp 的懒网格，禁止恢复一次组合全包图片的 Column。

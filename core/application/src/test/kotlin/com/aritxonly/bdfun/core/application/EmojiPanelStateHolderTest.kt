@@ -18,9 +18,10 @@ class EmojiPanelStateHolderTest {
     }
     @Test fun cachedPackIsImmediatelyVisibleAndPickKeepsOriginalBrackets() = runBlocking {
         val fake = Fake(); val store = EmoteStore(fake); store.ensure()
-        val holder = EmojiPanelStateHolder(store); holder.load()
+        val holder = EmojiPanelStateHolder(store, this); holder.load()
         assertEquals(fake.items, holder.state.value); assertEquals(1, fake.calls)
         assertEquals(listOf(EmojiCell("[doge]", "a"), EmojiCell("[笑]", "b")), emojiCells(holder.state.value))
+        holder.close()
     }
     @Test fun textEmotesKeepLiteralTextAndDoNotLoadImages() {
         assertEquals(listOf(EmojiCell("(´･_･`)", null)),
@@ -30,16 +31,17 @@ class EmojiPanelStateHolderTest {
         assertEquals(listOf("😀", "😂", "🥰", "😎", "🤔", "😭", "😡", "🥳", "👍", "👎", "❤️", "🔥", "🎉", "✨", "💯", "🐶"), emojiCells(emptyList()).map { it.pick })
         assertTrue(emojiCells(emptyList()).all { it.url == null })
     }
-    @Test fun anotherPreloadDoesNotContinuouslyChangeOpenPanelSnapshot() = runBlocking {
+    @Test fun openPanelObservesConcurrentPreloadCompletion() = runBlocking {
         val fake = Fake().apply { gate = CompletableDeferred() }; val store = EmoteStore(fake)
         val preload = launch(start = CoroutineStart.UNDISPATCHED) { store.ensure() }
-        val holder = EmojiPanelStateHolder(store); holder.load()
+        val holder = EmojiPanelStateHolder(store, this); holder.load()
         fake.gate!!.complete(Unit); preload.join()
-        assertTrue(holder.state.value.isEmpty())
-        assertEquals(fake.items, EmojiPanelStateHolder(store).state.value)
+        yield()
+        assertEquals(fake.items, holder.state.value)
+        holder.close()
     }
     @Test fun closePreventsLateOrFuturePanelUpdates() = runBlocking {
-        val fake = Fake().apply { gate = CompletableDeferred() }; val holder = EmojiPanelStateHolder(EmoteStore(fake))
+        val fake = Fake().apply { gate = CompletableDeferred() }; val holder = EmojiPanelStateHolder(EmoteStore(fake), this)
         val job = launch(start = CoroutineStart.UNDISPATCHED) { holder.load() }
         holder.close(); fake.gate!!.complete(Unit); job.join(); holder.load()
         assertTrue(holder.state.value.isEmpty()); assertEquals(1, fake.calls)

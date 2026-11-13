@@ -23,14 +23,15 @@ import androidx.compose.runtime.collectAsState
 @Composable
 internal fun EmojiPanel(onPick: (String) -> Unit, modifier: Modifier = Modifier) {
     val dependencies = LocalRichTextDependencies.current
-    val controller = remember(dependencies) { dependencies.createEmojiPanel() }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val controller = remember(dependencies, scope) { dependencies.createEmojiPanel(scope) }
     val emotes by controller.state.collectAsState()
     androidx.compose.runtime.DisposableEffect(controller) { onDispose { controller.close() } }
     LaunchedEffect(controller) { controller.load() }
     val ui = remember { EmojiPanelPresentationStateHolder() }
     LaunchedEffect(Unit) { ui.shown = true }
     val spring = rememberSpringFloat(if (ui.shown) 1f else 0f, stiffness = 300f, damping = 22f)
-    val packages = emotes.groupBy { it.packageId }
+    val packages = remember(emotes) { emotes.groupBy { it.packageId } }
     val selected = packages[ui.selectedPackage] ?: packages.values.firstOrNull().orEmpty()
     EmojiPanelLayout(selected, spring, onPick, modifier) {
         if (packages.size > 1) EmojiPackageTabs(packages, selected.firstOrNull()?.packageId, ui)
@@ -53,9 +54,8 @@ private fun EmojiPanelLayout(emotes: List<EmoteItem>, spring: Float, onPick: (St
         val panelHeight = 220.dp
         val rowHeight = if (emotes.firstOrNull()?.size == 2) 48.dp else 40.dp
         val imageSize = if (emotes.firstOrNull()?.size == 2) 36.dp else 28.dp
-        val cells = emojiCells(emotes)
-        val rows = cells.chunked(columns)
-        val layout = EmojiGridLayout(hPad, vPad, gap, columns, cell, panelHeight, rows, rowHeight, imageSize)
+        val cells = remember(emotes) { emojiCells(emotes) }
+        val layout = EmojiGridLayout(hPad, vPad, gap, columns, cell, panelHeight, cells, rowHeight, imageSize)
 
         EmojiGlassPanel(layout, spring, onPick, tabs)
     }
@@ -64,7 +64,7 @@ private fun EmojiPanelLayout(emotes: List<EmoteItem>, spring: Float, onPick: (St
 internal class EmojiPanelPresentationStateHolder { var shown by mutableStateOf(false); var selectedPackage by mutableStateOf(0) }
 internal data class EmojiGridLayout(val hPad: androidx.compose.ui.unit.Dp, val vPad: androidx.compose.ui.unit.Dp,
     val gap: androidx.compose.ui.unit.Dp, val columns: Int, val cell: androidx.compose.ui.unit.Dp,
-    val panelHeight: androidx.compose.ui.unit.Dp, val rows: List<List<EmojiCell>>,
+    val panelHeight: androidx.compose.ui.unit.Dp, val cells: List<EmojiCell>,
     val rowHeight: androidx.compose.ui.unit.Dp, val imageSize: androidx.compose.ui.unit.Dp)
 
 @Composable
@@ -80,7 +80,7 @@ private fun EmojiPackageTabs(packages: Map<Int, List<EmoteItem>>, selected: Int?
             ) {
                 if (icon.isBlank()) androidx.compose.material3.Text("${index + 1}", fontSize = 12.sp,
                     maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                else coil.compose.AsyncImage(model = icon, contentDescription = "表情包 ${index + 1}",
+                else coil.compose.AsyncImage(model = icon, imageLoader = emoteImageLoader(), contentDescription = "表情包 ${index + 1}",
                     modifier = Modifier.size(20.dp),
                     alpha = if (id == selected) 1f else 0.5f,
                     contentScale = androidx.compose.ui.layout.ContentScale.Fit)

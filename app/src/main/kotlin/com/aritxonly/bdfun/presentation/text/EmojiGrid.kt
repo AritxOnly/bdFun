@@ -8,8 +8,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,9 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -65,7 +61,7 @@ internal fun EmojiGlassPanel(layout: EmojiGridLayout, spring: Float, onPick: (St
         Column(Modifier.fillMaxSize().clipToBounds()) {
             tabs()
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                androidx.compose.runtime.key(layout.rows) { EmojiGridContent(layout, onPick) }
+                androidx.compose.runtime.key(layout.columns, layout.cells) { EmojiGridContent(layout, onPick) }
             }
         }
     }
@@ -73,39 +69,14 @@ internal fun EmojiGlassPanel(layout: EmojiGridLayout, spring: Float, onPick: (St
 
 @Composable
 private fun EmojiGridContent(layout: EmojiGridLayout, onPick: (String) -> Unit) {
-    val hPad = layout.hPad
-    val vPad = layout.vPad
-    val gap = layout.gap
-    val rows = layout.rows
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = hPad, vertical = vPad),
-        verticalArrangement = Arrangement.spacedBy(gap),
+    androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+        columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(layout.columns),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = layout.hPad, vertical = layout.vPad),
+        horizontalArrangement = Arrangement.spacedBy(layout.gap),
+        verticalArrangement = Arrangement.spacedBy(layout.gap),
     ) {
-        rows.forEach { row ->
-            EmojiGridRow(row, layout, onPick)
-        }
-    }
-}
-
-@Composable
-private fun EmojiGridRow(row: List<EmojiCell>, layout: EmojiGridLayout, onPick: (String) -> Unit) {
-    val cell = layout.cell
-    val gap = layout.gap
-    val columns = layout.columns
-    Row(
-        modifier = Modifier.fillMaxWidth().height(layout.rowHeight),
-        horizontalArrangement = Arrangement.spacedBy(gap),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        row.forEach { item ->
-            EmojiGridCell(item, layout, onPick)
-        }
-        repeat(columns - row.size) {
-            Spacer(Modifier.width(cell).height(layout.rowHeight))
-        }
+        items(layout.cells.size) { index -> EmojiGridCell(layout.cells[index], layout, onPick) }
     }
 }
 
@@ -125,7 +96,7 @@ private fun EmojiGridCell(item: EmojiCell, layout: EmojiGridLayout, onPick: (Str
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         } else {
             AsyncImage(
-                model = item.url,
+                model = item.url, imageLoader = emoteImageLoader(),
                 contentDescription = item.pick,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.size(layout.imageSize.coerceAtMost(layout.cell)),
@@ -141,7 +112,7 @@ private fun EmojiPreview(item: EmojiCell, onDismiss: () -> Unit) {
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Column(Modifier.background(top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surface,
             RoundedCornerShape(24.dp)).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            AsyncImage(model = item.url, contentDescription = item.pick,
+            AsyncImage(model = item.url, imageLoader = emoteImageLoader(), contentDescription = item.pick,
                 modifier = Modifier.size(180.dp), contentScale = ContentScale.Fit)
             Text(item.pick, color = top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.onSurface)
         }
