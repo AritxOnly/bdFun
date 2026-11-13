@@ -38,7 +38,6 @@ object AppGraph {
         checkNotNull(container) { "AppGraph 尚未初始化" }.dynamicDetailStateHolder(initial)
     internal fun privateChatStateHolder(session: com.aritxonly.bdfun.data.MessageSession) =
         checkNotNull(container) { "AppGraph 尚未初始化" }.privateChatStateHolder(session)
-    internal fun bottomSearchStateHolder() = checkNotNull(container) { "AppGraph 尚未初始化" }.bottomSearchStateHolder()
     internal fun searchStateHolder() = checkNotNull(container) { "AppGraph 尚未初始化" }.searchStateHolder()
     internal fun messageSessionsStateHolder() = checkNotNull(container) { "AppGraph 尚未初始化" }.messageSessionsStateHolder()
     internal fun messageBadgeStateHolder(owner: Long?) =

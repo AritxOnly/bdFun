@@ -14,15 +14,15 @@ import com.aritxonly.bdfun.ui.SearchOverlay
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 
 @Composable
-internal fun MainSearchLayer(settings: SettingsBindings, shell: MainShellState) {
+internal fun MainSearchLayer(settings: SettingsBindings, shell: MainShellState, bottomSearch: Boolean = false) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
-    val ui = shell.ui
+    val input = shell.searchInput(bottomSearch)
     val searchChrome = shell.chrome.search
     val searchBackdrop = shell.backdrops.search
-    val searchReveal = shell.searchReveal
+    val searchReveal = input.reveal
     // 搜索页：搜索框保持不动，下面整块换成纯白页（搜索记录 + 热搜 / 结果）
-    if (ui.showSearch || searchReveal > 0.01f) {
+    if (input.active || searchReveal > 0.01f) {
         // 搜索页复刻首页结构：内容先录进 searchBackdrop，
         // 顶栏的渐变模糊和筛选菜单都采样同一块。
         Box(
@@ -36,13 +36,14 @@ internal fun MainSearchLayer(settings: SettingsBindings, shell: MainShellState) 
             ) {
                 SearchOverlay(
                     settings = settings,
-                    submitted = ui.searchSubmitted,
+                    controllerFactory = shell.searchFactory,
+                    submitted = input.submitted,
                     reveal = searchReveal,
-                    query = ui.searchQuery,
+                    query = input.query,
                     onPickKeyword = { word ->
-                        ui.searchQuery = word
+                        input.changeQuery(word)
                         settings.addSearchHistory(word)
-                        ui.searchSubmitted = word
+                        input.changeSubmitted(word)
                         keyboard?.hide()
                     },
                     onOpenVideo = { navigateToVideo(context, it) },

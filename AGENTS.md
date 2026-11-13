@@ -534,3 +534,7 @@ VideoActivityPageStateHolder、VideoActivityHostActions中立契约、入口解�
 main d0a9ed3 的底部搜索仅属于 interfaceStyle=2，不新增独立设置开关；旧 bottom_search 迁移清理保持。底部搜索业务请求归 feature/search/application，展示在 presentation/search/bottom，主壳只装配入口与八条独立动画。保留180ms联想防抖、90ms搜索等待、先用户后视频、历史12项与热词展示10项，以及正文/顶栏/底栏各自的动画层级和参数。界面风格允许0..2，色彩风格仍0..1。唱片HyperOS 4统一贴右、偏移-70dp，不叠加页面lift。
 
 直板机旋转策略按 Configuration.smallestScreenWidthDp 的600dp断点：紧凑设备自动横屏进入独占全屏，展开折叠屏/平板保持横屏分栏；竖屏退出全屏。不得使用旋转后的screenWidthDp判定设备大小，手动退出全屏不触发同一姿态下的再次强制进入。策略位于core/domain/VideoOrientationPolicy，展示只负责绑定。
+
+### issue #36 共享搜索页面
+
+HyperOS 4只拥有独立展开/关闭转场，内部复用顶栏的HomeTopBar及SearchOverlay（记录/联想/结果/筛选与同一SearchStateHolder实现）。两个入口会话独立，不保留BottomSearch业务/卡片副本。请求工厂从主壳装配注入，不在渲染组件回查AppGraph。

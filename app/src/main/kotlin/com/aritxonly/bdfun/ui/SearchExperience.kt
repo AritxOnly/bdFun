@@ -12,7 +12,7 @@ import com.aritxonly.bdfun.feature.settings.presentation.SettingsBindings
 import com.aritxonly.bdfun.data.VideoItem
 
 @Composable
-fun SearchOverlay(
+internal fun SearchOverlay(
     settings: SettingsBindings,
     submitted: String?,
     /** 当前输入框里的词；未提交时用它拉搜索联想。 */
@@ -21,9 +21,10 @@ fun SearchOverlay(
     onPickKeyword: (String) -> Unit,
     onOpenVideo: (VideoItem) -> Unit,
     onOpenUser: (SearchUser) -> Unit,
+    controllerFactory: () -> com.aritxonly.bdfun.feature.search.application.SearchStateHolder,
     modifier: Modifier = Modifier,
 ) {
-    val controller = remember { com.aritxonly.bdfun.AppGraph.searchStateHolder() }
+    val controller = remember { controllerFactory() }
     val content by controller.state.collectAsState()
     val ui = remember { SearchPresentationStateHolder(settings.searchHistory) }
     LaunchedEffect(Unit) { controller.loadHotKeywords(settings.showHotSearch) }

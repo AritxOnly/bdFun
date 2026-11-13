@@ -37,5 +37,5 @@ internal data class MainShellState(
     val ui: MainShellUiStateHolder, val navigation: MainShellNavigation, val chrome: MainShellChrome,
     val feeds: MainShellFeeds, val backdrops: MainShellBackdrops, val searchReveal: Float,
     val bottom: BottomSearchShellStateHolder,
-    val bottomSearchFactory: () -> com.aritxonly.bdfun.feature.search.application.BottomSearchStateHolder,
+    val searchFactory: () -> com.aritxonly.bdfun.feature.search.application.SearchStateHolder,
 )

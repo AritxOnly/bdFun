@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 internal class BottomSearchShellStateHolder(
     private val main: MainShellUiStateHolder,
     private val appScope: CoroutineScope,
+    private val resetChrome: () -> Unit,
     private val animationsEnabled: () -> Boolean,
 ) {
     var showBottomSearch by mutableStateOf(false)
@@ -82,6 +83,7 @@ internal class BottomSearchShellStateHolder(
         }
     }
     fun open() {
+        resetChrome()
         showBottomSearch = true
         bottomQuery = ""
         bottomSubmitted = null
