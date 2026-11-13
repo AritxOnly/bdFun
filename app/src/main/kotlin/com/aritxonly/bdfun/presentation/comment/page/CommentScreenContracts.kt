@@ -14,7 +14,7 @@ internal data class CommentScreenLayout(
     val bare: Boolean = false, val topInset: Dp = 0.dp, val bottomPadding: Dp = 96.dp,
     val trackBackProgress: Boolean = false, val showLoading: Boolean = true,
     val threadPlayerBottom: Dp? = null, val threadPaneWidth: Dp? = null,
-    val playerFullscreen: Boolean = false,
+    val playerFullscreen: Boolean = false, val flatList: Boolean = false,
 )
 internal typealias CommentScreenHeader = LazyListScope.() -> Unit
 

@@ -122,6 +122,7 @@ internal fun CommentCardRow(item: CommentItem, disliked: Boolean, actions: Comme
 @Composable
 internal fun CommentListCard(
     index: Int, lastIndex: Int, item: CommentItem, state: CommentListViewState, actions: CommentListViewActions,
+    flatList: Boolean = false,
 ) {
     val colors = MiuixTheme.colorScheme
     val end = state.end
@@ -139,6 +140,8 @@ internal fun CommentListCard(
                     val flashColor by androidx.compose.animation.animateColorAsState(
                         targetValue = if (item.rpid == highlightRpid) {
                             colors.onBackground.copy(alpha = 0.10f)
+                        } else if (flatList) {
+                            androidx.compose.ui.graphics.Color.Transparent
                         } else {
                             colors.surface
                         },
@@ -149,7 +152,9 @@ internal fun CommentListCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .then(
-                                if (classicComment) {
+                                if (flatList) {
+                                    Modifier.background(flashColor)
+                                } else if (classicComment) {
                                     Modifier.drawBehind {
                                         val y = size.height - 1.dp.toPx() / 2f
                                         drawLine(

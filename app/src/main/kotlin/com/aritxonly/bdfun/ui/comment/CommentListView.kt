@@ -45,6 +45,7 @@ internal data class CommentListViewLayout(
     val bare: Boolean, val title: String, val topInset: androidx.compose.ui.unit.Dp,
     val bottomPadding: androidx.compose.ui.unit.Dp, val showLoading: Boolean,
     val header: (androidx.compose.foundation.lazy.LazyListScope.() -> Unit)?,
+    val flatList: Boolean = false,
 )
 internal class CommentListViewActions(
     val onSort: () -> Unit, val onLike: (CommentItem) -> Unit, val onDislike: (CommentItem) -> Unit,
@@ -91,9 +92,9 @@ internal fun CommentListView(
                     CommentSortRow(total, sortHot, actions.onSort)
                 }
 
-                // 一整张卡片：每条评论只负责自己的圆角，中间无缝、用分割线隔开
+                // 视频详情平铺评论，其余入口保留原分组样式。
                 itemsIndexed(comments, key = { _, item -> item.rpid }) { index, item ->
-                    CommentListCard(index, comments.lastIndex, item, state, actions)
+                    CommentListCard(index, comments.lastIndex, item, state, actions, layout.flatList)
                 }
 
                 commentListFooter(state, showLoading, colors.onBackgroundVariant)
