@@ -19,11 +19,12 @@ fun MessageScreen(
     onOpenReplies: () -> Unit = {},
     onOpenLikes: () -> Unit = {},
     onOpenFans: () -> Unit = {},
+    pageType: Int = 1, title: String = "消息",
 ) {
     val chrome = LocalPageChromeState.current
     val context = LocalContext.current
     val owner = AppGraph.session.identity
-    val controller = remember(owner, loggedIn) { AppGraph.messageSessionsStateHolder() }
+    val controller = remember(owner, loggedIn, pageType) { AppGraph.messageSessionsStateHolder(pageType) }
     val scope = rememberMessageTaskScope(controller) { controller.close() }
     val snapshot by androidx.compose.runtime.key(controller) { controller.state.collectAsState() }
     val listState = rememberLazyListState()
@@ -35,7 +36,7 @@ fun MessageScreen(
     MessageSessionsEffects(controller, loggedIn, ui, menu, scope)
     BackHandler(onBack = onBack)
     TrackTeakPageScroll(listState)
-    MessageSessionList(listState, loggedIn, snapshot, ui, menu, events, actions::loadFooter)
+    MessageSessionList(listState, loggedIn, snapshot, ui, menu, events, actions::loadFooter, title, pageType, actions::load)
     MessageSessionSheets(snapshot, menu, onRefresh = { actions.load() },
-        onReadAll = { chrome.requestReadAll() }, onMutate = actions::mutate)
+        onReadAll = actions::readAll, onClearList = actions::clearList, onMutate = actions::mutate)
 }

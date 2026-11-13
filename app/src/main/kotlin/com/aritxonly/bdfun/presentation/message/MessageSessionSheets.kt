@@ -18,14 +18,30 @@ internal fun MessageSessionSheets(
     menu: MessageSessionMenuStateHolder,
     onRefresh: () -> Unit,
     onReadAll: () -> Unit,
+    onClearList: () -> Unit,
     onMutate: (SessionAction) -> Unit,
 ) {
     val colors = MiuixTheme.colorScheme
+    val context = androidx.compose.ui.platform.LocalContext.current
     val loading = snapshot.loading
     val busy = snapshot.busy
     TeakActionSheet(menu.showMore, onDismiss = { menu.showMore = false }, title = "消息") {
         ActionSheetRow("刷新消息", !loading && !busy) { menu.showMore = false; onRefresh() }
-        ActionSheetRow("全部标为已读", !loading && !busy) { menu.showMore = false; onReadAll() }
+        snapshot.menu.forEach { item ->
+            ActionSheetRow(item.title, !loading && !busy) { messageMenuAction(context, item, menu) }
+        }
+        if (snapshot.menu.isEmpty()) {
+            ActionSheetRow("消息设置", !busy) { context.startActivity(com.aritxonly.bdfun.navigation.createRouteIntent(context,
+                com.aritxonly.bdfun.core.navigation.Route.MessageTools("settings"))); menu.showMore = false }
+        }
+    }
+    TeakActionSheet(menu.confirmRead, onDismiss = { if (!busy) menu.confirmRead = false }, title = "一键已读") {
+        Text("是否清除全部新消息提醒？", Modifier.padding(18.dp), color = colors.onBackgroundVariant)
+        ActionSheetRow("确认标为已读", !busy && !loading) { onReadAll() }
+    }
+    TeakActionSheet(menu.confirmClear, onDismiss = { if (!busy) menu.confirmClear = false }, title = "清空列表") {
+        Text("清空后所有消息将被删除，无法恢复。", Modifier.padding(18.dp), color = colors.onBackgroundVariant)
+        ActionSheetRow("确认清空", !busy && !loading, MiuixIcons.Delete) { onClearList() }
     }
     TeakActionSheet(menu.selected != null, onDismiss = { if (!busy) menu.selected = null }, title = menu.selected?.name) {
         val target = menu.selected
@@ -42,10 +58,10 @@ internal fun MessageSessionSheets(
                 if (target.sessionType == 1) ActionSheetRow(if (target.muted) "关闭免打扰" else "消息免打扰", enabled) {
                     onMutate(SessionAction.Mute)
                 }
-                ActionSheetRow("标为已读", enabled && target.unread > 0) {
+                if (target.talkerId > 0) ActionSheetRow("标为已读", enabled && (target.unread > 0 || target.preferences.unreadDot)) {
                     onMutate(SessionAction.Read)
                 }
-                ActionSheetRow("删除会话", enabled, MiuixIcons.Delete) { menu.confirmDelete = true }
+                if (target.talkerId > 0) ActionSheetRow("删除会话", enabled, MiuixIcons.Delete) { menu.confirmDelete = true }
             }
         }
     }

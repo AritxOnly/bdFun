@@ -174,10 +174,17 @@ internal class AppContainer(
     }
     private val searchRepository = com.aritxonly.bdfun.infra.bili.BiliSearchRepository(api)
     fun searchStateHolder() = com.aritxonly.bdfun.feature.search.application.SearchStateHolder(searchRepository)
-    fun messageSessionsStateHolder(): com.aritxonly.bdfun.feature.message.application.MessageSessionsStateHolder {
+    fun messageSessionsStateHolder(pageType: Int = 1): com.aritxonly.bdfun.feature.message.application.MessageSessionsStateHolder {
         val identity = sessionController.identity
         return com.aritxonly.bdfun.feature.message.application.MessageSessionsStateHolder(
             com.aritxonly.bdfun.infra.bili.BiliMessageSessionsRepository(api),
+            { !closed && sessionController.identity == identity }, pageType)
+    }
+    fun messageToolsStateHolder(tool: com.aritxonly.bdfun.feature.message.application.MessageTool):
+        com.aritxonly.bdfun.feature.message.application.MessageToolsStateHolder {
+        val identity = sessionController.identity
+        return com.aritxonly.bdfun.feature.message.application.MessageToolsStateHolder(
+            com.aritxonly.bdfun.infra.bili.BiliMessageManagementRepository(api), tool,
             { !closed && sessionController.identity == identity })
     }
     private val messageBadgeRepository = com.aritxonly.bdfun.infra.bili.BiliMessageBadgeRepository(api::messageUnreadCount)

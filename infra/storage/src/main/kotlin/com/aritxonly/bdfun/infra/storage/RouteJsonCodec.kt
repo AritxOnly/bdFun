@@ -21,6 +21,11 @@ class RouteJsonCodec {
     fun encode(route: Route): String = JSONObject().apply {
         put("version", 1)
         when (route) {
+            is Route.MessageInbox -> { put("type", "message-inbox"); put("pageType", route.pageType); put("title", route.title) }
+            is Route.MessageTools -> {
+                put("type", "message-tools"); put("kind", route.kind); put("id", route.id); put("settingType", route.type); put("count", route.count)
+                put("navigation", messageNavigation(route.navigation))
+            }
             is Route.Space -> { put("type", "space"); put("mid", route.mid) }
             is Route.PrivateChat -> {
                 put("type", "private-chat"); put("talkerId", route.talkerId); put("sessionType", route.sessionType)
@@ -41,6 +46,9 @@ class RouteJsonCodec {
     fun decode(raw: String): Route? = try {
         val value = JSONObject(raw)
         if (value.optInt("version") != 1) null else when (value.optString("type")) {
+            "message-inbox" -> Route.MessageInbox(value.getInt("pageType"), value.getString("title"))
+            "message-tools" -> Route.MessageTools(value.getString("kind"), value.optString("id"), value.optInt("settingType"),
+                value.optInt("count"), readMessageNavigation(value.getJSONObject("navigation")))
             "space" -> Route.Space(value.getLong("mid"))
             "private-chat" -> Route.PrivateChat(value.getLong("talkerId"), value.optInt("sessionType", 1),
                 value.optString("name"), value.optString("avatar"), value.optInt("unread"), value.optLong("maxSeqno"))
@@ -51,6 +59,14 @@ class RouteJsonCodec {
             else -> null
         }
     } catch (_: Exception) { null }
+
+    private fun messageNavigation(value: com.aritxonly.bdfun.core.model.message.MessageNavigation) = JSONObject().apply {
+        put("bvid", value.bvid); put("aid", value.aid); put("root", value.rootRpid); put("target", value.targetRpid)
+        put("source", value.sourceRpid); put("business", value.businessId); put("seek", value.seekMs); put("uri", value.nativeUri)
+    }
+    private fun readMessageNavigation(value: JSONObject) = com.aritxonly.bdfun.core.model.message.MessageNavigation(
+        value.optString("bvid"), value.optLong("aid"), value.optLong("root"), value.optLong("target"),
+        value.optLong("source"), value.optInt("business"), value.optLong("seek"), value.optString("uri"))
 
     private fun video(v: VideoItem): JSONObject = JSONObject().apply {
         put("bvid", v.bvid); put("aid", v.aid); put("title", v.title); put("cover", v.cover)

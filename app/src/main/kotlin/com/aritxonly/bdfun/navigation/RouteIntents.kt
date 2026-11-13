@@ -14,6 +14,8 @@ private const val EXTRA_ROUTE = "com.aritxonly.bdfun.ROUTE"
 internal fun createRouteIntent(context: Context, route: Route): Intent {
     val codec = RouteJsonCodec()
     val target = when (route) {
+        is Route.MessageInbox -> com.aritxonly.bdfun.MessageInboxActivity::class.java
+        is Route.MessageTools -> com.aritxonly.bdfun.MessageToolsActivity::class.java
         is Route.Video -> VideoActivity::class.java
         is Route.Space -> SpaceActivity::class.java
         is Route.Dynamic -> DynamicDetailActivity::class.java

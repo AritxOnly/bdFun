@@ -1,6 +1,11 @@
 package com.aritxonly.bdfun.ui
 
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -9,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,9 +26,10 @@ import com.aritxonly.teak.common.chrome.TeakLargeTitle
 import com.aritxonly.teak.common.navigation.TeakPagerTabs
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun MessageFeedList(
-    kind: MessageFeedKind, myName: String,
+    kind: MessageFeedKind,
     listState: androidx.compose.foundation.lazy.LazyListState,
     snapshot: com.aritxonly.bdfun.feature.message.application.MessageFeedUiState,
     ui: MessageFeedPresentationStateHolder,
@@ -42,27 +49,50 @@ internal fun MessageFeedList(
     val key = if (ui.tab == 1) 0 else ui.tab
     val allItems = itemsByTab[key].orEmpty()
     val pageItems = if (ui.tab == 1) allItems.filter { it.followed } else allItems
+    PullToRefreshBox(isRefreshing = loadingByTab[key] == true && pageItems.isNotEmpty(),
+        onRefresh = { actions.load(ui.tab) }, modifier = Modifier.fillMaxSize()) {
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp + rememberStatusBarTop(), bottom = 40.dp)) {
         item(key = "header") { TeakLargeTitle(title = title) }
         item(key = "tabs") {
             Row(Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (tabs.isNotEmpty()) TeakPagerTabs(options = tabs, selected = ui.tab, onSelect = { ui.tab = it },
+                if (tabs.isNotEmpty()) TeakPagerTabs(options = tabs, selected = if (ui.tab == 2) 1 else 0, onSelect = { ui.tab = if (it == 1) 2 else 0 },
                     itemWidth = if (tabs.size > 2) 76.dp else 96.dp, backdrop = null, plain = true, position = ui.tabProgress)
                 Spacer(Modifier.weight(1f))
+                if (kind == MessageFeedKind.Reply || kind == MessageFeedKind.Like) {
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    Text("设置", color = colors.primary, fontSize = 13.sp, modifier = Modifier.clickable {
+                        context.startActivity(com.aritxonly.bdfun.navigation.createRouteIntent(context,
+                            com.aritxonly.bdfun.core.navigation.Route.MessageTools("settings",
+                                type = if (kind == MessageFeedKind.Like) 19 else if (ui.tab == 2) 18 else 17)))
+                    }.padding(12.dp))
+                }
                 Text("刷新", color = colors.primary, fontSize = 13.sp,
                     modifier = Modifier.clickable(enabled = loadingByTab[key] != true && !busy) { actions.load(ui.tab) }.padding(12.dp))
             }
         }
         itemsIndexed(pageItems, key = { _, item -> "message_${item.id}" }) { index, item ->
-            val onMenu = { menu.selected = key to item; menu.confirmDelete = false }
-            MessageRowSurface(index == 0, index == pageItems.lastIndex) {
+            val onMenu = { menu.selected = key to item; menu.confirmDelete = false; menu.confirmMute = false }
+            val sectionStart = index == 0 || kind == MessageFeedKind.Like &&
+                item.presentation.latestLike != pageItems[index - 1].presentation.latestLike
+            val sectionEnd = index == pageItems.lastIndex || kind == MessageFeedKind.Like &&
+                item.presentation.latestLike != pageItems[index + 1].presentation.latestLike
+            if (kind == MessageFeedKind.Like && sectionStart) {
+                Text(if (item.presentation.latestLike) "最新" else "累计",
+                    color = colors.onBackgroundVariant, fontSize = 13.sp,
+                    modifier = Modifier.padding(start = 12.dp, top = 14.dp, bottom = 8.dp))
+            }
+            MessageRowSurface(sectionStart, sectionEnd) {
+                Column {
                 when (kind) {
-                    MessageFeedKind.Reply -> ReplyRow(item, myName, onClick = { actions.open(item) }, onMore = onMenu)
+                    MessageFeedKind.Reply -> ReplyRow(item, onClick = { actions.open(item) }, onMore = onMenu)
                     MessageFeedKind.Like -> LikeRow(item, onClick = { actions.open(item) }, onMore = onMenu)
                     MessageFeedKind.Fans -> FanRow(item, followedOverride[item.userMid] ?: item.followed,
                         item.userMid in followBusy, onFollow = { actions.toggleFollow(item) })
                     MessageFeedKind.System -> SystemNotificationRow(item, onMore = onMenu)
+                }
+                if (!sectionEnd && kind in listOf(MessageFeedKind.Reply, MessageFeedKind.Like)) Box(Modifier.fillMaxWidth().padding(start = 72.dp, end = 16.dp)
+                    .height(0.5.dp).background(colors.onBackgroundVariant.copy(alpha = 0.08f)))
                 }
             }
         }
@@ -71,4 +101,5 @@ internal fun MessageFeedList(
                 onLoad = { actions.loadFooter(ui.tab) })
         }
     }
+}
 }

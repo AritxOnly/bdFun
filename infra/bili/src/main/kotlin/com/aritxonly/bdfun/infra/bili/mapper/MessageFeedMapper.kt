@@ -54,7 +54,12 @@ private fun MessageFeedItemDto.presentation(): MessageFeedPresentation {
     val commentOnMyVideo = !isLike && !isAt &&
         (detailType == "video" ||
             businessId == 1 && targetContent.isBlank() && rootContent.isBlank())
+    val business = detail?.s("business").orEmpty()
     val action = when {
+        isLike && business.isNotBlank() -> "赞了我的$business"
+        isAt && business.isNotBlank() -> "在${business}中@了我"
+        !isLike && !isAt && business.isNotBlank() ->
+            (if (item.optInt("is_multi") == 1) "等人 " else "") + "对我的${business}发布了${item.optInt("counts", 1)}条评论"
         isLike && likeVideo -> "赞了我的视频"
         isLike -> "赞了我的评论"
         isAt -> "提到了我"
@@ -81,8 +86,9 @@ private fun MessageFeedItemDto.presentation(): MessageFeedPresentation {
         .ifBlank { detail?.s("desc").orEmpty() }
         .ifBlank { item.s("title") }
     val title = detail?.s("title").orEmpty().ifBlank { item.s("title") }
-    val subjectCover = if (likeVideo || commentOnMyVideo) {
-        detail?.s("cover").orEmpty()
+    val subjectCover = if (isLike || isAt || commentOnMyVideo) {
+        detail?.s("image").orEmpty()
+            .ifBlank { detail?.s("cover").orEmpty() }
             .ifBlank { detail?.s("pic").orEmpty() }
     } else {
         ""
@@ -148,6 +154,7 @@ internal fun mapMessageFeedItem(payload: MessageFeedItemDto): MessageItem? = wit
         content = content,
         time = item.l("reply_time")
             .takeIf { it > 0 }
+            ?: item.l("at_time").takeIf { it > 0 }
             ?: item.l("ctime").takeIf { it > 0 }
             ?: item.l("timestamp").takeIf { it > 0 }
             ?: item.l("like_time").takeIf { it > 0 }
@@ -179,6 +186,7 @@ internal fun mapMessageFeedItem(payload: MessageFeedItemDto): MessageItem? = wit
             userMid = user?.l("mid") ?: 0L,
             followed = isFollowedMessageUser(user, item),
             likeNames = names,
+            likeAvatars = users.take(4).map { avatar(it.s("avatar"), 96) },
             likeCount = maxOf(
             item.optInt("counts", 0),
             detail?.optInt("counts", 0) ?: 0,

@@ -16,6 +16,8 @@ internal class MessageSessionMenuStateHolder {
     var selected by mutableStateOf<MessageSession?>(null)
     var confirmDelete by mutableStateOf(false)
     var showMore by mutableStateOf(false)
+    var confirmRead by mutableStateOf(false)
+    var confirmClear by mutableStateOf(false)
 }
 
 internal class MessageFeedPresentationStateHolder {
@@ -24,6 +26,7 @@ internal class MessageFeedPresentationStateHolder {
 }
 
 internal class MessageFeedMenuStateHolder {
+    var confirmMute by mutableStateOf(false)
     var selected by mutableStateOf<Pair<Int, MessageItem>?>(null)
     var confirmDelete by mutableStateOf(false)
 }
@@ -46,8 +49,8 @@ internal fun rememberMessageTaskScope(owner: Any, onClose: () -> Unit): Coroutin
 }
 
 internal fun messageFeedTabs(kind: MessageFeedKind) = when (kind) {
-    MessageFeedKind.Reply -> listOf("全部", "我关注的人", "@我")
-    MessageFeedKind.Like -> listOf("全部", "我关注的人")
+    MessageFeedKind.Reply -> listOf("回复我的", "@我")
+    MessageFeedKind.Like -> emptyList()
     else -> emptyList()
 }
 

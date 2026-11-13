@@ -540,3 +540,7 @@ main d0a9ed3 的底部搜索仅属于 interfaceStyle=2，不新增独立设置�
 HyperOS 4只拥有独立展开/关闭转场，内部复用顶栏的HomeTopBar及SearchOverlay（记录/联想/结果/筛选与同一SearchStateHolder实现）。两个入口会话独立，不保留BottomSearch业务/卡片副本。请求工厂从主壳装配注入，不在渲染组件回查AppGraph。
 
 视频详情合集内部列表使用LazyColumn与LazyListState，不维护全部条目的测量坐标Map；定位当前集按索引跳转后只读取可见项尺寸居中，不能为测量远处条目而组合整个合集。198dp视口、6dp间隔、底部8dp与嵌套滚动余量拦截保留。顶部/底部/当前集的目标计算位于视频展示层，空列表不得发起滚动。
+
+### 2026-11-13 MSG-01 消息行为对齐检查点
+
+消息运行时收件箱使用 PiliPlus 固定参考版本的 gRPC SessionMain/SessionSecondary 与复合 offsets；旧 HTTP 门面只供兼容，不能把长整型时间戳当作新游标。会话身份、设置载荷仅在 infra 解析，路由走 core/navigation 的 MessageInbox/MessageTools 快照。设置、点赞人员、关键词、通讯录与单聊设置由 MessageToolsStateHolder 管理，私信使用 gRPC 发送/历史及 biz=im 图片上传；保留账号/页面迟到守卫与取消解锁。协议字段表通过 tools/generate-im-schema.py 从固定上游 pbjson 提取，无新增 protobuf 运行库。离线样本和游客启动通过不能替代登录账号的真实收发/撤回/服务端设置回归，验收范围见 docs/HYPERPILI_MESSAGE_ALIGNMENT.md。

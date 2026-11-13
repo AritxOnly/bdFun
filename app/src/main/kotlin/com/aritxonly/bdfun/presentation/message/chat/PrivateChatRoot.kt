@@ -5,6 +5,9 @@ import com.aritxonly.bdfun.ui.ActivityPageSlots
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -23,6 +26,7 @@ internal fun PrivateChatRoot(session: MessageSession) {
     val runtime = rememberPrivateChatRuntime(session)
     val controller = runtime.controller
     val content by key(controller) { controller.state.collectAsState() }
+    val menu = remember(controller) { ChatMessageMenuState() }
     val ui = remember(controller) { PrivateChatPresentationStateHolder() }
     val listState = key(controller) { rememberLazyListState() }
     PrivateChatEffects(runtime, ui, session, content, listState)
@@ -40,6 +44,12 @@ internal fun PrivateChatRoot(session: MessageSession) {
             titleAlwaysVisible = true,
         ),
         slots = ActivityPageSlots(
+            topBarActions = {
+                androidx.compose.material3.Text("设置", modifier = Modifier.padding(12.dp).clickable {
+                    context.startActivity(com.aritxonly.bdfun.navigation.createRouteIntent(context,
+                        com.aritxonly.bdfun.core.navigation.Route.MessageTools("chat", session.talkerId.toString())))
+                }, color = top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.primary)
+            },
             overlay = {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
                 PrivateChatComposer(
@@ -60,7 +70,12 @@ internal fun PrivateChatRoot(session: MessageSession) {
         ),
     ) {
         com.aritxonly.teak.common.chrome.BindTeakPageScrollState(listState)
+        CompositionLocalProvider(LocalChatMessageMenu provides { message -> menu.selected = message; menu.report = false; menu.description = "" },
+            LocalChatImageOpen provides { url -> menu.image = url }) {
         PrivateChatMessages(content, session, listState, onRetry = { ui.reloadTick++ },
             onHistory = { runtime.scope.launch { controller.loadHistory() } })
+        }
+        PrivateChatMessageMenu(menu, controller, runtime.scope)
+        ChatImageDialog(menu.image) { menu.image = null }
     }
 }

@@ -24,8 +24,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 internal fun MessageSubject(item: MessageItem) {
     val colors = MiuixTheme.colorScheme
     // 右侧对象统一用正方形区域；缩到 60dp 给左边正文留空间。
-    val size = 60.dp
-    if (item.videoSubject) {
+    val size = 48.dp
+    if (item.subjectCover.isNotBlank() || item.videoSubject) {
         Box(
             modifier = Modifier
                 .size(size)

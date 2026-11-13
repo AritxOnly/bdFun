@@ -35,7 +35,7 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.privateChatMessageIt
         ChatBubble(
             message = message,
             otherAvatar = session.avatar,
-            myAvatar = content.myAvatar,
+            myAvatar = content.myAvatar, emotes = content.emotes,
         )
     }
 }

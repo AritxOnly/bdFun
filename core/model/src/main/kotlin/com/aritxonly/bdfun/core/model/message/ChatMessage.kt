@@ -10,4 +10,10 @@ data class ChatMessage(
     val isMine: Boolean = false,
     val sequence: Long = 0L,
     val sharedVideo: SharedVideoInfo? = null,
+    val card: ChatMessageCard? = null,
+    val withdrawn: Boolean = false,
+    val type: Int = 1,
+    val source: Int = 0,
 )
+
+data class ChatMessageCard(val title: String, val text: String = "", val image: String = "", val url: String = "", val children: List<ChatMessageCard> = emptyList())

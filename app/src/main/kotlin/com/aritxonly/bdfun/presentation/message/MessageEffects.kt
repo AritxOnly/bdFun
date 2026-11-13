@@ -21,7 +21,7 @@ internal fun MessageSessionsEffects(
         if (ui.consumedReadAll == chrome.readAllRequest) return@LaunchedEffect
         ui.consumedReadAll = chrome.readAllRequest
         if (!loggedIn) return@LaunchedEffect
-        controller.clearUnread()?.let { context.showToast(it) }
+        menu.confirmRead = true
     }
     LaunchedEffect(chrome.moreRequest) {
         if (ui.consumedMore != chrome.moreRequest) {
@@ -33,7 +33,7 @@ internal fun MessageSessionsEffects(
 
 @Composable
 internal fun MessageFeedEffects(controller: MessageFeedStateHolder, ui: MessageFeedPresentationStateHolder, scope: kotlinx.coroutines.CoroutineScope) {
-    LaunchedEffect(controller) { controller.loadPage(0) }
+    LaunchedEffect(controller) { controller.loadPage(ui.tab) }
     LaunchedEffect(controller, ui.tab) {
         val key = if (ui.tab == 1) 0 else ui.tab
         if (!controller.state.value.itemsByTab.containsKey(key)) controller.loadPage(key)
