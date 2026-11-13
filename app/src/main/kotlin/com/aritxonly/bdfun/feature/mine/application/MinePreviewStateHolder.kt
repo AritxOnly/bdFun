@@ -12,6 +12,9 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+internal const val MineVideoPreviewLimit = 5
+internal const val MineFolderPreviewLimit = 4
+
 internal enum class MinePreviewKind { History, Favorites, WatchLater }
 internal data class MinePreviewSection(
     val loading: Boolean = false, val loaded: Boolean = false, val error: AppError? = null,
@@ -55,7 +58,7 @@ internal class MinePreviewStateHolder(
         val previous = state.value[kind]
         publish(kind, token, previous.copy(loading = true, error = null))
         try {
-            val result = fetch(kind)
+            val result = fetch(kind, token)
             currentCoroutineContext().ensureActive()
             when (result) {
                 is Outcome.Success -> publish(kind, token, result.value.copy(loaded = true))
@@ -65,20 +68,46 @@ internal class MinePreviewStateHolder(
             if (active(token)) publish(kind, token, state.value[kind].copy(loading = false))
         }
     }
-    private suspend fun fetch(kind: MinePreviewKind): Outcome<MinePreviewSection> = when (kind) {
-        MinePreviewKind.Favorites -> when (val result = repository.folders()) {
-            is Outcome.Success -> Outcome.Success(MinePreviewSection(folders = result.value.take(2)))
-            is Outcome.Failure -> result
-        }
+    private suspend fun fetch(kind: MinePreviewKind, token: Int): Outcome<MinePreviewSection> = when (kind) {
+        MinePreviewKind.Favorites -> favoritePreviews(token)
         MinePreviewKind.History -> when (val result = repository.history(0, 0, "")) {
-            is Outcome.Success -> Outcome.Success(MinePreviewSection(entries = result.value.items.take(2)))
+            is Outcome.Success -> Outcome.Success(MinePreviewSection(entries = result.value.items.sortedByDescending { it.viewedAt }.take(MineVideoPreviewLimit)))
             is Outcome.Failure -> result
         }
         MinePreviewKind.WatchLater -> when (val result = repository.watchLater()) {
-            is Outcome.Success -> Outcome.Success(MinePreviewSection(entries = result.value.take(2)))
+            is Outcome.Success -> Outcome.Success(MinePreviewSection(entries = result.value.sortedByDescending { it.viewedAt }.take(MineVideoPreviewLimit)))
             is Outcome.Failure -> result
         }
     }
+    private suspend fun favoritePreviews(token: Int): Outcome<MinePreviewSection> = coroutineScope {
+        checkOwner(token)
+        val result = repository.folders()
+        checkOwner(token)
+        when (result) {
+            is Outcome.Failure -> result
+            is Outcome.Success -> {
+                val cachedCovers = state.value[MinePreviewKind.Favorites].folders.associate { it.id to it.cover }
+                val folders = result.value.take(MineFolderPreviewLimit).map { folder -> async {
+                    checkOwner(token)
+                    if (folder.count <= 0) return@async folder.copy(cover = "")
+                    // 仓储第一页沿用接口的 mtime 顺序，不能按视频发布时间重排收藏封面。
+                    val videos = repository.videos(folder.id, 1)
+                    checkOwner(token)
+                    val cover = when (videos) {
+                        is Outcome.Success -> videos.value.first.firstOrNull()?.cover.orEmpty()
+                        is Outcome.Failure -> cachedCovers[folder.id].orEmpty()
+                    }
+                    folder.copy(cover = cover)
+                } }.awaitAll()
+                Outcome.Success(MinePreviewSection(folders = folders))
+            }
+        }
+    }
+    private suspend fun checkOwner(token: Int) {
+        currentCoroutineContext().ensureActive()
+        if (!active(token)) throw CancellationException("我的页预览已失效")
+    }
+
 }
 
 internal fun HistoryItem.mineVideo(resume: Boolean): VideoItem = VideoItem(

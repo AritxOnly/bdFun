@@ -3,6 +3,8 @@ package com.aritxonly.bdfun.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -56,7 +58,7 @@ private fun MinePreviewBody(kind: MinePreviewKind, section: MinePreviewSection, 
         val density = LocalDensity.current
         val textHeight = with(density) { 18.sp.toDp() * 2 + 16.sp.toDp() }
         val folderRow = maxOf(55.dp, with(density) { 20.sp.toDp() + 16.sp.toDp() } + 6.dp)
-        val bodyHeight = if (kind == MinePreviewKind.Favorites) folderRow * 2 + 14.dp
+        val bodyHeight = if (kind == MinePreviewKind.Favorites) folderRow * MineFolderPreviewLimit + 14.dp * (MineFolderPreviewLimit - 1)
             else videoWidth / (16f / 9f) + textHeight + 12.dp
         // 固定的是与实际内容相同的预留高度；字体缩放和窗口宽度仍参与尺寸计算。
         Box(Modifier.fillMaxWidth().height(bodyHeight), contentAlignment = Alignment.Center) {
@@ -80,7 +82,7 @@ private fun MinePreviewSkeleton(kind: MinePreviewKind, videoWidth: Dp, folderRow
     val fill = MiuixTheme.colorScheme.surfaceContainerHigh
     if (kind == MinePreviewKind.Favorites) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            repeat(2) {
+            repeat(MineFolderPreviewLimit) {
                 Row(Modifier.fillMaxWidth().height(folderRow), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.size(88.dp, 55.dp).clip(RoundedCornerShape(12.dp)).background(fill))
@@ -90,8 +92,8 @@ private fun MinePreviewSkeleton(kind: MinePreviewKind, videoWidth: Dp, folderRow
         }
     } else {
         val density = LocalDensity.current
-        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)) {
-            repeat(2) {
+        LazyRow(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp), userScrollEnabled = false) {
+            items(MineVideoPreviewLimit) {
                 Column(Modifier.width(videoWidth), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(12.dp)).background(fill))
                     Box(Modifier.fillMaxWidth().height(with(density) { 18.sp.toDp() * 2 })) {
@@ -117,7 +119,7 @@ private fun MineFolderPreviews(section: MinePreviewSection, openAll: () -> Unit)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(folder.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 14.sp, lineHeight = 20.sp,
                     color = MiuixTheme.colorScheme.onBackground)
-                Text("${folder.count} 个视频", maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp, lineHeight = 16.sp, color = MiuixTheme.colorScheme.onBackgroundVariant)
+                Text("共 ${folder.count} 视频", maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp, lineHeight = 16.sp, color = MiuixTheme.colorScheme.onBackgroundVariant)
             }
         }
     }
@@ -125,8 +127,8 @@ private fun MineFolderPreviews(section: MinePreviewSection, openAll: () -> Unit)
 
 @Composable
 private fun MineVideoPreviews(section: MinePreviewSection, history: Boolean, navigation: MineNavigation, width: Dp) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)) {
-        section.entries.forEach { entry ->
+    LazyRow(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        itemsIndexed(section.entries, key = { index, entry -> "${entry.bvid}-$index" }) { _, entry ->
             Column(Modifier.width(width).clickable { navigation.onOpenVideo(entry.mineVideo(history)) },
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(12.dp))
@@ -149,7 +151,6 @@ private fun MineVideoPreviews(section: MinePreviewSection, history: Boolean, nav
                     color = MiuixTheme.colorScheme.onBackgroundVariant)
             }
         }
-        if (section.entries.size == 1) Spacer(Modifier.width(width))
     }
 }
 
