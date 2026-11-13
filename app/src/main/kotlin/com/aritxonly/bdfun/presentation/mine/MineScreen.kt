@@ -17,7 +17,8 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 
 @Composable
-internal fun MineScreen(request: MineScreenRequest, navigation: MineNavigation, dependencies: MineDependencies) {
+internal fun MineScreen(request: MineScreenRequest, navigation: MineNavigation, dependencies: MineDependencies,
+    listState: androidx.compose.foundation.lazy.LazyListState) {
     val controller = remember(dependencies, request.profile?.mid, request.sessionRevision) { dependencies.createData(request.profile) }
     val preview = remember(controller) { dependencies.createPreview(request.profile) }
     val state by controller.state.collectAsState()
@@ -34,30 +35,38 @@ internal fun MineScreen(request: MineScreenRequest, navigation: MineNavigation, 
     }
     val scope = rememberCoroutineScope()
     MinePage(request, state.profile ?: request.profile, navigation, dependencies,
-        layout, previews, { kind -> scope.launch { preview.retry(kind) } })
+        layout, previews, { kind -> scope.launch { preview.retry(kind) } }, listState)
 }
 
 @Composable
 private fun MinePage(
     request: MineScreenRequest, shown: com.aritxonly.bdfun.core.model.user.UserProfile?,
     navigation: MineNavigation, dependencies: MineDependencies, layout: MineLayout,
-    previews: MinePreviewUiState, retry: (MinePreviewKind) -> Unit,
+    previews: MinePreviewUiState, retry: (MinePreviewKind) -> Unit, listState: androidx.compose.foundation.lazy.LazyListState,
 ) {
     val shape = remember { ContinuousCornerShape(22.dp) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 600.dp
-        LazyColumn(Modifier.fillMaxSize().then(if (wide) Modifier.statusBarsPadding() else Modifier),
-            contentPadding = if (wide) PaddingValues(start = 22.dp, top = top.yukonga.miuix.kmp.basic.TopAppBarDefaults.CollapsedHeight + 12.dp, end = 22.dp, bottom = 110.dp)
+        LazyColumn(Modifier.fillMaxSize().then(if (wide) Modifier.statusBarsPadding() else Modifier), state = listState,
+            contentPadding = if (wide) PaddingValues(start = 22.dp, top = 25.dp, end = 22.dp, bottom = 110.dp)
                 else PaddingValues(bottom = 110.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (request.profile == null) {
-                item { MineHero(null, navigation, wide) }
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        MineHero(null, navigation, wide)
+                        if (wide) MineSettingsCard(navigation.onOpenSettings)
+                    }
+                }
                 if (request.showSentHistory) item { MineContentInset { MineRecent(shape, emptyList(), navigation) } }
 
             } else if (shown != null) {
                 if (wide) item {
                     Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
-                        Box(Modifier.weight(0.45f)) { MineHero(shown, navigation, wide = true) }
+                        Column(Modifier.weight(0.45f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            MineHero(shown, navigation, wide = true)
+                            MineSettingsCard(navigation.onOpenSettings)
+                        }
                         Column(Modifier.weight(0.55f).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                             MinePageContent(request, navigation, dependencies, layout, previews, retry)
                         }

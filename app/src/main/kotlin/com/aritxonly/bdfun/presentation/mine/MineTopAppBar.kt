@@ -17,12 +17,12 @@ import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-internal fun MineTopAppBar(onSettings: () -> Unit) {
+internal fun MineTopAppBar(showSettings: Boolean, onSettings: () -> Unit) {
     val material = LocalTeakMaterialSpec.current
     val recipe = remember(material) { TeakGlassRecipes.floatingNavigation(material.fineTuning) }
     AdaptiveMiuixTopAppBar(title = "", largeTitle = "", color = Color.Transparent, actions = {
         // 只由采样层外的 MainMineChrome 调用，避免玻璃回读包含自身的主壳背景。
-        TeakGlassIconButton(onClick = onSettings, size = 40.dp, recipe = recipe,
+        if (showSettings) TeakGlassIconButton(onClick = onSettings, size = 40.dp, recipe = recipe,
             backdrop = LocalTeakBackdrop.current, materialAlpha = 1f) {
             Icon(MiuixIcons.Settings, "设置", tint = MiuixTheme.colorScheme.onSurface,
                 modifier = Modifier.size(20.dp))

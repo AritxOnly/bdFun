@@ -547,7 +547,7 @@ HyperOS 4只拥有独立展开/关闭转场，内部复用顶栏的HomeTopBar及
 
 ### 2026-11-13 MY-01 我的页布局与预览卡片
 
-我的页竖屏头图必须从页面顶部通栏铺开，不加外边距或卡片圆角；资料卡内缩14dp并上压30dp，头像上压24dp。设置入口仅在全页顶栏右上（竖屏叠在头图上），复用AdaptiveMiuixTopAppBar/TeakGlassIconButton；头图复用SpaceBanner及其解码工具。宽度600dp起使用45:55的资料与内容双栏。历史/收藏/稍后再看大卡的三个独立开关仅在设置「我的页」区块，默认关闭；core/application/MineLayoutStateHolder统一发布，infra/storage独立mine_layout文件保存，不向旧SettingsStore追加字段。预览由feature/mine/application经LibraryRepository按需读取，每项最多两条；账号、页面关闭及配置代数拒收迟到结果。个人头图复用空间资料读取；收藏预览只使用真实FavoriteFolder字段，不猜公开性。游客不加载预览或展示本机发送记录正文。
+我的页竖屏头图必须从页面顶部通栏铺开，不加外边距或卡片圆角；资料卡内缩14dp并上压30dp，头像上压24dp。窄屏设置入口在采样树外的顶栏右上，复用AdaptiveMiuixTopAppBar/TeakGlassIconButton；宽屏在资料卡下使用Miuix Card+ArrowPreference进入设置；头图复用SpaceBanner及其解码工具。宽度600dp起使用45:55的资料与内容双栏。历史/收藏/稍后再看大卡的三个独立开关仅在设置「我的页」区块，默认关闭；core/application/MineLayoutStateHolder统一发布，infra/storage独立mine_layout文件保存，不向旧SettingsStore追加字段。预览由feature/mine/application经LibraryRepository按需读取，每项最多两条；账号、页面关闭及配置代数拒收迟到结果。个人头图复用空间资料读取；收藏预览只使用真实FavoriteFolder字段，不猜公开性。游客不加载预览或展示本机发送记录正文。
 
 ### 2026-11-13 表情缓存约束
 
@@ -558,4 +558,8 @@ EmoteStore 先读缓存，24 小时内复用，过期保留旧列表并刷新，
 
 ### 2026-11-13 我的页玻璃采样循环修复
 
-MainTabPager位于主壳layerBackdrop的录制树内，因此MineScreen及其资料/列表子组件不得读取该主壳Backdrop绘制玻璃。我的页设置TopAppBar由MainScaffold的MainMineChrome挂在录制树外，与首页顶栏同层；空间入口使用不采样的Miuix普通胶囊按钮。不得把设置顶栏重新放回MinePage，否则可能形成RenderNode循环，在RenderThread出现原生栈溢出（libhwui prepareTreeImpl/prepareListAndChildren递归）。
+MainTabPager位于主壳layerBackdrop的录制树内，因此MineScreen及其资料/列表子组件不得读取该主壳Backdrop绘制玻璃。我的页窄屏设置TopAppBar由MainScaffold的MainMineChrome挂在录制树外，与首页顶栏同层；空间入口使用不采样的Miuix普通胶囊按钮。不得把设置顶栏重新放回MinePage，否则可能形成RenderNode循环，在RenderThread出现原生栈溢出（libhwui prepareTreeImpl/prepareListAndChildren递归）。
+
+### 2026-11-13 我的页沉浸与宽屏设置入口
+
+窄屏头图从状态栏后通栏绘制；主壳持有mineList与mine的TeakPageScrollState，经TrackTeakPageScroll接入采样树外的ProgressiveTopBarMaterial，不能只画透明TopAppBar而不接滚动进度。宽度600dp起顶栏仅保留滚动渐进模糊、不显示设置按钮，左45%资料栏下方使用Miuix Card+ArrowPreference进入设置，右55%保留功能内容。宽屏设置卡为普通组件，不读取主壳Backdrop。
