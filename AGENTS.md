@@ -538,3 +538,5 @@ main d0a9ed3 的底部搜索仅属于 interfaceStyle=2，不新增独立设置�
 ### issue #36 共享搜索页面
 
 HyperOS 4只拥有独立展开/关闭转场，内部复用顶栏的HomeTopBar及SearchOverlay（记录/联想/结果/筛选与同一SearchStateHolder实现）。两个入口会话独立，不保留BottomSearch业务/卡片副本。请求工厂从主壳装配注入，不在渲染组件回查AppGraph。
+
+视频详情合集内部列表使用LazyColumn与LazyListState，不维护全部条目的测量坐标Map；定位当前集按索引跳转后只读取可见项尺寸居中，不能为测量远处条目而组合整个合集。198dp视口、6dp间隔、底部8dp与嵌套滚动余量拦截保留。顶部/底部/当前集的目标计算位于视频展示层，空列表不得发起滚动。

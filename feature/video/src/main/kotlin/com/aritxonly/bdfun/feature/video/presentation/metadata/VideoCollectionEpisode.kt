@@ -19,8 +19,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,15 +30,12 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 @Composable
 internal fun VideoCollectionEpisodeRow(
     episode: com.aritxonly.bdfun.core.model.video.VideoEpisode, active: Boolean,
-    onSelect: (com.aritxonly.bdfun.core.model.video.VideoEpisode) -> Unit, slots: VideoDetailTailSlots, onMeasured: (Int) -> Unit,
+    onSelect: (com.aritxonly.bdfun.core.model.video.VideoEpisode) -> Unit, slots: VideoDetailTailSlots,
 ) {
     val colors = MiuixTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .onGloballyPositioned {
-                onMeasured(it.positionInParent().y.toInt())
-            }
             .clip(RoundedCornerShape(10.dp))
             .background(
                 if (active) colors.primary.copy(alpha = 0.12f) else Color.Transparent,

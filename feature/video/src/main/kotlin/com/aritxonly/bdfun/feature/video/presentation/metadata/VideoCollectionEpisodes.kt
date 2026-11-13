@@ -1,7 +1,9 @@
 package com.aritxonly.bdfun.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -30,20 +32,17 @@ internal fun VideoCollectionEpisodes(
 ) {
     val colors = MiuixTheme.colorScheme
     Box(modifier = Modifier.fillMaxWidth().height(198.dp)) {
-        Column(
+        LazyColumn(
+            state = presentation.scrollState,
+            contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = 8.dp),
             modifier = Modifier
                 .fillMaxSize()
                 .nestedScroll(presentation.keepInsideCollection)
-                .overScrollVertical(nestedScrollToParent = false)
-                .verticalScroll(presentation.scrollState)
-                .padding(horizontal = 10.dp)
-                .padding(bottom = 8.dp),
+                .overScrollVertical(nestedScrollToParent = false),
         ) {
-            episodes.forEachIndexed { index, episode ->
+            itemsIndexed(episodes, key = { index, episode -> "$index:${episode.cid}" }) { _, episode ->
                 val active = episode.cid == currentCid
-                VideoCollectionEpisodeRow(episode, active, onSelect, slots) { offset ->
-                    presentation.scroll.episodeOffsets[episode.cid] = offset
-                }
+                VideoCollectionEpisodeRow(episode, active, onSelect, slots)
                 Spacer(Modifier.height(6.dp))
             }
         }
