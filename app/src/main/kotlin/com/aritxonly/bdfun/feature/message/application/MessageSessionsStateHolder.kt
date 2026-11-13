@@ -16,11 +16,15 @@ internal data class MessageSessionsUiState(
     val next: Long? = null,
     val retryMore: Boolean = false,
     val revision: Int = 0,
+    val inboxCursor: String? = null,
+    val menu: List<MessageMenuItem> = emptyList(),
+    val outside: List<MessageMenuItem> = emptyList(),
 )
 
 /** 会话写操作和分页共用互斥状态，旧的姓名补全不能覆盖写操作后的数据。 */
 internal class MessageSessionsStateHolder(private val repository: MessageSessionsRepository,
-    private val isCurrentOwner: () -> Boolean = { true }) {
+    private val isCurrentOwner: () -> Boolean = { true },
+    private val pageType: Int = 1) {
     private val mutable = MutableStateFlow(MessageSessionsUiState())
     val state = mutable.asStateFlow()
 
@@ -30,7 +34,7 @@ internal class MessageSessionsStateHolder(private val repository: MessageSession
 
     suspend fun loadFooter() {
         val current = mutable.value
-        load(if (current.error != null) current.retryMore else current.next != null && current.sessions.isNotEmpty())
+        load(if (current.error != null) current.retryMore else current.inboxCursor != null && current.sessions.isNotEmpty())
     }
 
     fun reset() { mutable.value = MessageSessionsUiState(revision = mutable.value.revision + 1) }
@@ -38,12 +42,12 @@ internal class MessageSessionsStateHolder(private val repository: MessageSession
     suspend fun load(more: Boolean = false) {
         val initial = mutable.value
         if (!ownerIsCurrent() || initial.loading || initial.busy) return
-        val cursor = if (more) initial.next ?: return else 0L
+        val cursor = if (more) initial.inboxCursor ?: return else null
         val version = initial.revision + 1
         mutable.value = initial.copy(loading = true, retryMore = more, error = null, revision = version)
         val names = java.util.concurrent.ConcurrentHashMap<String, MessageSession>()
         try {
-            val result = repository.sessions(cursor) { enriched ->
+            val result = repository.inbox(cursor, pageType) { enriched ->
                 names.putAll(enriched.associateBy { it.id })
                 mutable.update { current ->
                     if (!ownerIsCurrent() || current.revision != version) current else current.copy(sessions = enrich(current.sessions, names))
@@ -52,8 +56,10 @@ internal class MessageSessionsStateHolder(private val repository: MessageSession
             if (!ownerIsCurrent() || mutable.value.revision != version) return
             when (result) {
                 is Outcome.Success -> mutable.update { current -> current.copy(
-                    sessions = enrich(((if (more) current.sessions else emptyList()) + result.value.items)
-                        .distinctBy { it.id }.sortedByDescending { it.pinned }, names), next = result.value.next,
+                    sessions = enrich(((if (more) current.sessions else emptyList()) + result.value.sessions)
+                        .distinctBy { it.id }.sortedByDescending { it.pinned }, names), next = result.value.cursor?.toLongOrNull(), inboxCursor = result.value.cursor,
+                    menu = if (more) current.menu else result.value.menu,
+                    outside = if (more) current.outside else result.value.outside,
                 ) }
                 is Outcome.Failure -> mutable.update { it.copy(error = result.error.messageOr("消息加载失败")) }
             }
@@ -72,7 +78,7 @@ internal class MessageSessionsStateHolder(private val repository: MessageSession
         val version = current.revision + 1
         mutable.value = current.copy(busy = true, revision = version)
         val message = try {
-            when (val result = repository.clearUnread(current.sessions)) {
+            when (val result = repository.readInbox(pageType, current.sessions)) {
                 is Outcome.Success -> if (result.value) "已全部标为已读" else "部分消息尚未标为已读，请重试"
                 is Outcome.Failure -> result.error.messageOr("标记已读失败")
             }
@@ -80,6 +86,21 @@ internal class MessageSessionsStateHolder(private val repository: MessageSession
         if (!ownerIsCurrent() || mutable.value.revision != version) return null
         load()
         return if (!ownerIsCurrent()) null else message
+    }
+
+    suspend fun clearList(): String? {
+        val current = mutable.value
+        if (!ownerIsCurrent() || current.busy || current.loading) return null
+        val revision = current.revision + 1
+        mutable.value = current.copy(busy = true, revision = revision)
+        try {
+            val result = repository.clearInbox(pageType)
+            if (!ownerIsCurrent() || mutable.value.revision != revision) return null
+            return when (result) {
+                is Outcome.Success -> { mutable.update { it.copy(sessions = emptyList(), inboxCursor = null, next = null) }; "已清空列表" }
+                is Outcome.Failure -> result.error.messageOr("清空失败")
+            }
+        } finally { mutable.update { if (it.revision == revision) it.copy(busy = false) else it } }
     }
 
     suspend fun mutate(target: MessageSession, action: SessionAction): Outcome<Unit>? {
@@ -104,7 +125,7 @@ internal class MessageSessionsStateHolder(private val repository: MessageSession
                             muted = !target.muted,
                         ),
                     )
-                    SessionAction.Read -> item.copy(unread = 0)
+                    SessionAction.Read -> item.copy(unread = 0, preferences = item.preferences.copy(unreadDot = false))
                 }
             }.sortedByDescending { it.pinned },
             ) }

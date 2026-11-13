@@ -55,7 +55,7 @@ internal class PrivateChatStateHolder(
                 if (result is Outcome.Success) { loaded = result.value; break }
                 if (attempt < 2) wait(400)
             }
-            mutable.update { if (loaded != null) it.copy(messages = loaded.items,
+            mutable.update { if (loaded != null) it.copy(messages = loaded.items, emotes = loaded.emotes,
                 historyCursor = loaded.next, loading = false) else it.copy(loadError = true, loading = false) }
             if (loaded != null) acknowledgeLatest(token)
             val avatar = repository.myAvatar()
@@ -77,7 +77,7 @@ internal class PrivateChatStateHolder(
             ensureCurrent(token)
             mutable.update { current -> when (result) {
                 is Outcome.Success -> current.copy(messages = (result.value.items + current.messages)
-                    .distinctBy { it.id }.sortedBy { it.sequence }, historyCursor = result.value.next)
+                    .distinctBy { it.id }.sortedBy { it.sequence }, historyCursor = result.value.next, emotes = current.emotes + result.value.emotes)
                 is Outcome.Failure -> current.copy(historyError = result.error.chatText("历史消息加载失败"))
             } }
         } finally {
@@ -93,7 +93,7 @@ internal class PrivateChatStateHolder(
         if (result is Outcome.Failure) return result
         val page = (result as Outcome.Success).value
         val updates = page.items.associateBy { it.id }
-        mutable.update { it.copy(messages = (it.messages.filterNot { item -> item.id in updates } + page.items)
+        mutable.update { it.copy(emotes = it.emotes + page.emotes, messages = (it.messages.filterNot { item -> item.id in updates } + page.items)
             .sortedBy { item -> item.sequence }) }
         return if (shouldAcknowledge()) acknowledgeLatest(token) else Outcome.Success(Unit)
     }
@@ -130,6 +130,31 @@ internal class PrivateChatStateHolder(
         }
     }
 
+    suspend fun withdraw(message: com.aritxonly.bdfun.core.model.message.ChatMessage): String? {
+        if (!ownerIsCurrent() || mutable.value.composer.sending || !message.isMine || message.withdrawn) return null
+        val token = generation
+        composer { it.copy(sending = true) }
+        try {
+            val result = repository.withdraw(session, message)
+            ensureCurrent(token)
+            return when (result) {
+                is Outcome.Success -> {
+                    mutable.update { it.copy(messages = it.messages.map { current ->
+                        if (current.id == message.id) current.copy(text = "消息已撤回", imageUrl = "", card = null,
+                            sharedVideo = null, withdrawn = true) else current }) }; null
+                }
+                is Outcome.Failure -> result.error.chatText("撤回失败")
+            }
+        } finally { if (token == generation) composer { it.copy(sending = false) } }
+    }
+    suspend fun report(message: com.aritxonly.bdfun.core.model.message.ChatMessage, reason: Int, description: String): String? {
+        if (!ownerIsCurrent()) return null
+        val token = generation
+        val result = repository.report(message, reason, description)
+        ensureCurrent(token)
+        return when (result) { is Outcome.Success -> "举报成功"; is Outcome.Failure -> result.error.chatText("举报失败") }
+    }
+
     private suspend fun sendImage(reference: String, token: Int): String? {
         composer { it.copy(uploading = true) }
         val uploaded = repository.uploadImage(reference)
@@ -154,7 +179,9 @@ internal class PrivateChatStateHolder(
     }
 
     private suspend fun acknowledgeLatest(token: Int): Outcome<Unit> {
-        val sequence = mutable.value.messages.maxOfOrNull { it.sequence } ?: 0L
+        val messages = mutable.value.messages
+        if (messages.size == 1 && messages[0].type == 18 && messages[0].source == 18) return Outcome.Success(Unit)
+        val sequence = messages.maxOfOrNull { it.sequence } ?: 0L
         if (sequence <= 0L) return Outcome.Success(Unit)
         val result = repository.acknowledge(session, sequence)
         ensureCurrent(token)

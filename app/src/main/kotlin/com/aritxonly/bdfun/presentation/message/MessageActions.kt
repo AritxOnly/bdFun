@@ -19,6 +19,8 @@ internal class MessageSessionActions(
 ) {
     fun load() { if (loggedIn) scope.launch { controller.load() } }
     fun loadFooter() { if (loggedIn) scope.launch { controller.loadFooter() } }
+    fun readAll() { scope.launch { controller.clearUnread()?.let { context.showToast(it) }; menu.confirmRead = false } }
+    fun clearList() { scope.launch { controller.clearList()?.let { context.showToast(it) }; menu.confirmClear = false } }
     fun mutate(action: SessionAction) {
         val target = menu.selected ?: return
         scope.launch {
@@ -39,7 +41,12 @@ internal class MessageFeedActions(
 ) {
     fun load(tab: Int) { scope.launch { controller.loadPage(tab) } }
     fun loadFooter(tab: Int) { scope.launch { controller.loadFooter(tab) } }
-    fun open(item: MessageItem) { openMessageItem(item, controller.kind, controller, scope, context) }
+    fun open(item: MessageItem) {
+        if (controller.kind == MessageFeedKind.Like && item.likeCount > 1) {
+            context.startActivity(com.aritxonly.bdfun.navigation.createRouteIntent(context,
+                com.aritxonly.bdfun.core.navigation.Route.MessageTools("likes", item.id, count = item.likeCount, navigation = item.navigation)))
+        } else openMessageItem(item, controller.kind, controller, scope, context)
+    }
     fun toggleFollow(item: MessageItem) {
         scope.launch { controller.toggleFollow(item)?.let { context.showToast(it) } }
     }
@@ -47,7 +54,7 @@ internal class MessageFeedActions(
         val (page, item) = menu.selected ?: return
         scope.launch {
             when (val result = controller.mutate(page, item, delete)) {
-                is Outcome.Success -> { menu.selected = null; menu.confirmDelete = false }
+                is Outcome.Success -> { menu.selected = null; menu.confirmDelete = false; menu.confirmMute = false }
                 is Outcome.Failure -> context.showToast(result.error.messageOr("操作失败"))
                 null -> Unit
             }

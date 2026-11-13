@@ -46,6 +46,10 @@ internal fun LoginScreen(controller: QrLoginStateHolder, onBack: () -> Unit, onS
     ) {
         LoginHeader()
         LoginQrCard(bitmap, state.loading) { saveLoginQr(context, bitmap) }
+        OfficialAppLoginButton(enabled = controller.officialAppLoginLink() != null) {
+            controller.officialAppLoginLink()?.let { openOfficialAppLogin(context, it) }
+                ?: context.showToast("请先刷新并获取有效二维码")
+        }
         LoginStatus(state) { scope.launch { controller.generate() } }
     }
 }

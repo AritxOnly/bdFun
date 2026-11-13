@@ -22,7 +22,13 @@ internal fun mapMessageFeed(data: JSONObject, type: Int): MessageFeedMapping {
     } else {
         data.optJSONArray("items").objects()
     }
-    val parsed = rawItems.mapNotNull { mapMessageFeedItem(MessageFeedItemDto(type, it)) }
+    val latestIds = if (type == 2) data.optJSONObject("latest")?.optJSONArray("items")
+        .objects().map { it.s("id") }.toSet() else emptySet()
+    val parsed = rawItems.mapNotNull { raw ->
+        mapMessageFeedItem(MessageFeedItemDto(type, raw))?.let { item ->
+            if (type == 2) item.copy(presentation = item.presentation.copy(latestLike = item.id in latestIds)) else item
+        }
+    }
     val next = (if (type == 2) data.optJSONObject("total") else data)?.optJSONObject("cursor")
     val nextId = next?.l("id") ?: 0L
     val nextTime = next?.l("time") ?: 0L

@@ -4,6 +4,9 @@ import com.aritxonly.bdfun.core.model.video.VideoItem
 import com.aritxonly.bdfun.core.model.feed.DynamicItem
 
 sealed interface Route {
+    data class MessageInbox(val pageType: Int, val title: String) : Route
+    data class MessageTools(val kind: String, val id: String = "", val type: Int = 0, val count: Int = 0,
+        val navigation: com.aritxonly.bdfun.core.model.message.MessageNavigation = com.aritxonly.bdfun.core.model.message.MessageNavigation()) : Route
     data class Video(
         val bvid: String, val aid: Long = 0, val snapshot: VideoItem? = null,
         val fromVideoPage: Boolean = false,

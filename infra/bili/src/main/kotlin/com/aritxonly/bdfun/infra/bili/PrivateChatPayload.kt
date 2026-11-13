@@ -14,7 +14,7 @@ internal fun decodeChatUploadedImage(raw: String?): ChatUploadedImage {
 
 internal fun encodeChatImage(image: ChatUploadedImage): String = JSONObject()
     .put("url", image.url).put("width", image.width).put("height", image.height)
-    .put("size", image.size).put("original", 1).toString()
+    .put("size", image.size).put("imageType", image.imageType).put("original", 1).toString()
 
 internal fun decodeSharedVideo(text: String): SharedVideoInfo? {
     val trimmed = text.trim()

@@ -37,7 +37,7 @@ class MessageDetailActivity : ComponentActivity() {
                     title = title,
                 ),
             ) {
-                MessageDetailScreen(kind = kind)
+                MessageDetailScreen(kind = kind, initialTab = if (intent?.getStringExtra("kind") == "at") 2 else 0)
             }
         }
     }

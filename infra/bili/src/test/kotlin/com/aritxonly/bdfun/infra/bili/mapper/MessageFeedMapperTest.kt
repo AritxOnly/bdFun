@@ -6,6 +6,34 @@ import org.junit.Test
 
 /** 沿用旧代码已识别字段的结构用例，不冒充线上采样响应。 */
 class MessageFeedMapperTest {
+    @Test fun mentionUsesAtTimeAndBusinessLabel() {
+        val result = mapMessageFeedItem(MessageFeedItemDto(1, JSONObject("""{
+            "id":3,"at_time":1234,"item":{"business":"动态","source_content":"提及正文"}
+        }""")))!!
+        assertEquals(1234L, result.time)
+        assertEquals("在动态中@了我", result.action)
+    }
+
+    @Test fun likeBucketsRemainDistinctAndDuplicateUsesLatest() {
+        val result = mapMessageFeed(JSONObject("""{
+            "latest":{"items":[{"id":1,"users":[{"mid":3}]}]},
+            "total":{"items":[{"id":1},{"id":2,"users":[{"mid":4}]}],
+                "cursor":{"id":2,"time":100,"is_end":false}}
+        }"""), 2)
+        assertEquals(listOf("1", "2"), result.items.map { it.id })
+        assertTrue(result.items[0].presentation.latestLike)
+        assertFalse(result.items[1].presentation.latestLike)
+        assertEquals(2L, result.nextId)
+    }
+
+    @Test fun likesAndMentionsRetainUpstreamImage() {
+        for (type in listOf(1, 2)) {
+            val result = mapMessageFeedItem(MessageFeedItemDto(type,
+                JSONObject("""{"id":1,"content":"内容","item":{"image":"thumb"}}""")))!!
+            assertEquals("thumb", result.subjectCover)
+        }
+    }
+
     @Test fun replyUsesSourceContentAndNativeUriBeforeFallbackIds() {
         val item = JSONObject("""{"id":9,"reply_time":100,"ctime":200,
           "user":{"mid":3,"nickname":"回复者","attribute":6},

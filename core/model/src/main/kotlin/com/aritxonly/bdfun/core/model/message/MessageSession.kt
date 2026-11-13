@@ -25,4 +25,9 @@ data class MessageSessionPreferences(
     val followed: Boolean = false,
     val pinned: Boolean = false,
     val muted: Boolean = false,
+    val identity: String = "",
+    val pageType: Int? = null,
+    val chatUrl: String = "",
+    val avatarMid: Long = 0,
+    val unreadDot: Boolean = false,
 )

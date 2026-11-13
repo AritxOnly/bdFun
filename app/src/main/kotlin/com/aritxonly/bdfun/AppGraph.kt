@@ -39,9 +39,11 @@ object AppGraph {
     internal fun privateChatStateHolder(session: com.aritxonly.bdfun.data.MessageSession) =
         checkNotNull(container) { "AppGraph 尚未初始化" }.privateChatStateHolder(session)
     internal fun searchStateHolder() = checkNotNull(container) { "AppGraph 尚未初始化" }.searchStateHolder()
-    internal fun messageSessionsStateHolder() = checkNotNull(container) { "AppGraph 尚未初始化" }.messageSessionsStateHolder()
+    internal fun messageSessionsStateHolder(pageType: Int = 1) = checkNotNull(container) { "AppGraph 尚未初始化" }.messageSessionsStateHolder(pageType)
     internal fun messageBadgeStateHolder(owner: Long?) =
         checkNotNull(container) { "AppGraph 尚未初始化" }.messageBadgeStateHolder(owner)
+    internal fun messageToolsStateHolder(tool: com.aritxonly.bdfun.feature.message.application.MessageTool) =
+        checkNotNull(container) { "AppGraph 尚未初始化" }.messageToolsStateHolder(tool)
     internal fun messageFeedStateHolder(kind: com.aritxonly.bdfun.feature.message.application.MessageFeedKind) =
         checkNotNull(container) { "AppGraph 尚未初始化" }.messageFeedStateHolder(kind)
     internal fun settingsCdnStateHolder() = checkNotNull(container) { "AppGraph 尚未初始化" }.settingsCdnStateHolder()

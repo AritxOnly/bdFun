@@ -1,6 +1,7 @@
 package com.aritxonly.bdfun.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,7 +42,10 @@ internal fun SessionRow(session: MessageSession, onClick: () -> Unit, onLongClic
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            modifier = Modifier.size(44.dp).clip(CircleShape).background(colors.surfaceContainerHigh),
+            modifier = Modifier.size(44.dp).clip(CircleShape).background(colors.surfaceContainerHigh)
+                .clickable(enabled = session.preferences.avatarMid > 0) {
+                    com.aritxonly.bdfun.navigateToSpace(context, session.preferences.avatarMid)
+                },
         ) {
             if (session.avatar.isNotBlank()) {
                 AsyncImage(
@@ -81,9 +85,9 @@ internal fun SessionRow(session: MessageSession, onClick: () -> Unit, onLongClic
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        if (session.unread > 0) {
+        if (session.unread > 0 || session.preferences.unreadDot) {
             Spacer(Modifier.width(8.dp))
-            Text(if (session.unread > 99) "99+" else session.unread.toString(),
+            Text(if (session.preferences.unreadDot) "•" else if (session.unread > 99) "99+" else session.unread.toString(),
                 color = Color.White, fontSize = 11.sp,
                 modifier = Modifier.background(MessageRed, CircleShape).padding(horizontal = 6.dp, vertical = 2.dp))
         }

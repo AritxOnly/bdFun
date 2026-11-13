@@ -25,7 +25,7 @@ import com.aritxonly.bdfun.core.model.library.*
 
 /** 迁移期兼容门面；业务实现位于各网络分片。 */
 open class BiliBackend(context: Context, debug: Boolean, log: (String, String) -> Unit, cdnResolver: (String) -> CdnService) : DynamicFeedSource {
-    private val api = BiliApiContext(context, debug, log, cdnResolver)
+    internal val api = BiliApiContext(context, debug, log, cdnResolver)
     val webSocketClient get() = api.webSocketClient
     val cookieJar get() = api.cookieJar
     val isLoggedIn get() = api.isLoggedIn

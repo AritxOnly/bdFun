@@ -14,9 +14,28 @@ The existing bdFun / Deadliner glass recipes, navigation chrome and message card
 - Private chats carry acknowledgement positions, page backwards by message sequence, refresh new messages only while resumed and preserve drafts on failure. Images are sent as image messages, not textual URLs. If an image sends but its caption fails, retry keeps only the unsent text. Withdrawn records render a withdrawal placeholder.
 - Dynamic navigation uses MIUIX Album. Cache, history and watch-later actions use Download, Recent and SearchDevice; player watch-later/cache shortcuts use the same icons.
 
-## Scope / service differences
+## MSG-01 · 消息行为对齐（2026-11-13）
 
-Hyper-PiliPlus's newest session main/secondary screens use its Dart gRPC IM client. This implementation retains bdFun's authenticated HTTP session API and maps the message-center operations to the reference HTTP contracts; it does not claim wire-level gRPC parity or add bulk session deletion / the secondary inbox management screens. Existing text, image and video-sharing conversation rendering is retained.
+目标是对齐固定参考版本的消息行为，页面保留 bdFun / Teak 风格。主工作区以 origin/main 为基线，不包含独立的视频列表 PR #39。
+
+| 入口 | 接入的行为 |
+| --- | --- |
+| 消息中心 | gRPC SessionMain、复合 offsets 分页、服务端 outside/three-dot 菜单、回复/@/点赞/系统入口 |
+| 次级收件箱 | SessionSecondary，按 fold 类型进入未关注人、陌生人、消息垃圾箱、群聊、客服或 AI 收件箱 |
+| 会话操作 | 服务端身份快照置顶/取消置顶、免打扰、已读确认、单条删除、确认清空当前列表 |
+| 回复与 @ | 分别使用 reply/at 游标，正文、目标/根评论引用、头像空间和原内容跳转、通知删除、独立设置类型17/18 |
+| 收到的赞 | 最新/累计分桶、多头像、摘要和缩略图、聚合人员详情（pn/last_mid）、原内容跳转、通知开关及确认说明、设置类型19 |
+| 消息设置 | Get/SetImSettings 的 switch/select/redirect/window-select、子设置页、黑名单和消息屏蔽词 |
+| 消息屏蔽词 | 服务端列表/字符上限、增删、错误保留草稿、成功后刷新 |
+| 通讯录 | 关注/粉丝分页、关注搜索、个人空间入口；黑名单支持移除 |
+| 单聊设置 | 用户资料、置顶、免打扰、内容推送、拉黑/解除拉黑；关闭推送和拉黑需确认 |
+| 私信 | gRPC 发送/历史消息、序列分页与已读、文本/图片/自定义表情、分享/通知卡片、撤回、举报；图片使用 biz=im 的 upload_bfs |
+
+本轮协议字段表来自同一固定上游版本的 pbjson 描述符，生成工具为 `tools/generate-im-schema.py`，输入是参考仓库根目录。运行时使用现有 OkHttp，无新增依赖。描述符及行为参考来自 GPL-3.0 的 [Hyper-PiliPlus](https://github.com/AritxOnly/Hyper-PiliPlus/tree/0d08dd25bdeaa9a55e5a0e333154b681fd8048fe)，本仓库同为 GPL-3.0。协议解析只存在 infra；core/domain 与 application 不解析 JSON。
+
+账号凭证缺少 access_key 时明确要求重新扫码登录，不悄悄回退到行为不同的 HTTP 收件箱。旧 HTTP 门面仅供兼容调用。服务端游标、会话身份与设置载荷为不透明快照，不写入全局 pending 字段。账号切换/页面关闭丢弃迟到响应，取消必须释放 busy/loading。
+
+固定参考版本本身没有实现的特殊会话/菜单类型不宣称可用。完整的登录账号行为一致性仍需实机验收；离线测试不能证明服务端功能全部可用。
 
 ## Source pointers
 
@@ -29,3 +48,35 @@ Hyper-PiliPlus's newest session main/secondary screens use its Dart gRPC IM clie
 Unit checks cover the reply/mention/like cursor fields, server end/stuck cursors, the delete/pin enums, failed/partial/cancelled acknowledgements, duplicate acknowledgements and video/creator/category exclusion boundaries. Debug and optimized Release builds are checked separately.
 
 Per the user's instructions, no emulator was used and no package was sent to Feishu. Authenticated service behavior and visual/touch behavior remain for physical-device verification: long-press dismissal and failure retries, following-only pagination, notification deletion and read counts, chat image/caption partial failures and history scrolling.
+
+## 实机回归清单
+
+- 消息中心：刷新、连续翻页、次级收件箱、服务端菜单、未读数、置顶/取消、免打扰、单条删除、确认清空。
+- 回复/@：分别进入而不误读另一个 feed，引用完整，头像和原内容正确跳转，删除及设置生效。
+- 点赞：最新/累计，多人通知进入完整人员列表，连续翻页、个人空间、返回原内容、关闭/恢复通知。
+- 设置：开关/单选/子设置页往返，保存失败可重试，屏蔽词上限/新增/删除，黑名单解除。
+- 私信：文本、图片、表情、分享/通知卡片，历史分页，返回再进入，自己的消息撤回、对方消息举报（仅用测试账号），推送/拉黑确认与设置失败恢复。
+- 暗色/浅色、大字体、横屏；退出登录/重新登录不串账号，弱网刷新/翻页/提交不重复请求或丢草稿。
+
+模拟器只有游客数据，已安装 Debug 并打开消息入口，未执行真实发送、举报、撤回、拉黑或清空；登录后的真实接口与触摸回归交由实机完成。当前所有新增协议样本均为依据上游描述符编写的离线结构样本，不冒充线上采样响应。
+
+## 同机跳转哔哩哔哩登录
+
+对照同一参考版本 `lib/pages/login/view.dart` 的「其他应用打开」：登录页提供「跳转哔哩哔哩登录」，使用 `bilibili://browser?url=` 和完整编码的当前二维码 URL，由官方 App 打开授权页；返回后沿用原二维码 key 轮询，不新增回调 scheme、不更换登录方式、不写入新的全局传参。加载、过期、失败或页面关闭后不可发起跳转，点击执行时重新读取当前链接。未安装/无法打开时提示继续使用二维码登录，不输出带凭证的 URL。实机需验证已安装官方 App 的打开、确认与返回登录，以及二维码刷新后使用新链接。
+
+## 私信进入后退出：初始化顺序回归
+
+`PrivateChatEffects` 读取 `LocalRichTextDependencies`，但此前在 `TeakActivityScaffold` 之前组合；独立 Activity 不继承消息页的 CompositionLocal，默认值会抛出「富文本依赖尚未装配」。已将 effect 绑定移入页面壳的 content，在 `TeakBareTheme` 注入依赖后组合，保留原控制器和 effect key。
+
+新增框架 Instrumentation `PrivateChatLaunchRegression`，通过真实 `Route.PrivateChat` 进入 Activity，并等待首屏组合后确认页面保持打开。只允许游客数据，避免真实账号的已读回执；不新增测试运行库，测试入口仅存在独立 androidTest APK。对照同一测试：修复前 Debug APK 报 `Process crashed`，AndroidRuntime 栈指向 `PrivateChatEffects` 的「富文本依赖尚未装配」；修复后 `OK (1 test)`，Fatal 崩溃数 0。
+
+复现/回归命令（使用只读测试模拟器）：
+
+```sh
+./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w com.aritxonly.bdfun.debug.test/com.aritxonly.bdfun.PrivateChatLaunchRegression
+```
+
+该测试覆盖页面初始化与依赖装配，不代表登录账号的实际收发/撤回/举报已经通过。

@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.feature.login.application
 
+import com.aritxonly.bdfun.core.domain.officialAppLoginUri
 import com.aritxonly.bdfun.core.domain.QrLoginRepository
 import com.aritxonly.bdfun.core.domain.QrLoginResult
 import com.aritxonly.bdfun.core.model.user.*
@@ -22,6 +23,11 @@ internal class QrLoginStateHolder(private val repository: QrLoginRepository,
     private var closed = false
     private var generating = false
     fun close() { closed = true }
+    fun officialAppLoginLink(): String? {
+        val current = state.value
+        if (closed || current.loading || current.expired) return null
+        return current.displayQr?.url?.let(::officialAppLoginUri)
+    }
     suspend fun generate() {
         if (closed || generating) return
         generating = true

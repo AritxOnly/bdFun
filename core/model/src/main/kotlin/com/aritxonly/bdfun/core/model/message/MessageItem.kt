@@ -56,6 +56,7 @@ data class MessageActor(
     val userMid: Long = 0L,
     val followed: Boolean = false,
     val likeNames: List<String> = emptyList(),
+    val likeAvatars: List<String> = emptyList(),
     val likeCount: Int = 0,
 )
 
@@ -72,6 +73,7 @@ data class MessagePresentation(
     val subjectCover: String = "",
     /** 右侧是视频封面，而不是文字。 */
     val videoSubject: Boolean = false,
+    val latestLike: Boolean = false,
     /** 这条回复来自视频 UP 主。 */
     val isUp: Boolean = false,
     /** 「@我」消息。 */

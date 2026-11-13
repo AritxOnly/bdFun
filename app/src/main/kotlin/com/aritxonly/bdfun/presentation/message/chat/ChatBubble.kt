@@ -5,6 +5,8 @@ import com.aritxonly.bdfun.ui.EmoteTextStyle
 import com.aritxonly.bdfun.ui.EmoteTextDecorations
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,11 +35,14 @@ internal fun ChatBubble(
     message: ChatMessage,
     otherAvatar: String,
     myAvatar: String,
+    emotes: Map<String, String> = emptyMap(),
 ) {
     val colors = MiuixTheme.colorScheme
     val mine = message.isMine
+    val onMenu = LocalChatMessageMenu.current
+    val onImage = LocalChatImageOpen.current
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().combinedClickable(onClick = {}, onLongClick = { onMenu(message) }),
         horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.Top,
     ) {
@@ -55,27 +60,28 @@ internal fun ChatBubble(
                     contentDescription = null,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
-                        .widthIn(max = 220.dp)
+                        .widthIn(max = 220.dp).clickable { onImage(message.imageUrl) }
                         .clip(RoundedCornerShape(12.dp))
                         .background(colors.surfaceContainerHigh),
                 )
             }
+            if (message.card != null) ChatMessageCardContent(message.card!!)
             val sharedVideo = message.sharedVideo
             if (sharedVideo != null) {
                 ChatSharedVideoCard(info = sharedVideo)
-            } else if (message.text.isNotBlank()) {
+            } else if (message.text.isNotBlank() && message.card == null) {
                 EmoteText(
                     content = EmoteTextContent(
-                        text = message.text,
+                        text = message.text, extraEmotes = emotes,
                     ),
                     style = EmoteTextStyle(
-                        color = if (mine) Color.White else Color.Black,
+                        color = if (mine) colors.onPrimary else colors.onBackground,
                         fontSize = 14.sp,
                         lineHeight = 22.sp,
                     ),
                     modifier = Modifier
                         .clip(RoundedCornerShape(14.dp))
-                        .background(if (mine) colors.primary else Color.White)
+                        .background(if (mine) colors.primary else colors.surfaceContainerHigh)
                         .padding(horizontal = 12.dp, vertical = 9.dp),
                 )
             }
