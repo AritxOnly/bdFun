@@ -11,3 +11,9 @@
 验证：新增布局偏好重建恢复、按需加载、失败重试、两项截断、账号替换、关闭配置后的迟到响应、取消解锁、续播位置等JVM测试。运行app全部单测、core/application单测、assembleDebug及checkLayering。
 
 登录账号手动验收待办：个人头图/头像/等级/会员与统计；三个开关分别启停以及重启恢复；真实历史续播；收藏完整页；待看播放；空数据与断网重试；横竖屏及大字体；登录/退出/换号后不残留旧内容。
+
+## 原生崩溃修复
+
+2026-11-13设备日志在RenderThread报SIGSEGV，512层堆栈重复RenderNode::prepareTreeImpl与SkiaDisplayList::prepareListAndChildren，并标明stack overflow。设置按钮及原空间玻璃胶囊位于它们读取的主壳layerBackdrop树内，构成绘制依赖环。
+
+设置顶栏改由MainScaffold的MainMineChrome在采样树外绘制，保留原柔光配方；空间胶囊改为现有Miuix普通Button。body不再调用MineTopAppBar、不使用主壳玻璃采样。验收要检查进入我的页、横竖屏、反复切换tab、打开设置及返回；普通JVM测试不能证明厂商原生渲染路径通过。

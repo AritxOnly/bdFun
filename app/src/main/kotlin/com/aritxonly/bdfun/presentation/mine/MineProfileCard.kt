@@ -14,7 +14,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.border
 import com.aritxonly.bdfun.trimBottom
-import com.aritxonly.teak.common.material.TeakGlassButton
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -52,9 +53,10 @@ internal fun MineProfileCard(shown: UserProfile, cardShape: androidx.compose.ui.
                     .border(5.dp, colors.surface, CircleShape),
             )
             Spacer(Modifier.weight(1f))
-            TeakGlassButton(onClick = { navigation.onOpenSpace(shown.mid) }, capsule = true,
+            Button(onClick = { navigation.onOpenSpace(shown.mid) }, cornerRadius = 16.dp, minWidth = 0.dp,
+                colors = ButtonDefaults.buttonColors(color = colors.surfaceContainerHigh, contentColor = colors.onBackground),
                 minHeight = 32.dp, insideMargin = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
-                Text("个人空间 ↗", fontSize = 11.sp)
+                Text("个人空间 ↗", fontSize = 11.sp, color = colors.onBackground)
             }
         }
         Spacer(Modifier.height(12.dp))

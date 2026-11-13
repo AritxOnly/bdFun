@@ -62,6 +62,7 @@ internal fun MainScaffold(settings: SettingsBindings, shell: MainShellState, dar
             MainDynamicChrome(shell, pageFloat)
         }
         MainHomeChrome(settings, shell, pageFloat)
+        MainMineChrome(pageFloat)
 
         Box(Modifier.fillMaxSize().graphicsLayer {
                 val progress = shell.bottom.bottomTabBarProgress.value

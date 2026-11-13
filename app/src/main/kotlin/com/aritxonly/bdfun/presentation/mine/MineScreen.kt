@@ -73,7 +73,6 @@ private fun MinePage(
                 }
             }
         }
-        MineTopAppBar(navigation.onOpenSettings)
     }
 }
 

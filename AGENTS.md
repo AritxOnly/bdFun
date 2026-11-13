@@ -555,3 +555,7 @@ HyperOS 4只拥有独立展开/关闭转场，内部复用顶栏的HomeTopBar及
 EmoteStore 先读缓存，24 小时内复用，过期保留旧列表并刷新，账号切换拒收迟到结果。
 图片由 app 装配的独立 Coil loader 按显示需求缓存，不预下载整包；磁盘位于 filesDir/emote_images，
 上限 128MiB。面板使用固定 220dp 的懒网格，禁止恢复一次组合全包图片的 Column。
+
+### 2026-11-13 我的页玻璃采样循环修复
+
+MainTabPager位于主壳layerBackdrop的录制树内，因此MineScreen及其资料/列表子组件不得读取该主壳Backdrop绘制玻璃。我的页设置TopAppBar由MainScaffold的MainMineChrome挂在录制树外，与首页顶栏同层；空间入口使用不采样的Miuix普通胶囊按钮。不得把设置顶栏重新放回MinePage，否则可能形成RenderNode循环，在RenderThread出现原生栈溢出（libhwui prepareTreeImpl/prepareListAndChildren递归）。
