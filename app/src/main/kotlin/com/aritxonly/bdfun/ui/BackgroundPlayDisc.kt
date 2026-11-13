@@ -77,6 +77,10 @@ internal fun rememberDiscPlacement(tabCount: Int = 3): DiscPlacement {
     val discGap = 8.dp
     val groupLeft = ((windowWidthDp - tabBarWidth - discGap - discWidth) / 2)
         .coerceAtLeast(0.dp)
+    // HyperOS 4：所有页面统一成动态详情页那一档（贴右边缘、抬到底栏之上）。
+    if (TeakUiStyle.isHyperOs4) {
+        return DiscPlacement(endPadding = 0.dp, bottomOffset = (-70).dp, size = discWidth)
+    }
     val endPadding = if (classic) 8.dp else (groupLeft - 8.dp).coerceAtLeast(0.dp)
     val bottomOffset = if (classic) {
         8.dp

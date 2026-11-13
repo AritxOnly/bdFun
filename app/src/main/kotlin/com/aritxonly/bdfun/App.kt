@@ -15,6 +15,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
@@ -63,6 +64,7 @@ import androidx.compose.foundation.layout.Row
 import top.yukonga.miuix.kmp.icon.extended.Search
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.Icon
 import androidx.compose.ui.draw.drawBehind
@@ -74,6 +76,9 @@ import com.aritxonly.teak.common.navigation.TeakFloatingTabBar
 import com.aritxonly.teak.common.navigation.TeakFloatingTabBarDefaults
 import com.aritxonly.teak.common.navigation.TeakFloatingTabItem
 import com.aritxonly.teak.common.navigation.TeakFloatingTabLayout
+import com.aritxonly.teak.common.search.TeakSearchTransitionDefaults
+import com.aritxonly.teak.common.search.teakSearchUnderlay
+import com.aritxonly.bdfun.ui.BottomSearchPage
 import com.aritxonly.teak.common.theme.TeakUiStyle
 import com.aritxonly.bdfun.ui.rememberStricterSwipeConfiguration
 import com.aritxonly.teak.common.material.LocalTeakBackdrop
@@ -265,6 +270,129 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
     // 再次点击当前底栏项 → 触发该页刷新
     var dynamicRefreshTick by remember { mutableIntStateOf(0) }
     val appScope = rememberCoroutineScope()
+
+    // ---- 底栏搜索（设置项，默认关闭）----
+    // 独立的入口与页面：不替代顶栏搜索，关掉开关就完全不存在。
+    var showBottomSearch by remember { mutableStateOf(false) }
+    var bottomQuery by remember { mutableStateOf("") }
+    var bottomSubmitted by remember { mutableStateOf<String?>(null) }
+    val bottomSearchProgress = remember { Animatable(0f) }
+    // 反编译里透明度是几条独立的线性时间线，和几何弹簧并行：
+    //   遮罩    进入 linear 100ms          / 退出 linear 100ms + 50ms 延迟
+    //   容器与搜索栏 进入 linear 100ms + 50ms 延迟 / 退出 linear 100ms
+    //   底层页面 进入/退出 linear 150ms
+    val bottomMaskAlpha = remember { Animatable(0f) }
+    val bottomContentAlpha = remember { Animatable(0f) }
+    val bottomUnderlayAlpha = remember { Animatable(1f) }
+    // 模糊是独立的 150ms 线性（官方用 ValueAnimator 0→50），不跟弹簧。
+    val bottomBlurProgress = remember { Animatable(0f) }
+    // 顶栏那条：官方 alpha 是 linear(150)，缩放则跟主弹簧。
+    val bottomTopBarAlpha = remember { Animatable(0f) }
+    // 官方点搜索会新开 Activity，带 300ms 的 window 过渡；这里是同一 Activity，
+    // 用整页 alpha 复刻同一层：进入 Fade 300ms + delay 60 + SineEaseInOut，
+    // 退出 Fade 300ms + spring(0.99, 0.67)。
+    val bottomWindowAlpha = remember { Animatable(0f) }
+    // 底栏单独一条弹簧（0.97 / 0.3），和内容那条（0.97 / 0.4）不是同一个时间线。
+    val bottomTabBarProgress = remember { Animatable(0f) }
+    val closeBottomSearch: () -> Unit = {
+        bottomQuery = ""
+        bottomSubmitted = null
+        if (settings.animationsEnabled) {
+            appScope.launch {
+                bottomSearchProgress.animateTo(0f, TeakSearchTransitionDefaults.spec())
+                showBottomSearch = false
+            }
+            appScope.launch {
+                bottomUnderlayAlpha.animateTo(1f, tween(TeakSearchTransitionDefaults.UnderlayAlphaMs, easing = LinearEasing))
+            }
+            appScope.launch {
+                bottomBlurProgress.animateTo(0f, tween(TeakSearchTransitionDefaults.UnderlayBlurMs, easing = LinearEasing))
+            }
+            appScope.launch {
+                bottomContentAlpha.animateTo(0f, tween(TeakSearchTransitionDefaults.ChromeFadeMs, easing = LinearEasing))
+            }
+            appScope.launch {
+                bottomMaskAlpha.animateTo(
+                    0f,
+                    tween(TeakSearchTransitionDefaults.ChromeFadeMs, delayMillis = TeakSearchTransitionDefaults.ChromeFadeDelayMs, easing = LinearEasing),
+                )
+            }
+            appScope.launch {
+                bottomTabBarProgress.animateTo(0f, TeakSearchTransitionDefaults.tabBarSpec())
+            }
+            appScope.launch {
+                bottomWindowAlpha.animateTo(0f, TeakSearchTransitionDefaults.windowOutSpec())
+            }
+            appScope.launch {
+                bottomTopBarAlpha.animateTo(
+                    0f,
+                    tween(TeakSearchTransitionDefaults.UnderlayAlphaMs, easing = LinearEasing),
+                )
+            }
+        } else {
+            appScope.launch {
+                bottomSearchProgress.snapTo(0f)
+                bottomUnderlayAlpha.snapTo(1f)
+                bottomContentAlpha.snapTo(0f)
+                bottomMaskAlpha.snapTo(0f)
+                bottomTabBarProgress.snapTo(0f)
+                bottomBlurProgress.snapTo(0f)
+                bottomTopBarAlpha.snapTo(0f)
+                bottomWindowAlpha.snapTo(0f)
+            }
+            showBottomSearch = false
+        }
+    }
+    val openBottomSearch: () -> Unit = {
+        showBottomSearch = true
+        bottomQuery = ""
+        bottomSubmitted = null
+        searchQuery = ""
+        searchSubmitted = null
+        if (settings.animationsEnabled) {
+            appScope.launch {
+                bottomSearchProgress.animateTo(1f, TeakSearchTransitionDefaults.spec())
+            }
+            appScope.launch {
+                bottomUnderlayAlpha.animateTo(0f, tween(TeakSearchTransitionDefaults.UnderlayAlphaMs, easing = LinearEasing))
+            }
+            appScope.launch {
+                bottomBlurProgress.animateTo(1f, tween(TeakSearchTransitionDefaults.UnderlayBlurMs, easing = LinearEasing))
+            }
+            appScope.launch {
+                bottomMaskAlpha.animateTo(1f, tween(TeakSearchTransitionDefaults.ChromeFadeMs, easing = LinearEasing))
+            }
+            appScope.launch {
+                bottomContentAlpha.animateTo(
+                    1f,
+                    tween(TeakSearchTransitionDefaults.ChromeFadeMs, delayMillis = TeakSearchTransitionDefaults.ChromeFadeDelayMs, easing = LinearEasing),
+                )
+            }
+            appScope.launch {
+                bottomTabBarProgress.animateTo(1f, TeakSearchTransitionDefaults.tabBarSpec())
+            }
+            appScope.launch {
+                bottomWindowAlpha.animateTo(1f, TeakSearchTransitionDefaults.windowInSpec())
+            }
+            appScope.launch {
+                bottomTopBarAlpha.animateTo(
+                    1f,
+                    tween(TeakSearchTransitionDefaults.UnderlayAlphaMs, easing = LinearEasing),
+                )
+            }
+        } else {
+            appScope.launch {
+                bottomSearchProgress.snapTo(1f)
+                bottomUnderlayAlpha.snapTo(0f)
+                bottomContentAlpha.snapTo(1f)
+                bottomMaskAlpha.snapTo(1f)
+                bottomTabBarProgress.snapTo(1f)
+                bottomBlurProgress.snapTo(1f)
+                bottomTopBarAlpha.snapTo(1f)
+                bottomWindowAlpha.snapTo(1f)
+            }
+        }
+    }
     var unreadMessageCount by remember(session?.mid) { mutableIntStateOf(0) }
     val unreadLifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     LaunchedEffect(session?.mid, unreadLifecycleOwner) {
@@ -334,6 +462,14 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                         closeSearch()
                     }
                 }
+                // 底栏搜索：先退回搜索首页（记录/热搜），再退出搜索。
+                androidx.activity.compose.BackHandler(enabled = showBottomSearch) {
+                    if (bottomSubmitted != null) {
+                        bottomSubmitted = null
+                    } else {
+                        closeBottomSearch()
+                    }
+                }
                 // 后台播放时，从首页按返回不结束 App：整个任务收到后台，声音继续。
                 androidx.activity.compose.BackHandler(
                     enabled = !showSearch &&
@@ -348,10 +484,15 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                 LaunchedEffect(pageKey) { TeakPageChrome.reset() }
 
 
+                val pageFloat = (tabPagerState.currentPage + tabPagerState.currentPageOffsetFraction)
+                    .coerceAtLeast(0f)
+                Box(modifier = Modifier.fillMaxSize()) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(materialColors.background),
+                        .background(materialColors.background)
+                        // 底栏搜索展开时整块内容后退：上移 106dp、缩到 0.92、渐隐到 50px 模糊。
+                        .teakSearchUnderlay(bottomSearchProgress.value, bottomUnderlayAlpha.value, bottomBlurProgress.value),
                 ) {
                     // 底栏玻璃的采样源：这一层就是整个页面内容。
                     Box(
@@ -409,11 +550,9 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
 
                     }
 
-                    val pageFloat = (tabPagerState.currentPage + tabPagerState.currentPageOffsetFraction)
-                        .coerceAtLeast(0f)
                     ScrollTopButton(
                         settings,
-                        bottomObstruction = if (showSearch) 0.dp else
+                        bottomObstruction = if (showSearch || showBottomSearch) 0.dp else
                             TeakFloatingTabBarDefaults.Height + when {
                                 wideNavigation -> 12.dp
                                 settings.bottomBarRaise -> 4.dp + TeakChromeDefaults.RaisedBottomBarExtra
@@ -453,6 +592,34 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                             }
                         }
                     }
+
+                    // 动态页固定顶栏：只有「全部 / 视频」玻璃分段栏。
+                    // 头像卡片已经放进动态列表里，不再固定在顶栏。
+                    if (pageFloat > 0.01f && pageFloat < 1.99f &&
+                        session != null && !showSearch
+                    ) {
+                        CompositionLocalProvider(LocalTopBarScrollProgress provides dynamicChrome.materialProgress) {
+                        ProgressiveTopBarMaterial(
+                            modifier = Modifier.align(Alignment.TopCenter)
+                                .graphicsLayer {
+                                    translationX = (1f - pageFloat) * size.width * 0.92f
+                                    alpha = (1f - kotlin.math.abs(pageFloat - 1f)).coerceIn(0f, 1f)
+                                },
+                        ) {
+                        DynamicTopBar(
+                            state = dynamicFeed,
+                            loggedIn = session != null,
+                            modifier = Modifier,
+                        )
+                    }
+                    }
+                    }
+
+
+                    // 换页时返回键回到"纯箭头"状态（pageKey / pageEnter 在上面声明）
+
+                }
+
                     // 首页顶栏：挂在采集层之外，所以能直接用底栏同款玻璃（真模糊）+ 渐变式模糊
                     // 顶栏跟首页一起走：位置随 pager 偏移平移，透明度同步降低
                     if (pageFloat < 0.99f) {
@@ -469,8 +636,14 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                         ProgressiveTopBarMaterial(
                             modifier = Modifier.align(Alignment.TopCenter)
                                 .graphicsLayer {
+                                    // 官方：action bar 是独立 View，只缩到 0.9 + 150ms 线性淡出，
+                                    // 不跟正文一起上移。
+                                    val shrink = 1f - 0.1f * bottomSearchProgress.value
+                                    scaleX = shrink
+                                    scaleY = shrink
                                     translationX = -pageFloat * size.width * 0.92f
-                                    alpha = (1f - pageFloat).coerceIn(0f, 1f)
+                                    alpha = (1f - pageFloat).coerceIn(0f, 1f) *
+                                        (1f - bottomTopBarAlpha.value.coerceIn(0f, 1f))
                                 },
                         ) {
                         HomeTopBar(
@@ -534,188 +707,231 @@ fun BdFunApp(api: BiliApi, settings: SettingsStore) {
                         )
                     }
 
-                    // 动态页固定顶栏：只有「全部 / 视频」玻璃分段栏。
-                    // 头像卡片已经放进动态列表里，不再固定在顶栏。
-                    if (pageFloat > 0.01f && pageFloat < 1.99f &&
-                        session != null && !showSearch
-                    ) {
-                        CompositionLocalProvider(LocalTopBarScrollProgress provides dynamicChrome.materialProgress) {
-                        ProgressiveTopBarMaterial(
-                            modifier = Modifier.align(Alignment.TopCenter)
-                                .graphicsLayer {
-                                    translationX = (1f - pageFloat) * size.width * 0.92f
-                                    alpha = (1f - kotlin.math.abs(pageFloat - 1f)).coerceIn(0f, 1f)
-                                },
-                        ) {
-                        DynamicTopBar(
-                            state = dynamicFeed,
-                            loggedIn = session != null,
-                            modifier = Modifier,
+                val tabBarSink = 96.dp
+                // 底栏在反编译里是 miuix Navigator 自己隐藏的，用另一条弹簧
+                // spring(0.97, 0.3)：向下坠落并淡出，不跟着内容一起上移。
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            // 官方 BottomNavigatorAnimHelper：SCALE 1 → 0.6 + 下坠 + 淡出。
+                            val barProgress = bottomTabBarProgress.value
+                            translationY = tabBarSink.toPx() * barProgress
+                            val barScale = 1f - 0.4f * barProgress
+                            scaleX = barScale
+                            scaleY = barScale
+                            alpha = 1f - barProgress
+                        },
+                ) {
+                        // 视频详情页隐藏底栏，避免遮挡播放器控件
+                        val tabBarCovered = showSearch
+                        val tabBarAlpha = rememberManualProgress(
+                            if (tabBarCovered) 0f else 1f,
+                            UiSwapDurationMs,
                         )
-                    }
-                    }
-                    }
-
-                    // 视频详情页隐藏底栏，避免遮挡播放器控件
-                    val tabBarCovered = showSearch
-                    val tabBarAlpha = rememberManualProgress(
-                        if (tabBarCovered) 0f else 1f,
-                        UiSwapDurationMs,
-                    )
-                    val onBarItem: (TeakFloatingTabItem) -> Unit = { item ->
-                        val index = destinations
-                            .indexOfFirst { it.key == item.key }
-                            .coerceAtLeast(0)
-                        if (index == selected) {
-                            // 再次点击当前页 → 刷新
-                            when (index) {
-                                0 -> homeFeed.requestRefresh()
-                                1 -> dynamicRefreshTick++
+                        val onBarItem: (TeakFloatingTabItem) -> Unit = { item ->
+                            val index = destinations
+                                .indexOfFirst { it.key == item.key }
+                                .coerceAtLeast(0)
+                            if (index == selected) {
+                                // 再次点击当前页 → 刷新
+                                when (index) {
+                                    0 -> homeFeed.requestRefresh()
+                                    1 -> dynamicRefreshTick++
+                                }
+                            } else {
+                                appScope.launch { tabPagerState.animateScrollToPage(index) }
                             }
-                        } else {
-                            appScope.launch { tabPagerState.animateScrollToPage(index) }
                         }
-                    }
-                    val barSelectedColor = if (settings.colorStyle == 1) {
-                        if (dark) Color.White else Color(0xFF1B1C1F)
-                    } else {
-                        BrandPink
-                    }
+                        val barSelectedColor = if (settings.colorStyle == 1) {
+                            if (dark) Color.White else Color(0xFF1B1C1F)
+                        } else {
+                            BrandPink
+                        }
 
-                    val discVisible = !wideNavigation && settings.showDiscAfterVideo && BackgroundPlayback.active
-                    val discSlot = rememberSpringFloat(
-                        target = if (discVisible) 1f else 0f,
-                        stiffness = 300f,
-                        damping = 26f,
-                    )
-                    // 底部唱片出现时，底栏本身的高度和宽度完全不动，只是整体向左让位。
-                    //
-                    // 底栏不是满屏宽：三个 Tab 每个最多 80dp，所以它只有 240dp。
-                    // 有唱片时，底栏 + 8dp 缝隙 + 唱片作为“一组”整体居中，
-                    // 底栏离屏幕左边的距离 = 唱片离屏幕右边的距离。
-                    val windowWidthDp = LocalConfiguration.current.screenWidthDp.dp
-                    val tabBarWidth = minOf(
-                        TeakFloatingTabBarDefaults.MaximumWidth,
-                        TeakFloatingTabBarDefaults.MaximumItemWidth * destinations.size,
-                        (windowWidthDp - 32.dp).coerceAtLeast(0.dp),
-                    )
-                    val discWidth = TeakFloatingTabBarDefaults.Height
-                    val discPlacement = rememberDiscPlacement(destinations.size)
-                    val discGap = 8.dp
-                    // 整组居中后的左留白。
-                    val groupLeft = ((windowWidthDp - tabBarWidth - discGap - discWidth) / 2)
-                        .coerceAtLeast(0.dp)
-                    val discShift = if (TeakUiStyle.isClassic) {
-                        // 经典样式底栏是整条贴边，只能整体左移，让出唱片 + 右边距 + 缝隙。
-                        discWidth + 16.dp + discGap
-                    } else {
-                        // 底栏从“自己居中”变成“跟着唱片一起居中”，只往左让半个唱片位。
-                        (windowWidthDp - tabBarWidth) / 2 - groupLeft
-                    }
-                    // 所有页面的唱片位置统一由 rememberDiscPlacement 计算，保证和首页一致。
-                    val discEndPadding = if (wideNavigation) 16.dp else discPlacement.endPadding
-                    val discBottomOffset = discPlacement.bottomOffset
+                        val discVisible = !wideNavigation && settings.showDiscAfterVideo && BackgroundPlayback.active
+                        val discSlot = rememberSpringFloat(
+                            target = if (discVisible) 1f else 0f,
+                            stiffness = 300f,
+                            damping = 26f,
+                        )
+                        // 底部唱片出现时，底栏本身的高度和宽度完全不动，只是整体向左让位。
+                        //
+                        // 底栏不是满屏宽：三个 Tab 每个最多 80dp，所以它只有 240dp。
+                        // 有唱片时，底栏 + 8dp 缝隙 + 唱片作为“一组”整体居中，
+                        // 底栏离屏幕左边的距离 = 唱片离屏幕右边的距离。
+                        val windowWidthDp = LocalConfiguration.current.screenWidthDp.dp
+                        val tabBarWidth = minOf(
+                            TeakFloatingTabBarDefaults.MaximumWidth,
+                            TeakFloatingTabBarDefaults.MaximumItemWidth * destinations.size,
+                            (windowWidthDp - 32.dp).coerceAtLeast(0.dp),
+                        )
+                        val discWidth = TeakFloatingTabBarDefaults.Height
+                        val discPlacement = rememberDiscPlacement(destinations.size)
+                        val discGap = 8.dp
+                        // 整组居中后的左留白。
+                        val groupLeft = ((windowWidthDp - tabBarWidth - discGap - discWidth) / 2)
+                            .coerceAtLeast(0.dp)
+                        val discShift = when {
+                            // 经典样式底栏是整条贴边，只能整体左移，让出唱片 + 右边距 + 缝隙。
+                            TeakUiStyle.isClassic -> discWidth + 16.dp + discGap
+                            // HyperOS 4：唱片抬到底栏上方、贴右边缘，底栏不需要让位。
+                            settings.interfaceStyle == 2 -> 0.dp
+                            // 官方风格：底栏从“自己居中”变成“跟着唱片一起居中”，只往左让半个唱片位。
+                            else -> (windowWidthDp - tabBarWidth) / 2 - groupLeft
+                        }
+                        // HyperOS 4：所有页面统一用动态详情页那一档唱片位置（贴右边缘、抬到底栏之上）；
+                        // 其他风格仍由 rememberDiscPlacement 计算，保证和首页一致。
+                        val hyper4Disc = settings.interfaceStyle == 2
+                        val discEndPadding = when {
+                            wideNavigation -> 16.dp
+                            hyper4Disc -> 0.dp
+                            else -> discPlacement.endPadding
+                        }
+                        val discBottomOffset = if (hyper4Disc) (-70).dp else discPlacement.bottomOffset
 
-                    if (tabBarAlpha > 0.01f) {
-                        if (wideNavigation) {
-                            Row(
-                                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                                    .navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp)
-                                    .graphicsLayer { alpha = tabBarAlpha }.blockTouches(tabBarCovered),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                TeakFloatingTabBar(
+                        if (tabBarAlpha > 0.01f) {
+                            if (wideNavigation) {
+                                Row(
+                                    modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                                        .navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp)
+                                        .graphicsLayer { alpha = tabBarAlpha }.blockTouches(tabBarCovered),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    TeakFloatingTabBar(
+                                        items = tabItems,
+                                        selectedKey = destinations[selected].key,
+                                        onItemSelected = onBarItem,
+                                        layout = TeakFloatingTabLayout.Stacked,
+                                        selectedContentColor = barSelectedColor,
+                                    )
+                                    androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                                    com.aritxonly.teak.common.material.TeakGlassIconButton(
+                                        onClick = {
+                                            // 宽屏上这个按钮本来就存在：HyperOS 4 改走新搜索页，
+                                            // 其他风格保持原来的顶栏搜索。
+                                            if (settings.interfaceStyle == 2) {
+                                                openBottomSearch()
+                                            } else {
+                                                appScope.launch { tabPagerState.scrollToPage(0) }
+                                                searchChrome.reset()
+                                                showSearch = true
+                                                searchQuery = ""
+                                                searchSubmitted = null
+                                            }
+                                        },
+                                        size = TeakFloatingTabBarDefaults.Height,
+                                    ) {
+                                        Icon(top.yukonga.miuix.kmp.icon.MiuixIcons.Search,
+                                            contentDescription = "搜索", tint = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.size(28.dp))
+                                    }
+                                }
+                            } else if (TeakUiStyle.isClassic) {
+                                // 经典样式：底栏贴着屏幕底边，上方一条分割线，不做悬浮胶囊。
+                                ClassicTabBar(
                                     items = tabItems,
                                     selectedKey = destinations[selected].key,
                                     onItemSelected = onBarItem,
-                                    layout = TeakFloatingTabLayout.Stacked,
                                     selectedContentColor = barSelectedColor,
+                                    showDivider = true,
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .graphicsLayer {
+                                            alpha = tabBarAlpha
+                                            translationX = -discSlot * discShift.toPx()
+                                        }
+                                        .blockTouches(tabBarCovered)
+                                        .navigationBarsPadding(),
                                 )
-                                androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
-                                com.aritxonly.teak.common.material.TeakGlassIconButton(
-                                    onClick = {
-                                        appScope.launch { tabPagerState.scrollToPage(0) }
-                                        searchChrome.reset()
-                                        showSearch = true
-                                        searchQuery = ""
-                                        searchSubmitted = null
-                                    },
-                                    size = TeakFloatingTabBarDefaults.Height,
+                            } else {
+                                Column(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .graphicsLayer {
+                                            alpha = tabBarAlpha
+                                            translationX = -discSlot * discShift.toPx()
+                                        }
+                                        .blockTouches(tabBarCovered)
+                                        .navigationBarsPadding()
+                                        .padding(
+                                            start = 16.dp,
+                                            top = 12.dp,
+                                            end = 16.dp,
+                                            bottom = if (settings.bottomBarRaise) {
+                                                4.dp + TeakChromeDefaults.RaisedBottomBarExtra
+                                            } else {
+                                                4.dp
+                                            },
+                                        ),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
                                 ) {
-                                    Icon(top.yukonga.miuix.kmp.icon.MiuixIcons.Search,
-                                        contentDescription = "搜索", tint = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.size(28.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        TeakFloatingTabBar(
+                                            items = tabItems,
+                                            selectedKey = destinations[selected].key,
+                                            onItemSelected = onBarItem,
+                                            layout = TeakFloatingTabLayout.Stacked,
+                                            selectedContentColor = barSelectedColor,
+                                        )
+                                        // HyperOS 4 的搜索入口：胶囊右侧的圆形玻璃按钮。
+                                        if (settings.interfaceStyle == 2) {
+                                            androidx.compose.foundation.layout.Spacer(Modifier.width(8.dp))
+                                            com.aritxonly.teak.common.material.TeakGlassIconButton(
+                                                onClick = openBottomSearch,
+                                                size = TeakFloatingTabBarDefaults.Height,
+                                                modifier = Modifier.graphicsLayer { alpha = tabBarAlpha },
+                                            ) {
+                                                Icon(
+                                                    top.yukonga.miuix.kmp.icon.MiuixIcons.Search,
+                                                    contentDescription = "搜索",
+                                                    tint = MaterialTheme.colorScheme.onSurface,
+                                                    modifier = Modifier.size(26.dp),
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
-                        } else if (TeakUiStyle.isClassic) {
-                            // 经典样式：底栏贴着屏幕底边，上方一条分割线，不做悬浮胶囊。
-                            ClassicTabBar(
-                                items = tabItems,
-                                selectedKey = destinations[selected].key,
-                                onItemSelected = onBarItem,
-                                selectedContentColor = barSelectedColor,
-                                showDivider = true,
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .fillMaxWidth()
-                                    .graphicsLayer {
-                                        alpha = tabBarAlpha
-                                        translationX = -discSlot * discShift.toPx()
-                                    }
-                                    .blockTouches(tabBarCovered)
-                                    .navigationBarsPadding(),
-                            )
-                        } else {
-                            Column(
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .fillMaxWidth()
-                                    .graphicsLayer {
-                                        alpha = tabBarAlpha
-                                        translationX = -discSlot * discShift.toPx()
-                                    }
-                                    .blockTouches(tabBarCovered)
-                                    .navigationBarsPadding()
-                                    .padding(
-                                        start = 16.dp,
-                                        top = 12.dp,
-                                        end = 16.dp,
-                                        bottom = if (settings.bottomBarRaise) {
-                                            4.dp + TeakChromeDefaults.RaisedBottomBarExtra
-                                        } else {
-                                            4.dp
+
+                            if (discSlot > 0.01f) {
+                                BackgroundPlayDisc(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .navigationBarsPadding()
+                                        .padding(end = discEndPadding)
+                                        .graphicsLayer {
+                                            alpha = discSlot
+                                            translationX = (1f - discSlot) * 70.dp.toPx()
+                                            translationY = discBottomOffset.toPx()
                                         },
-                                    ),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                TeakFloatingTabBar(
-                                    items = tabItems,
-                                    selectedKey = destinations[selected].key,
-                                    onItemSelected = onBarItem,
-                                    layout = TeakFloatingTabLayout.Stacked,
-                                    selectedContentColor = barSelectedColor,
-                                )
+                                    size = TeakFloatingTabBarDefaults.Height,
+                                ) { TeakNavigator.openVideo(context, it) }
                             }
                         }
+                }
 
-                        if (discSlot > 0.01f) {
-                            BackgroundPlayDisc(
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .navigationBarsPadding()
-                                    .padding(end = discEndPadding)
-                                    .graphicsLayer {
-                                        alpha = discSlot
-                                        translationX = (1f - discSlot) * 70.dp.toPx()
-                                        translationY = discBottomOffset.toPx()
-                                    },
-                                size = TeakFloatingTabBarDefaults.Height,
-                            ) { TeakNavigator.openVideo(context, it) }
-                        }
-                    }
-
-                    // 换页时返回键回到"纯箭头"状态（pageKey / pageEnter 在上面声明）
-
+                // 底栏搜索页：叠在整屏内容之上，内容本身按 MIUI 的搜索展开动效后退并模糊。
+                if (showBottomSearch || bottomSearchProgress.value > 0.001f) {
+                    BottomSearchPage(
+                        api = api,
+                        settings = settings,
+                        reveal = bottomSearchProgress.value,
+                        windowAlpha = bottomWindowAlpha.value,
+                        maskAlpha = bottomMaskAlpha.value,
+                        contentAlpha = bottomContentAlpha.value,
+                        submitted = bottomSubmitted,
+                        query = bottomQuery,
+                        onQueryChange = { bottomQuery = it },
+                        onSubmit = { bottomSubmitted = it },
+                        onCancel = closeBottomSearch,
+                        onBackToLanding = { bottomSubmitted = null },
+                        onOpenVideo = { TeakNavigator.openVideo(context, it) },
+                        onOpenUser = { TeakNavigator.openSpace(context, it.mid) },
+                    )
+                }
                 }
         }
     }

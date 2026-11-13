@@ -46,6 +46,10 @@ class SettingsStore(context: Context) {
     }
 
     init {
+        // 2026-11-13：底栏搜索已并入「界面风格 → HyperOS 4」，旧的独立开关键直接清掉。
+        if (prefs.contains("bottom_search")) {
+            prefs.edit().remove("bottom_search").apply()
+        }
         // 3.6 起首页 Web 推荐默认关闭；老版本把默认值 true 写进了偏好，升级时一次性改回 false。
         if (!prefs.getBoolean("recommend_web_migrated_36", false)) {
             prefs.edit()
@@ -335,11 +339,11 @@ class SettingsStore(context: Context) {
             prefs.edit().putInt("color_style", colorStyleState.value).apply()
         }
 
-    /** 界面风格：0 官方，1 经典。默认官方，不影响原有 UI。 */
+    /** 界面风格：0 官方，1 经典，2 HyperOS 4（新底栏 + 搜索一镜到底）。默认官方。 */
     var interfaceStyle: Int
         get() = interfaceStyleState.value
         set(value) {
-            interfaceStyleState.value = value.coerceIn(0, 1)
+            interfaceStyleState.value = value.coerceIn(0, 2)
             prefs.edit().putInt("interface_style", interfaceStyleState.value).apply()
         }
 
