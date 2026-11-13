@@ -7,6 +7,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class RichTextPolicyTest {
+    @Test fun longPackageEmoteNamesAreRecognizedWithoutTruncation() {
+        val token = "这是一个超过十二个字符的表情包名称_开心"
+        val hit = analyzeRichText("[$token]", mapOf(token to "url"), emptyMap(), false).hits.single()
+        assertEquals(token, hit.emoteToken)
+        assertEquals(token.length + 2, hit.end)
+    }
+
     private val bv = "BV1orW46aEba"
     @Test fun plainPathFlagsMatchTheOriginalEvenForAnUnknownEmote() {
         assertTrue(analyzeRichText("正文", emptyMap(), emptyMap(), false).plainText(false))
@@ -47,8 +54,8 @@ class RichTextPolicyTest {
         assertEquals(listOf(null, "doge", null), plan.hits.map { it.emoteToken })
         assertEquals("甲", plan.hits.last().mentionName)
     }
-    @Test fun emoteLengthAndGenericUrlCaseStayUnchanged() {
-        assertTrue(analyzeRichText("[abcdefghijklm]", mapOf("abcdefghijklm" to "image"), emptyMap(), false).hits.isEmpty())
+    @Test fun longEmotesAreSupportedAndGenericUrlCaseStaysUnchanged() {
+        assertEquals("image", analyzeRichText("[abcdefghijklm]", mapOf("abcdefghijklm" to "image"), emptyMap(), false).hits.single().emoteUrl)
         assertEquals("image", analyzeRichText("[abcdefghijkl]", mapOf("[abcdefghijkl]" to "image"), emptyMap(), false).hits.single().emoteUrl)
         assertTrue(analyzeRichText("HTTP://example.test", emptyMap(), emptyMap(), false).plainText(false))
         val short = analyzeRichText("http://a", emptyMap(), emptyMap(), false)

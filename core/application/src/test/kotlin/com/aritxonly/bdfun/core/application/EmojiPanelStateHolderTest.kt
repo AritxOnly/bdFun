@@ -20,7 +20,11 @@ class EmojiPanelStateHolderTest {
         val fake = Fake(); val store = EmoteStore(fake); store.ensure()
         val holder = EmojiPanelStateHolder(store); holder.load()
         assertEquals(fake.items, holder.state.value); assertEquals(1, fake.calls)
-        assertEquals(listOf(EmojiCell("[doge]", "a"), EmojiCell("[[笑]]", "b")), emojiCells(holder.state.value))
+        assertEquals(listOf(EmojiCell("[doge]", "a"), EmojiCell("[笑]", "b")), emojiCells(holder.state.value))
+    }
+    @Test fun textEmotesKeepLiteralTextAndDoNotLoadImages() {
+        assertEquals(listOf(EmojiCell("(´･_･`)", null)),
+            emojiCells(listOf(EmoteItem("(´･_･`)", "", type = 4))))
     }
     @Test fun initialFallbackKeepsSixteenOriginalChoices() {
         assertEquals(listOf("😀", "😂", "🥰", "😎", "🤔", "😭", "😡", "🥳", "👍", "👎", "❤️", "🔥", "🎉", "✨", "💯", "🐶"), emojiCells(emptyList()).map { it.pick })

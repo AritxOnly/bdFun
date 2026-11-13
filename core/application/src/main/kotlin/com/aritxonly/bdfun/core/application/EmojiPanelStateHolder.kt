@@ -27,4 +27,4 @@ private val fallbackEmojis = listOf(
     "\uD83D\uDC4D", "\uD83D\uDC4E", "\u2764\uFE0F", "\uD83D\uDD25", "\uD83C\uDF89", "\u2728", "\uD83D\uDCAF", "\uD83D\uDC36",
 )
 fun emojiCells(items: List<EmoteItem>): List<EmojiCell> = if (items.isEmpty()) fallbackEmojis.map { EmojiCell(it, null) }
-    else items.map { EmojiCell("[" + it.text + "]", it.url) }
+    else items.map { EmojiCell(if (it.type == 4) it.text else "[" + it.text.removeSurrounding("[", "]") + "]", it.url.takeIf { url -> it.type != 4 && url.isNotBlank() }) }

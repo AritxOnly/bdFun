@@ -4,7 +4,7 @@ import com.aritxonly.bdfun.core.application.videoTextUrls
 import com.aritxonly.bdfun.core.application.videoTextTokens
 import com.aritxonly.bdfun.core.application.trimVideoTextToken
 
-internal val EmoteToken = Regex("\\[([^\\]]{1,12})]")
+internal val EmoteToken = Regex("\\[([^\\]]+)]")
 
 data class RichTextHit(
     val start: Int, val end: Int, val emoteToken: String? = null, val emoteUrl: String? = null,

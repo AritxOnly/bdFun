@@ -86,7 +86,7 @@ class CommentMapperTest {
             {"text":"[]","url":"https://example.com/empty.png"},{"text":"[missing]"}]}]}""")
         val result = mapReplyEmotes(data)
         assertEquals(listOf("doge"), result.map { it.text })
-        assertTrue(result.single().url.contains("@120w"))
+        assertEquals("https://example.com/doge.png", result.single().url)
         assertTrue(mapReplyEmotes(JSONObject()).isEmpty())
     }
 }

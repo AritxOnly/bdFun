@@ -1,7 +1,10 @@
 package com.aritxonly.bdfun.ui
 
 import com.aritxonly.teak.common.material.TeakGlassPanel
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.background
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -100,12 +103,13 @@ private fun EmojiGridRow(row: List<EmojiCell>, layout: EmojiGridLayout, onPick: 
 
 @Composable
 private fun EmojiGridCell(item: EmojiCell, cell: androidx.compose.ui.unit.Dp, onPick: (String) -> Unit) {
+    val preview = remember(item) { EmojiPreviewStateHolder() }
+    if (preview.visible && item.url != null) EmojiPreview(item) { preview.visible = false }
     Box(
         modifier = Modifier
             .size(cell)
-            .clickable(interactionSource = null, indication = null) {
-                onPick(item.pick)
-            },
+            .combinedClickable(onClick = { onPick(item.pick) },
+                onLongClick = { if (item.url != null) preview.visible = true }),
         contentAlignment = Alignment.Center,
     ) {
         if (item.url == null) {
@@ -117,6 +121,20 @@ private fun EmojiGridCell(item: EmojiCell, cell: androidx.compose.ui.unit.Dp, on
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.size(cell * 0.84f),
             )
+        }
+    }
+}
+
+internal class EmojiPreviewStateHolder { var visible by mutableStateOf(false) }
+
+@Composable
+private fun EmojiPreview(item: EmojiCell, onDismiss: () -> Unit) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(Modifier.background(top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.surface,
+            RoundedCornerShape(24.dp)).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            AsyncImage(model = item.url, contentDescription = item.pick,
+                modifier = Modifier.size(180.dp), contentScale = ContentScale.Fit)
+            Text(item.pick, color = top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme.onSurface)
         }
     }
 }

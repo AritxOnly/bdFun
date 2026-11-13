@@ -28,7 +28,7 @@ class EmoteStore(private val repository: EmoteRepository) {
             when (result) {
                 is Outcome.Success -> {
                     val items = result.value.toList()
-                    mutableState.value = EmoteState(items, items.associate { it.text to it.url })
+                    mutableState.value = EmoteState(items, items.filter { it.type != 4 && it.url.isNotBlank() }.associate { it.text to it.url })
                 }
                 is Outcome.Failure -> mutableState.update { it.copy(error = result.error) }
             }
