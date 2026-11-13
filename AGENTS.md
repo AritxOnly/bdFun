@@ -528,3 +528,9 @@ VideoActivityPageStateHolder、VideoActivityHostActions中立契约、入口解�
 ### 2026-11-13 直播/账号/推荐/视频附加映射
 
 直播响应字段、FLV+AVC优先/首url_info/稳定host排序、账号nav与QR非成功状态、App推荐卡片、字幕/空降及弹幕模型转换归infra:bili/mapper。直播plain→signed与WBI清钥重试、QR成功saveTvLogin→nav、Cookie/设备指纹及所有请求不改。App推荐仍限制32位aid，不凭现代aid含义另改；three_point_v2理由优先去重保持。弹幕转换仅机械移动，保留原分段过滤/排序、XML模式/4000上限与压缩解码，禁止借此修改danmaku-engine。
+
+### 2026-11-13 main HyperOS 4 搜索接线
+
+main d0a9ed3 的底部搜索仅属于 interfaceStyle=2，不新增独立设置开关；旧 bottom_search 迁移清理保持。底部搜索业务请求归 feature/search/application，展示在 presentation/search/bottom，主壳只装配入口与八条独立动画。保留180ms联想防抖、90ms搜索等待、先用户后视频、历史12项与热词展示10项，以及正文/顶栏/底栏各自的动画层级和参数。界面风格允许0..2，色彩风格仍0..1。唱片HyperOS 4统一贴右、偏移-70dp，不叠加页面lift。
+
+直板机旋转策略按 Configuration.smallestScreenWidthDp 的600dp断点：紧凑设备自动横屏进入独占全屏，展开折叠屏/平板保持横屏分栏；竖屏退出全屏。不得使用旋转后的screenWidthDp判定设备大小，手动退出全屏不触发同一姿态下的再次强制进入。策略位于core/domain/VideoOrientationPolicy，展示只负责绑定。

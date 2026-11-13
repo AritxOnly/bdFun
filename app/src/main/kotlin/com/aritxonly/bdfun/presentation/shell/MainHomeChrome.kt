@@ -46,8 +46,11 @@ internal fun androidx.compose.foundation.layout.BoxScope.MainHomeChrome(settings
                 ProgressiveTopBarMaterial(
                     modifier = Modifier.align(Alignment.TopCenter)
                         .graphicsLayer {
+                            val searchScale = 1f - 0.1f * shell.bottom.bottomSearchProgress.value
+                            scaleX = searchScale
+                            scaleY = searchScale
                             translationX = -pageFloat * size.width * 0.92f
-                            alpha = (1f - pageFloat).coerceIn(0f, 1f)
+                            alpha = (1f - pageFloat).coerceIn(0f, 1f) * (1f - shell.bottom.bottomTopBarAlpha.value)
                         },
                 ) {
                     MainHomeBarContent(settings, shell)

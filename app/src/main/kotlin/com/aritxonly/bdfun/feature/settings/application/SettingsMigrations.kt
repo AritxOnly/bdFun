@@ -4,6 +4,8 @@ import com.aritxonly.bdfun.core.model.settings.AUTO_CDN_ID
 import com.aritxonly.bdfun.core.domain.SettingsPreferences
 
 internal fun migrateSettings0(prefs: SettingsPreferences) {
+        // main 已将独立入口合并到 HyperOS 4，兼容清理旧开关键。
+        if (prefs.contains("bottom_search")) prefs.edit().remove("bottom_search").apply()
         // 3.6 起首页 Web 推荐默认关闭；老版本把默认值 true 写进了偏好，升级时一次性改回 false。
         if (!prefs.getBoolean("recommend_web_migrated_36", false)) {
             prefs.edit()

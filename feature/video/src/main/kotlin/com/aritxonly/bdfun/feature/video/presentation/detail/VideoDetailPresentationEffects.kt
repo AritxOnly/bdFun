@@ -8,7 +8,7 @@ import androidx.compose.runtime.setValue
 import kotlin.math.roundToInt
 
 @Composable
-fun BindVideoFullscreenState(ui: VideoDetailUiStateHolder, publish: (Boolean) -> Unit) {
+fun BindVideoFullscreenState(ui: VideoDetailUiStateHolder, publish: (Boolean) -> Unit, autoRotate: Boolean) {
     var fullscreen by ui.fullscreen
     var coinSheet by ui.coinSheet
     var favSheet by ui.favSheet
@@ -24,10 +24,12 @@ fun BindVideoFullscreenState(ui: VideoDetailUiStateHolder, publish: (Boolean) ->
     // 横屏页面布局和播放器独占全屏分别管理。
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val landscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    // Rotation opens the two-pane page. Fullscreen is a separate, explicit player action.
-    // Rotating back to portrait still leaves fullscreen; entering it while portrait can rotate first.
-    LaunchedEffect(landscape) {
-        if (!landscape) fullscreen = false
+    // 横屏宽度会把直板机也判成分栏；用不随旋转交换的最小宽度区分紧凑设备。
+    val smallestWidthDp = configuration.smallestScreenWidthDp
+    LaunchedEffect(landscape, smallestWidthDp) {
+        com.aritxonly.bdfun.core.domain.fullscreenAfterVideoRotation(
+            landscape, smallestWidthDp, autoRotate,
+        )?.let { fullscreen = it }
     }
 }
 

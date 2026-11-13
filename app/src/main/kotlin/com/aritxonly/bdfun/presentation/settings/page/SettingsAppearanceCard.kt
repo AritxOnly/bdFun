@@ -53,8 +53,8 @@ private fun SettingsThemeRows(runtime: SettingsPageRuntime, ui: SettingsAppearan
     )
     TeakSettingsDropdownRow(
         title = "界面风格",
-        options = listOf("官方", "经典"),
-        selected = settings.interfaceStyle.coerceIn(0, 1),
+        options = listOf("官方", "经典", "HyperOS 4"),
+        selected = settings.interfaceStyle.coerceIn(0, 2),
         onSelected = {
             settings.interfaceStyle = it
             com.aritxonly.teak.common.theme.TeakUiStyle.style = it

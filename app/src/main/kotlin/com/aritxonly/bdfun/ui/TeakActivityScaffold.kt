@@ -97,7 +97,8 @@ internal fun TeakActivityScaffold(
                             .padding(end = discEndPadding ?: discPlacement.endPadding)
                             .graphicsLayer {
                                 // 外壳自带 8dp 透明留白，下移后视觉底边和首页一致。
-                                translationY = discPlacement.bottomOffset.toPx() - discLift.toPx()
+                                translationY = discPlacement.bottomOffset.toPx() -
+                                    (if (com.aritxonly.teak.common.theme.TeakUiStyle.isHyperOs4) 0.dp else discLift).toPx()
                             },
                         size = discPlacement.size,
                     ) { video ->

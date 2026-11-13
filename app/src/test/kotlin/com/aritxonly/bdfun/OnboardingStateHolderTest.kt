@@ -94,8 +94,8 @@ class OnboardingStateHolderTest {
             holder.setDarkMode(9); holder.setColorStyle(8); holder.setInterfaceStyle(7)
             holder.setBottomBarRaise(false); holder.setScrollTopEnabled(false); holder.setBlurEnabled(false)
             assertEquals(9, f.repository.darkMode); assertEquals(1, f.repository.colorStyle)
-            assertEquals(1, f.repository.interfaceStyle)
-            assertEquals(OnboardingBasicSettings(9, 1, 1, false, false, false), holder.state.value.settings)
+            assertEquals(2, f.repository.interfaceStyle)
+            assertEquals(OnboardingBasicSettings(9, 1, 2, false, false, false), holder.state.value.settings)
             assertFalse(f.repository.onboardingAcked)
         }
     }

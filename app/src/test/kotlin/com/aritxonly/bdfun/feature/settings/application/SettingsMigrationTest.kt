@@ -75,4 +75,20 @@ class SettingsMigrationTest {
             assertFalse(prefs.contains("search_history_json"))
         } finally { scope.cancel() }
     }
+    @Test fun hyperOs4StylePersistsAndLegacySearchToggleIsRemoved() {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        try {
+            val prefs = MemorySettingsPreferences(linkedMapOf("bottom_search" to true))
+            val state = SettingsStateHolder.create(prefs, TestHistoryCodec, scope)
+            assertFalse(prefs.contains("bottom_search"))
+            assertEquals(0, state.interfaceStyle)
+            state.interfaceStyle = 2
+            val restored = SettingsStateHolder.create(prefs, TestHistoryCodec, scope)
+            assertEquals(2, restored.interfaceStyle)
+            restored.interfaceStyle = 8
+            assertEquals(2, restored.interfaceStyle)
+            restored.colorStyle = 8
+            assertEquals(1, restored.colorStyle)
+        } finally { scope.cancel() }
+    }
 }

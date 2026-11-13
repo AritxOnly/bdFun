@@ -2,6 +2,7 @@ package com.aritxonly.bdfun
 
 import com.aritxonly.teak.common.chrome.TeakChromeDefaults
 
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -20,7 +21,7 @@ import com.aritxonly.teak.common.interaction.blockTouches
 @Composable
 internal fun androidx.compose.foundation.layout.BoxScope.MainFloatingNavigation(
     settings: SettingsBindings, tabItems: List<TeakFloatingTabItem>, selectedKey: String,
-    onBarItem: (TeakFloatingTabItem) -> Unit, visual: MainBottomNavigationVisual,
+    onBarItem: (TeakFloatingTabItem) -> Unit, visual: MainBottomNavigationVisual, onBottomSearch: () -> Unit,
 ) {
 
     Column(
@@ -45,6 +46,7 @@ internal fun androidx.compose.foundation.layout.BoxScope.MainFloatingNavigation(
             ),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
         TeakFloatingTabBar(
             items = tabItems,
             selectedKey = selectedKey,
@@ -52,5 +54,10 @@ internal fun androidx.compose.foundation.layout.BoxScope.MainFloatingNavigation(
             layout = TeakFloatingTabLayout.Stacked,
             selectedContentColor = visual.barSelectedColor,
         )
+        if (settings.interfaceStyle == 2) {
+            androidx.compose.foundation.layout.Spacer(Modifier.width(8.dp))
+            MainBottomSearchButton(visual.tabBarAlpha, onBottomSearch)
+        }
+        }
     }
 }

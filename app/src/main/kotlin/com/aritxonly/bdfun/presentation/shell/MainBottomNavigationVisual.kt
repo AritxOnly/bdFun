@@ -59,7 +59,9 @@ internal fun rememberMainBottomNavigationVisual(
     // 整组居中后的左留白。
     val groupLeft = ((windowWidthDp - tabBarWidth - discGap - discWidth) / 2)
         .coerceAtLeast(0.dp)
-    val discShift = if (TeakUiStyle.isClassic) {
+    val discShift = if (settings.interfaceStyle == 2) {
+        0.dp
+    } else if (TeakUiStyle.isClassic) {
         // 经典样式底栏是整条贴边，只能整体左移，让出唱片 + 右边距 + 缝隙。
         discWidth + 16.dp + discGap
     } else {

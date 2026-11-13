@@ -23,6 +23,10 @@ internal fun MainShellEffects(settings: SettingsBindings, shell: MainShellState)
             ui.closeSearch()
         }
     }
+    androidx.activity.compose.BackHandler(enabled = shell.bottom.showBottomSearch) {
+        if (shell.bottom.bottomSubmitted != null) shell.bottom.bottomSubmitted = null
+        else shell.bottom.close()
+    }
     // 后台播放时，从首页按返回不结束 App：整个任务收到后台，声音继续。
     androidx.activity.compose.BackHandler(
         enabled = !ui.showSearch &&

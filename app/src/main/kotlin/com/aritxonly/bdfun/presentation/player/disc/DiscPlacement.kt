@@ -29,6 +29,9 @@ internal fun rememberDiscPlacement(settings: SettingsBindings, tabCount: Int = 3
     val discGap = 8.dp
     val groupLeft = ((windowWidthDp - tabBarWidth - discGap - discWidth) / 2)
         .coerceAtLeast(0.dp)
+    if (TeakUiStyle.isHyperOs4) {
+        return DiscPlacement(endPadding = 0.dp, bottomOffset = (-70).dp, size = discWidth)
+    }
     val endPadding = if (classic) 8.dp else (groupLeft - 8.dp).coerceAtLeast(0.dp)
     val bottomOffset = if (classic) {
         8.dp

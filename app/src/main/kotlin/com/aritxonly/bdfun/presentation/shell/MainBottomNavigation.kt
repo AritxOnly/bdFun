@@ -19,6 +19,7 @@ internal fun androidx.compose.foundation.layout.BoxScope.MainBottomNavigation(
     settings: SettingsBindings, dark: Boolean, wideNavigation: Boolean, searchVisible: Boolean,
     tabItems: List<TeakFloatingTabItem>, selectedKey: String,
     onBarItem: (TeakFloatingTabItem) -> Unit, onSearch: () -> Unit, onOpenVideo: (VideoItem) -> Unit,
+    onBottomSearch: () -> Unit,
 ) {
     val visual = rememberMainBottomNavigationVisual(settings, dark, wideNavigation, searchVisible, tabItems.size)
     if (visual.tabBarAlpha > 0.01f) {
@@ -44,7 +45,7 @@ internal fun androidx.compose.foundation.layout.BoxScope.MainBottomNavigation(
                     .navigationBarsPadding(),
             )
         } else {
-            MainFloatingNavigation(settings, tabItems, selectedKey, onBarItem, visual)
+            MainFloatingNavigation(settings, tabItems, selectedKey, onBarItem, visual, onBottomSearch)
         }
         if (visual.discSlot > 0.01f) MainNavigationDisc(settings, visual, onOpenVideo)
     }

@@ -173,6 +173,7 @@ internal class AppContainer(
             isCurrentOwner = { !closed && sessionController.identity == identity })
     }
     private val searchRepository = com.aritxonly.bdfun.infra.bili.BiliSearchRepository(api)
+    fun bottomSearchStateHolder() = com.aritxonly.bdfun.feature.search.application.BottomSearchStateHolder(searchRepository)
     fun searchStateHolder() = com.aritxonly.bdfun.feature.search.application.SearchStateHolder(searchRepository)
     fun messageSessionsStateHolder(): com.aritxonly.bdfun.feature.message.application.MessageSessionsStateHolder {
         val identity = sessionController.identity

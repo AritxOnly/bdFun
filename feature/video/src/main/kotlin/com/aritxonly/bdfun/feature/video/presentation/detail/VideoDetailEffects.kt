@@ -11,7 +11,7 @@ import androidx.compose.runtime.setValue
 fun BindVideoDetailEffects(
     request: VideoScreenRequest, content: VideoScreenContent,
     holders: VideoScreenStateHolders, actions: VideoDetailViewActions, pager: PagerState,
-    load: VideoDetailLoadPorts, ports: VideoDetailEffectPorts,
+    load: VideoDetailLoadPorts, ports: VideoDetailEffectPorts, autoRotate: Boolean,
 ) {
     val detail = content.read.detail
     val currentCid = content.selection.cid
@@ -40,7 +40,7 @@ fun BindVideoDetailEffects(
     LoadInitialVideo(request.video, request.defaultQuality, controllers, ui, load)
     BindVideoPageMetadata(detail, currentCid, content.loggedIn, holders.metadata, controllers.interaction, ui)
     RegisterVideoDanmakuSender(detail, currentCid, holders.metadata, controllers.detail, ports)
-    BindVideoFullscreenState(ui, ports.publishFullscreen)
+    BindVideoFullscreenState(ui, ports.publishFullscreen, autoRotate)
     BindBackgroundVideoMetadata(request.video, detail, currentCid, content.quality, ports)
     ReconcileVideoPager(pager)
 }

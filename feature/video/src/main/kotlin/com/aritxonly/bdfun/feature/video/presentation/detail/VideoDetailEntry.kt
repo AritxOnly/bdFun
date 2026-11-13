@@ -33,7 +33,7 @@ fun VideoDetailEntry(
         qualities.firstOrNull { it.id == selection.quality } ?: qualities.firstOrNull()
     }
     val content = VideoScreenContent(request.video, detail, selection, interaction, metadata, quality, isLoggedIn())
-    BindVideoDetailEffects(request, content, holders, actions, pager, ports.load, ports.effects)
+    BindVideoDetailEffects(request, content, holders, actions, pager, ports.load, ports.effects, presentation.autoRotate)
     ports.slots.layout(VideoDetailLayoutContent(request, presentation, events, pager, inlineLayout,
         holders, content, actions, relatedEnter, scope))
     ports.slots.sheets(holders.ui, interaction, actions)

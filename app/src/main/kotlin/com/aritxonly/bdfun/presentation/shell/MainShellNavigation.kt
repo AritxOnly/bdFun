@@ -36,12 +36,15 @@ internal fun androidx.compose.foundation.layout.BoxScope.MainShellNavigation(set
         settings, dark, wideNavigation, ui.showSearch, tabItems, destinations[selected].key,
         onBarItem = onBarItem,
         onSearch = {
+            if (settings.interfaceStyle == 2) shell.bottom.open() else {
             appScope.launch { tabPagerState.scrollToPage(0) }
             searchChrome.reset()
             ui.showSearch = true
             ui.searchQuery = ""
             ui.searchSubmitted = null
+            }
         },
+        onBottomSearch = { shell.bottom.open() },
         onOpenVideo = { navigateToVideo(context, it) },
     )
 

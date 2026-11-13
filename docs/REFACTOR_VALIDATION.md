@@ -794,3 +794,12 @@ release安装成功；冷启动1734ms、真实首页推荐与BV1orW46aEba起播�
 - 当前请求重新要求完整验收：全站同数据main对照、账号流程、播放器所有组合与当前产物最终交付均继续列为剩余工作，不沿用历史“后续人工验收”安排将其移出范围。真实私信/评论等写操作需明确测试账号与目标，未擅自向他人发送测试内容。
 
 - 当前release补充PiP检查：起播后Home未观察到pinned任务，截图为launcher；未核对当前release设置条件，不能断言实现回归，也不能记通过。第一次Home在详情加载期，单列为无效前置。记录`/tmp/bdfun-current-release-pip{,2}.{txt,png}`，最终force-stop，crash空。当前PiP仍需受控设置下复核，不沿用旧产物通过结果。
+
+### 2026-11-13 合入main d0a9ed3：HyperOS 4搜索与直板机旋转
+
+- 合入origin/main d0a9ed3（底部搜索与转场）。旧App/SettingsStore保留分层薄入口；已删除的三份旧UI不恢复，所有新增行为接入现有presentation/application与设置端口。TeakUI新增转场及isHyperOs4按main保留。interfaceStyle允许0..2，旧bottom_search键清理；设置与引导均有第三项。
+- 底部搜索新StateHolder使用现有SearchRepository，保留180ms联想、90ms等待、用户先于视频、默认totalrank/不限时长/无时间筛选；与顶栏搜索分开实例。8条主壳动画沿用main参数/顺序，列表共享既有TeakScrollContainer留白滚动。原778行页面已按节点拆分，未新增依赖。
+- 用户追加直板机旋转修正：core/domain/VideoOrientationPolicy按smallestScreenWidthDp<600自动横屏全屏，>=600的展开折叠屏/平板保持原分栏和手动选择，竖屏退出。unknown尺寸/关闭自动旋转不强制进入；effect不以fullscreen为key，手动退出不会被立即重置。
+- 必要定向测试25项通过：旋转4、底部搜索5、设置迁移5、引导11，零失败/错误/跳过。引导原断言将interfaceStyle上限1改为2，原因是main明确新增第三档；colorStyle仍断言1。日志`/tmp/bdfun-main-bottom-tests.log`（1m10s）。
+- 自动提取嵌套Compose回调时曾出现语法/尺寸失败，修正后最终`/tmp/bdfun-main-bottom-final.log`32s通过checkLayering和assembleDebug，1056生产文件/10890节点/0违规。最终只整理imports/布局缩进，无后续行为修改。
+- 遵照用户要求只做必要单测与构建，其余人工回归由用户执行；本轮未装机、未构建release、未重新发送交付包，不沿用旧包的回归结果。
