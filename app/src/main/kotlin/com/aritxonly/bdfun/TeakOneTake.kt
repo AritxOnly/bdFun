@@ -104,10 +104,6 @@ object TeakOneTake {
             return
         }
         val m = resolveMethod()
-        if (m == null) {
-            fail("系统接口被拦", fallback)
-            return
-        }
 
         // 截图必须走 PixelCopy：Compose 的界面用 view.draw() 画出来是空的
         captureByPixelCopy(activity, decor, anchor) { thumb ->
@@ -115,7 +111,31 @@ object TeakOneTake {
                 fail("截图失败", fallback)
                 return@captureByPixelCopy
             }
-            start(activity, m, decor, anchor, radiusPx, foregroundColor, thumb, launch, fallback)
+            if (m == null) {
+                startPublic(activity, decor, anchor, thumb, launch, fallback)
+            } else {
+                start(activity, m, decor, anchor, radiusPx, foregroundColor, thumb, launch) {
+                    startPublic(activity, decor, anchor, thumb, launch, fallback)
+                }
+            }
+        }
+    }
+
+    /** 非厂商系统也保留连续缩略图过渡，坐标转换到启动 View。 */
+    private fun startPublic(
+        activity: Activity, decor: View, anchor: Rect, thumb: Bitmap,
+        launch: (Activity, ActivityOptions) -> Unit, fallback: () -> Unit,
+    ) {
+        try {
+            val location = IntArray(2)
+            decor.getLocationOnScreen(location)
+            val options = ActivityOptions.makeThumbnailScaleUpAnimation(
+                decor, thumb, anchor.left - location[0], anchor.top - location[1],
+            )
+            launch(activity, options)
+        } catch (error: Exception) {
+            Log.w(TAG, "公开缩略图过渡启动失败", error)
+            fallback()
         }
     }
 

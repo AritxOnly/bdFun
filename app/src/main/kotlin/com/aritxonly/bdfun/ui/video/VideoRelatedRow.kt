@@ -31,7 +31,7 @@ internal fun RelatedRow(
             .clickable(interactionSource = null, indication = null) {
                 oneTake.open(context, item, rowRadiusPx) { onClick() }
             }
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         verticalAlignment = Alignment.Top,
     ) {
         VideoRelatedCover(item, coverWidth, coverHeight)

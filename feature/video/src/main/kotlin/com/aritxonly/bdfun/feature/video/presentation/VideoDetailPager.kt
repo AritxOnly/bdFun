@@ -2,6 +2,7 @@ package com.aritxonly.bdfun.ui
 
 import com.aritxonly.teak.common.chrome.TrackTeakPageScroll
 import com.aritxonly.teak.common.interaction.blockTouches
+import com.aritxonly.teak.common.theme.LocalTeakContentColors
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -74,7 +75,7 @@ fun androidx.compose.foundation.layout.BoxScope.VideoDetailPager(
                         }
                     } else if (splitPanes) {
                         Modifier.width(paneLayout.detailsWidthDp.dp).fillMaxHeight()
-                            .background(colors.background)
+                            .background(LocalTeakContentColors.current.background)
                     } else {
                         Modifier.fillMaxSize()
                     },

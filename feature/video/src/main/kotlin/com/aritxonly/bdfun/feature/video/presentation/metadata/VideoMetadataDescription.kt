@@ -1,5 +1,6 @@
 package com.aritxonly.bdfun.ui
 
+import com.aritxonly.teak.common.theme.LocalTeakContentColors
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -90,7 +91,7 @@ internal fun VideoMetadataDescription(descText: String?, descProgress: Float, de
             slots = slots,
             progress = descProgress,
             color = colors.onBackgroundVariant,
-            backgroundColor = colors.background,
+            backgroundColor = LocalTeakContentColors.current.background,
             onExpandableChange = { description.expandable = true },
             modifier = Modifier
                 .fillMaxWidth()
