@@ -7,6 +7,29 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class RichTextPolicyTest {
+    @Test fun commentDictionaryAloneResolvesUninstalledPackagesAndNestedNames() {
+        val emotes = mapOf("[未下载包_笑[开心]]" to "remote", "未下载包_笑" to "short")
+        val text = "[未下载包_笑[开心]] [未下载包_笑] [未下载包_笑[开心]]"
+        val plan = analyzeRichText(text, emotes, emptyMap(), false)
+        assertEquals(listOf("remote", "short", "remote"), plan.hits.map { it.emoteUrl })
+        assertEquals(listOf("未下载包_笑[开心]", "未下载包_笑", "未下载包_笑[开心]"),
+            plan.hits.map { it.emoteToken })
+        assertFalse(plan.plainText(false))
+    }
+    @Test fun literalNamesEscapeRegexAndDoNotReplaceUnknownOrBareText() {
+        val plan = analyzeRichText("[包_a+b.*] [包_axxbZZ] 包_a+b.*", mapOf("包_a+b.*" to "remote"), emptyMap(), false)
+        assertEquals(1, plan.hits.size)
+        assertEquals(0, plan.hits.single().start)
+        assertEquals("[包_a+b.*]".length, plan.hits.single().end)
+    }
+
+    @Test fun longPackageEmoteNamesAreRecognizedWithoutTruncation() {
+        val token = "这是一个超过十二个字符的表情包名称_开心"
+        val hit = analyzeRichText("[$token]", mapOf(token to "url"), emptyMap(), false).hits.single()
+        assertEquals(token, hit.emoteToken)
+        assertEquals(token.length + 2, hit.end)
+    }
+
     private val bv = "BV1orW46aEba"
     @Test fun plainPathFlagsMatchTheOriginalEvenForAnUnknownEmote() {
         assertTrue(analyzeRichText("正文", emptyMap(), emptyMap(), false).plainText(false))
@@ -47,8 +70,8 @@ class RichTextPolicyTest {
         assertEquals(listOf(null, "doge", null), plan.hits.map { it.emoteToken })
         assertEquals("甲", plan.hits.last().mentionName)
     }
-    @Test fun emoteLengthAndGenericUrlCaseStayUnchanged() {
-        assertTrue(analyzeRichText("[abcdefghijklm]", mapOf("abcdefghijklm" to "image"), emptyMap(), false).hits.isEmpty())
+    @Test fun longEmotesAreSupportedAndGenericUrlCaseStaysUnchanged() {
+        assertEquals("image", analyzeRichText("[abcdefghijklm]", mapOf("abcdefghijklm" to "image"), emptyMap(), false).hits.single().emoteUrl)
         assertEquals("image", analyzeRichText("[abcdefghijkl]", mapOf("[abcdefghijkl]" to "image"), emptyMap(), false).hits.single().emoteUrl)
         assertTrue(analyzeRichText("HTTP://example.test", emptyMap(), emptyMap(), false).plainText(false))
         val short = analyzeRichText("http://a", emptyMap(), emptyMap(), false)

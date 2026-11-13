@@ -29,6 +29,7 @@ internal fun AnnotatedString.Builder.appendRichEmote(runtime: RichTextRenderCont
     ) { _ ->
         AsyncImage(
             model = hit.emoteUrl,
+            imageLoader = emoteImageLoader(),
             contentDescription = token,
             contentScale = ContentScale.Fit,
             modifier = Modifier.fillMaxSize().padding(1.dp),
