@@ -158,9 +158,13 @@ fun TeakPagerTabs(
                     ) {
                         Text(
                             text = label,
-                            color = if (active) colors.primary else colors.onBackgroundVariant,
+                            color = if (active) colors.primary else if (com.aritxonly.teak.common.theme.LocalTeakControlEmphasis.current) {
+                                colors.onBackground.copy(alpha = 0.88f)
+                            } else colors.onBackgroundVariant,
                             fontSize = TeakPagerTabDefaults.LabelFontSize,
-                            fontWeight = if (active) FontWeight.Normal else FontWeight.Normal,
+                            fontWeight = if (com.aritxonly.teak.common.theme.LocalTeakControlEmphasis.current) {
+                                FontWeight.Medium
+                            } else FontWeight.Normal,
                         )
                     }
                 }

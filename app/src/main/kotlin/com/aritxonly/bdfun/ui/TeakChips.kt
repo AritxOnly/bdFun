@@ -95,7 +95,12 @@ fun TeakGlassChip(
             ) {
                 Text(
                     text = label,
-                    color = if (active) Color.White else colors.onBackgroundVariant,
+                    color = if (active) Color.White else if (com.aritxonly.teak.common.theme.LocalTeakControlEmphasis.current) {
+                        colors.onBackground.copy(alpha = 0.88f)
+                    } else colors.onBackgroundVariant,
+                    fontWeight = if (com.aritxonly.teak.common.theme.LocalTeakControlEmphasis.current) {
+                        androidx.compose.ui.text.font.FontWeight.Medium
+                    } else androidx.compose.ui.text.font.FontWeight.Normal,
                     fontSize = fontSize,
                     maxLines = 1,
                 )

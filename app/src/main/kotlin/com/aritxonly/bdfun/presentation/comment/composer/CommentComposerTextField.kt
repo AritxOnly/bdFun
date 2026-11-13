@@ -51,7 +51,9 @@ internal fun CommentComposerTextField(content: CommentComposerContent, actions: 
                         Text(
                             text = content.replyName?.let { "回复 @$it：" }
                                 ?: "发一条友善的评论",
-                            color = colors.onBackgroundVariant,
+                            color = if (com.aritxonly.teak.common.theme.LocalTeakControlEmphasis.current) {
+                                colors.onBackground.copy(alpha = 0.78f)
+                            } else colors.onBackgroundVariant,
                             fontSize = 13.sp,
                             maxLines = 1,
                         )

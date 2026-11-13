@@ -8,6 +8,9 @@ internal fun BoxScope.VideoActivityOverlay(
     layout: VideoActivityLayout, ui: VideoActivityPageStateHolder,
     pager: androidx.compose.foundation.pager.PagerState, scope: kotlinx.coroutines.CoroutineScope,
 ) {
+    androidx.compose.runtime.CompositionLocalProvider(
+        com.aritxonly.teak.common.theme.LocalTeakControlEmphasis provides true,
+    ) {
     VideoPageOverlay(layout, ui, pager, LocalVideoPageState.current, VideoPageOverlaySlots(
         tabs = { VideoActivityTabs(layout, ui, pager, scope) },
         replyBar = { modifier -> CommentReplyBar(modifier = modifier) },
@@ -18,4 +21,5 @@ internal fun BoxScope.VideoActivityOverlay(
                 modifier = modifier)
         },
     ))
+    }
 }
